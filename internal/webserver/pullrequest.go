@@ -95,10 +95,12 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable(pushFailure(err)), nil
 	}
 
-	pull, err := s.deps.Forge.CreatePullRequest(ctx, newPull)
-	if err != nil && !pull.Opened() {
+	created, err := s.deps.Forge.CreatePullRequest(ctx, newPull)
+	if err != nil {
 		return s.openFailure(err), nil
 	}
+
+	pull := created.Pull
 
 	// The pull request just opened is the forge's answer for the branch from
 	// now: the frame its answer wakes shows it without asking a forge whose
@@ -114,7 +116,7 @@ func (s *server) OpenPullRequest(
 	opened := api.OpenedPullRequest{Pull: pullDTO(pull), FollowUps: s.followUps(ctx, branch)}
 	opened.Announcement, opened.NotArmed = s.armOnOpen(ctx, branch, pull)
 
-	if err != nil {
+	if created.Shortfall != nil {
 		warning := "the " + s.noun() + " opened, but its reviewers, assignees or labels could not all be added"
 		opened.Warning = &warning
 	}

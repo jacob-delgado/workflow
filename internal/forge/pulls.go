@@ -98,8 +98,8 @@ type PullRequest struct {
 // IsOpen reports whether this pull request is in the open state. FindPullRequest
 // also returns a merged pull request, so a caller that means "is there an open
 // one" — the status line, the link offer, the offer to open a new one — asks
-// this rather than trusting found alone. (Opened, below, is the different
-// question of whether the forge created it at all.)
+// this rather than trusting found alone. (Whether the forge created it at
+// all is CreatePullRequest's error, below.)
 func (p PullRequest) IsOpen() bool {
 	return p.State == StateOpen
 }
@@ -132,9 +132,9 @@ type NewPullRequest struct {
 	// Reviewers and Assignees are usernames; Labels are label names. Each forge
 	// asks for them its own way — GitHub in a request after the pull is opened,
 	// GitLab at creation — but a failure to add them never discards a pull
-	// request already opened. Reviewers, and on GitLab assignees, are added
-	// best effort: one the forge cannot add leaves the rest added and
-	// ErrSomePeopleNotAdded returned.
+	// request already opened: it is the Created's Shortfall. Reviewers, and
+	// on GitLab assignees, are added best effort: one the forge cannot add
+	// leaves the rest added and ErrSomePeopleNotAdded the shortfall.
 	Reviewers []string
 	// TeamReviewers are teams named "org/team", asked to review as a team on
 	// GitHub; on GitLab a group stands for its active direct members.
@@ -185,11 +185,14 @@ func peopleNotAdded(cause error, missed []string) error {
 	return fmt.Errorf("%w (%s): %w", ErrSomePeopleNotAdded, strings.Join(missed, ", "), cause)
 }
 
-// Opened reports whether this is a pull request the forge created, told from
-// the zero value a failed create returns by its number, which the forge always
-// assigns.
-func (p PullRequest) Opened() bool {
-	return p.Number != 0
+// Created is a pull request the forge opened, and what fell short of the
+// request in opening it: why a reviewer, assignee or label is not on it, or
+// nil when every one is. A pull request the forge did not open is
+// CreatePullRequest's error instead, so a shortfall never reads as a
+// failure to open, nor a failure to open as a pull request.
+type Created struct {
+	Pull      PullRequest
+	Shortfall error
 }
 
 // PullRequestEdit is what changes about an open pull request: its title and its
@@ -206,7 +209,7 @@ type PullRequestEdit struct {
 type dialect struct {
 	find       func(ctx context.Context, c Client, repo Repo, head Head) (PullRequest, bool, error)
 	read       func(ctx context.Context, c Client, repo Repo, number int) (PullRequest, error)
-	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
+	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (Created, error)
 	update     func(ctx context.Context, c Client, repo Repo, pull PullRequest, edit PullRequestEdit) (PullRequest, error)
 	rewrite    func(ctx context.Context, c Client, repo Repo, number int, by func(string) (string, bool)) (bool, error)
 	status     func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
@@ -329,11 +332,12 @@ func (c Client) ReadPullRequest(ctx context.Context, repo Repo, number int) (Pul
 	return speaks.read(ctx, c, repo, number)
 }
 
-// CreatePullRequest opens a pull request.
-func (c Client) CreatePullRequest(ctx context.Context, repo Repo, request NewPullRequest) (PullRequest, error) {
+// CreatePullRequest opens a pull request, and says what of the request fell
+// short once it opened; an error is a pull request that did not open.
+func (c Client) CreatePullRequest(ctx context.Context, repo Repo, request NewPullRequest) (Created, error) {
 	speaks, err := dialectFor(repo.Kind)
 	if err != nil {
-		return PullRequest{}, err
+		return Created{}, err
 	}
 
 	return speaks.create(ctx, c, repo, request)

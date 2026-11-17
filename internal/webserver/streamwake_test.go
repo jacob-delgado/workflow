@@ -182,8 +182,10 @@ const openedPull = 128
 // opens does, with messaging configured to post.
 func laggingForgeDeps() webserver.Deps {
 	deps := openableDeps()
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{Number: openedPull, URL: webtest.PRURL, Title: webtest.PRTitle, State: forge.StateOpen}, nil
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+		return forge.Created{Pull: forge.PullRequest{
+			Number: openedPull, URL: webtest.PRURL, Title: webtest.PRTitle, State: forge.StateOpen,
+		}}, nil
 	}
 	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 

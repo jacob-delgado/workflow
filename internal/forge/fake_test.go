@@ -5,6 +5,7 @@ package forge_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -146,4 +147,11 @@ func requestsTo(seen []recorded, path string) int {
 	}
 
 	return count
+}
+
+// whole is what opening a pull request went wrong by, as one error: the
+// failure to open it, or what fell short once it opened; nil only when it
+// opened with everyone and everything asked.
+func whole(created forge.Created, err error) error {
+	return errors.Join(err, created.Shortfall)
 }

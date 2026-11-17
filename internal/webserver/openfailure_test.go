@@ -32,8 +32,8 @@ const lacksAScope = "may lack a scope this needs"
 func failingOpenDeps(err error) webserver.Deps {
 	deps := openableDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{}, err
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+		return forge.Created{}, err
 	}
 
 	return deps

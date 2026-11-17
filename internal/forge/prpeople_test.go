@@ -48,7 +48,7 @@ func TestCreatePullRequestOnGitHubAddsReviewersAssigneesAndLabels(t *testing.T) 
 	})
 
 	// Assert
-	if err != nil || created.Number != 43 {
+	if err != nil || created.Shortfall != nil || created.Pull.Number != 43 {
 		t.Fatalf("CreatePullRequest = %+v, %v", created, err)
 	}
 
@@ -77,9 +77,9 @@ func TestCreatePullRequestOnGitHubAsksForNoOneWhenNoneAreNamed(t *testing.T) {
 	}, nil))
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
-	})
+	}))
 	// Assert
 	// With nobody named, only the pull is opened — no empty reviewer request.
 	if err != nil {
@@ -108,12 +108,12 @@ func TestCreatePullRequestOnGitHubKeepsThePullWhenReviewersAreRefused(t *testing
 
 	// Assert
 	// The pull is opened and returned; the refusal is reported, not swallowed.
-	if !created.Opened() || created.Number != 43 {
-		t.Fatalf("CreatePullRequest lost the pull: %+v", created)
+	if err != nil || created.Pull.Number != 43 {
+		t.Fatalf("CreatePullRequest lost the pull: %+v, %v", created, err)
 	}
 
-	if !errors.Is(err, forge.ErrRefused) {
-		t.Errorf("error = %v, want ErrRefused for the reviewers", err)
+	if !errors.Is(created.Shortfall, forge.ErrRefused) {
+		t.Errorf("shortfall = %v, want ErrRefused for the reviewers", created.Shortfall)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestCreateMergeRequestOnGitLabSetsReviewersAssigneesAndLabels(t *testing.T)
 	})
 
 	// Assert
-	if err != nil || created.Number != 8 {
+	if err != nil || created.Shortfall != nil || created.Pull.Number != 8 {
 		t.Fatalf("CreatePullRequest = %+v, %v", created, err)
 	}
 
@@ -175,7 +175,7 @@ func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) 
 	// Assert
 	// The pull is kept and the refusal reported; the labels after it are not
 	// sent.
-	if created.Number != 43 || !errors.Is(err, forge.ErrRefused) {
+	if err != nil || created.Pull.Number != 43 || !errors.Is(created.Shortfall, forge.ErrRefused) {
 		t.Fatalf("CreatePullRequest = %+v, %v; want the pull kept and ErrRefused for the assignees", created, err)
 	}
 
@@ -183,10 +183,11 @@ func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) 
 		t.Errorf("labeled the pull after its assignees were refused: %+v", got)
 	}
 
-	// With no reviewer missed, the refusal is returned as it is: the terminal
-	// reads a bare refusal as saying nothing more than its advice.
-	if _, bare := err.(*forge.RefusalError); !bare { //nolint:errorlint // the bare refusal itself is the contract
-		t.Errorf("CreatePullRequest error = %#v, want the assignees' refusal itself", err)
+	// With no reviewer missed, the refusal is the shortfall as it is: the
+	// terminal reads a bare refusal as saying nothing more than its advice.
+	_, bare := created.Shortfall.(*forge.RefusalError) //nolint:errorlint // the bare refusal itself is the contract
+	if !bare {
+		t.Errorf("CreatePullRequest shortfall = %#v, want the assignees' refusal itself", created.Shortfall)
 	}
 }
 
@@ -207,7 +208,7 @@ func TestCreatePullRequestOnGitHubReportsLabelsTheForgeRefuses(t *testing.T) {
 	})
 
 	// Assert
-	if created.Number != 43 || !errors.Is(err, forge.ErrRefused) {
+	if err != nil || created.Pull.Number != 43 || !errors.Is(created.Shortfall, forge.ErrRefused) {
 		t.Fatalf("CreatePullRequest = %+v, %v; want the pull kept and ErrRefused for the labels", created, err)
 	}
 
@@ -223,10 +224,10 @@ func TestCreatePullRequestOnGitHubRequestsTeamsBySlugAlongsideUsers(t *testing.T
 	client, seen := recordingForge(t, conversation(map[string]string{githubPullsPath: githubPull43}, nil))
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna}, TeamReviewers: []string{"example/control-plane"},
-	})
+	}))
 	// Assert
 	if err != nil {
 		t.Fatalf("CreatePullRequest returned %v", err)
@@ -254,8 +255,9 @@ func TestCreatePullRequestOnGitHubNeverRequestsATeamOfAnotherOrganization(t *tes
 	})
 
 	// Assert
-	if created.Number != 43 || !errors.Is(err, forge.ErrSomePeopleNotAdded) ||
-		!strings.Contains(err.Error(), "other-org/reviewers") {
+	short := created.Shortfall
+	if err != nil || created.Pull.Number != 43 || !errors.Is(short, forge.ErrSomePeopleNotAdded) ||
+		!strings.Contains(short.Error(), "other-org/reviewers") {
 		t.Fatalf("CreatePullRequest = %+v, %v; want it opened, naming other-org's team as left off", created, err)
 	}
 
@@ -272,16 +274,17 @@ func TestCreatePullRequestOnGitHubGivesTeamsLeftOffForOneReasonThatReasonOnce(t 
 	client, _ := recordingForge(t, conversation(map[string]string{githubPullsPath: githubPull43}, nil))
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		TeamReviewers: []string{"other-org/reviewers", "third-org/api"},
 	})
 
 	// Assert
-	message := fmt.Sprint(err)
-	if !errors.Is(err, forge.ErrTeamOfAnotherOrg) || !strings.Contains(message, "other-org/reviewers, third-org/api") ||
+	message := fmt.Sprint(created.Shortfall)
+	if err != nil || !errors.Is(created.Shortfall, forge.ErrTeamOfAnotherOrg) ||
+		!strings.Contains(message, "other-org/reviewers, third-org/api") ||
 		strings.Count(message, forge.ErrTeamOfAnotherOrg.Error()) != 1 {
-		t.Errorf("CreatePullRequest = %q; want both teams named, and why once", message)
+		t.Errorf("CreatePullRequest = %q, %v; want both teams named, and why once", message, err)
 	}
 }
 
@@ -292,9 +295,9 @@ func TestCreatePullRequestOnGitHubRequestsOnlyTeamsWhenNoUserIsNamed(t *testing.
 	client, seen := recordingForge(t, conversation(map[string]string{githubPullsPath: githubPull43}, nil))
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{"example/api"},
-	})
+	}))
 
 	// Assert
 	asked := requestTo(*seen, githubReviewersPath)

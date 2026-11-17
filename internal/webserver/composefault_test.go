@@ -107,10 +107,10 @@ func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
 
 				return fakeOutput(nil, nil), nil
 			}
-			deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
+			deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
 				wrote++
 
-				return forge.PullRequest{}, nil
+				return forge.Created{}, nil
 			}
 
 			// Act

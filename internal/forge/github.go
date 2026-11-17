@@ -443,9 +443,9 @@ func tallyReviews(reviews []githubReview) (int, bool) {
 
 // githubCreate opens a pull request on GitHub, then requests its reviewers and
 // adds its assignees and labels. Those are separate requests GitHub only takes
-// once the pull exists, so their failure is returned alongside the opened pull
-// rather than losing it.
-func githubCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
+// once the pull exists, so their failure is the opened pull's shortfall rather
+// than losing it.
+func githubCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (Created, error) {
 	headLabel, headRepo := githubHeadOf(repo, request.Head)
 	payload := githubNewPull{
 		Title: request.Title, Body: request.Body, Head: headLabel, HeadRepo: headRepo,
@@ -454,12 +454,12 @@ func githubCreate(ctx context.Context, client Client, repo Repo, request NewPull
 
 	created, err := repoCall[githubPull](ctx, client, repo, http.MethodPost, githubRepoPath(repo)+"/pulls", payload)
 	if err != nil {
-		return PullRequest{}, err
+		return Created{}, err
 	}
 
 	pull := created.pullRequest()
 
-	return pull, githubAddPeople(ctx, client, repo, pull.Number, request)
+	return Created{Pull: pull, Shortfall: githubAddPeople(ctx, client, repo, pull.Number, request)}, nil
 }
 
 // githubMergeBody is the body that merges a pull request: the method to use.

@@ -55,6 +55,20 @@ func githubRefusingStrangers(asked recorded) (int, string) {
 	return http.StatusCreated, "{}"
 }
 
+// reviewerAsks is the names each request for reviewers asked for, users then
+// teams, in the order they were asked.
+func reviewerAsks(seen []recorded) [][]string {
+	var asks [][]string
+
+	for _, asked := range seen {
+		if asked.path == githubReviewersPath {
+			asks = append(asks, append(names(asked.body, "reviewers"), names(asked.body, "team_reviewers")...))
+		}
+	}
+
+	return asks
+}
+
 func TestCreatePullRequestOnGitHubAddsEveryReviewerItCanWhenOneIsTurnedDown(t *testing.T) {
 	t.Parallel()
 
@@ -69,25 +83,18 @@ func TestCreatePullRequestOnGitHubAddsEveryReviewerItCanWhenOneIsTurnedDown(t *t
 	})
 
 	// Assert
-	if created.Number != 43 || !errors.Is(err, forge.ErrSomePeopleNotAdded) {
-		t.Fatalf("CreatePullRequest = %+v, %v; want pull 43 and ErrSomePeopleNotAdded", created, err)
+	short := created.Shortfall
+	if err != nil || created.Pull.Number != 43 || !errors.Is(short, forge.ErrSomePeopleNotAdded) {
+		t.Fatalf("CreatePullRequest = %+v, %v; want pull 43 short by ErrSomePeopleNotAdded", created, err)
 	}
 
-	if !strings.Contains(err.Error(), userGhost) || !strings.Contains(err.Error(), teamNobody) ||
-		strings.Contains(err.Error(), userAna) {
-		t.Errorf("error = %q, want only ghost and %s named", err, teamNobody)
-	}
-
-	var accepted [][]string
-
-	for _, asked := range *seen {
-		if asked.path == githubReviewersPath {
-			accepted = append(accepted, append(names(asked.body, "reviewers"), names(asked.body, "team_reviewers")...))
-		}
+	if !strings.Contains(short.Error(), userGhost) || !strings.Contains(short.Error(), teamNobody) ||
+		strings.Contains(short.Error(), userAna) {
+		t.Errorf("shortfall = %q, want only ghost and %s named", short, teamNobody)
 	}
 
 	want := [][]string{{userAna, userGhost, apiSlug, "nobody"}, {userAna}, {userGhost}, {apiSlug}, {"nobody"}}
-	if !reflect.DeepEqual(accepted, want) {
+	if accepted := reviewerAsks(*seen); !reflect.DeepEqual(accepted, want) {
 		t.Errorf("reviewer requests = %v, want the combined one then each alone", accepted)
 	}
 
@@ -109,7 +116,7 @@ func TestCreatePullRequestOnGitHubDoesNotRetryReviewersTheTokenMayNotRequest(t *
 	})
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{userAna, userBen},
 	})
 
@@ -122,8 +129,8 @@ func TestCreatePullRequestOnGitHubDoesNotRetryReviewersTheTokenMayNotRequest(t *
 		}
 	}
 
-	if asks != 1 || !errors.Is(err, forge.ErrRefused) {
-		t.Errorf("asked %d times, error %v; want one ask and ErrRefused", asks, err)
+	if err != nil || asks != 1 || !errors.Is(created.Shortfall, forge.ErrRefused) {
+		t.Errorf("asked %d times, shortfall %v, error %v; want one ask, short by ErrRefused", asks, created.Shortfall, err)
 	}
 }
 
@@ -204,13 +211,14 @@ func TestCreateMergeRequestOnGitLabOpensWithThePeopleItKnows(t *testing.T) {
 			created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), request)
 
 			// Assert
-			if created.Number != 8 {
+			if err != nil || created.Pull.Number != 8 {
 				t.Fatalf("CreatePullRequest = %+v, %v; want merge request 8 opened", created, err)
 			}
 
-			if !errors.Is(err, forge.ErrSomePeopleNotAdded) || !errors.Is(err, test.cause) ||
-				!strings.Contains(err.Error(), userGhost) {
-				t.Errorf("error = %v, want ErrSomePeopleNotAdded and %v naming ghost", err, test.cause)
+			short := created.Shortfall
+			if !errors.Is(short, forge.ErrSomePeopleNotAdded) || !errors.Is(short, test.cause) ||
+				!strings.Contains(short.Error(), userGhost) {
+				t.Errorf("shortfall = %v, want ErrSomePeopleNotAdded and %v naming ghost", short, test.cause)
 			}
 
 			opened := requestTo(*seen, gitlabMergesPath)
@@ -242,8 +250,9 @@ func TestCreatePullRequestOnGitHubKeepsARefusedReviewerWhenAssigningFails(t *tes
 	})
 
 	// Assert
-	if created.Number != 43 || !errors.Is(err, forge.ErrSomePeopleNotAdded) ||
-		!errors.Is(err, forge.ErrUnexpectedStatus) || !strings.Contains(err.Error(), userGhost) {
+	short := created.Shortfall
+	if err != nil || created.Pull.Number != 43 || !errors.Is(short, forge.ErrSomePeopleNotAdded) ||
+		!errors.Is(short, forge.ErrUnexpectedStatus) || !strings.Contains(short.Error(), userGhost) {
 		t.Errorf("CreatePullRequest = %+v, %v; want pull 43, ghost named as not added, and the assignees' failure",
 			created, err)
 	}

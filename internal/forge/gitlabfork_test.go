@@ -94,15 +94,15 @@ func TestGitLabOpensAForksMergeRequestIntoTheBase(t *testing.T) {
 	request := forge.NewPullRequest{Title: prTitle, Head: forkHead(), Base: baseBranch}
 
 	// Act
-	pull, err := client.CreatePullRequest(t.Context(), gitlabRepo(), request)
+	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), request)
 
 	// Assert
 	posted := (*seen)[len(*seen)-1]
-	if err != nil || pull.Number != 9 || posted.method != http.MethodPost ||
+	if err != nil || created.Pull.Number != 9 || posted.method != http.MethodPost ||
 		posted.path != gitlabForkProject+"/merge_requests" || posted.body["target_project_id"] != float64(7) ||
 		posted.body["source_branch"] != featureBranch || posted.body["target_branch"] != baseBranch {
 		t.Errorf("CreatePullRequest = %+v, %v after %s %s %v; want it posted to the fork into project 7",
-			pull, err, posted.method, posted.path, posted.body)
+			created, err, posted.method, posted.path, posted.body)
 	}
 }
 

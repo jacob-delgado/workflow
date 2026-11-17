@@ -31,16 +31,16 @@ func openingDeps(world *forgeWorld, draft bool) webserver.Deps {
 	world.gone = true
 	deps := world.deps()
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
 		world.mu.Lock()
 		defer world.mu.Unlock()
 
 		world.gone = false
 
-		return forge.PullRequest{
+		return forge.Created{Pull: forge.PullRequest{
 			Number: world.pull, URL: fmt.Sprintf("https://x/%d", world.pull), Title: "Redact tokens",
 			State: forge.StateOpen, Draft: draft,
-		}, nil
+		}}, nil
 	}
 
 	return deps
@@ -116,7 +116,7 @@ func TestAnAnnouncementArmedAsItsPullRequestOpenedWaitsForTheForgeToListIt(t *te
 		world := newForgeWorld()
 		deps := openingDeps(world, false)
 		create := deps.Forge.CreatePullRequest
-		deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
+		deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.Created, error) {
 			pull, err := create(ctx, request)
 
 			world.turn(func(w *forgeWorld) { w.gone = true })
@@ -155,7 +155,7 @@ func TestAnAnnouncementArmedAsItsPullRequestOpenedGivesUpWhenTheForgeNeverListsI
 		world := newForgeWorld()
 		deps := openingDeps(world, false)
 		create := deps.Forge.CreatePullRequest
-		deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
+		deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.Created, error) {
 			pull, err := create(ctx, request)
 
 			world.turn(func(w *forgeWorld) { w.gone = true })

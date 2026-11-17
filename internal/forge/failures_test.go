@@ -260,13 +260,13 @@ func TestReviewersTurnedDownInTroubleAreAskedForOneByOne(t *testing.T) {
 	})
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{userAna, userBen},
 	})
 
 	// Assert
-	if err != nil || requestsTo(*seen, githubReviewersPath) != 3 {
-		t.Errorf("CreatePullRequest = %v after %d reviewer requests; want both asked again alone",
-			err, requestsTo(*seen, githubReviewersPath))
+	if err != nil || created.Shortfall != nil || requestsTo(*seen, githubReviewersPath) != 3 {
+		t.Errorf("CreatePullRequest = %+v, %v after %d reviewer requests; want both asked again alone",
+			created, err, requestsTo(*seen, githubReviewersPath))
 	}
 }

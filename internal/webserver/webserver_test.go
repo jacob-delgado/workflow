@@ -95,8 +95,11 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 		return deps
 	}
 	reviewersRefused := func(deps webserver.Deps) webserver.Deps {
-		deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-			return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: webtest.PRTitle}, forge.ErrRefused
+		deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+			return forge.Created{
+				Pull:      forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: webtest.PRTitle},
+				Shortfall: forge.ErrRefused,
+			}, nil
 		}
 
 		return deps

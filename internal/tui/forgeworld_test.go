@@ -75,7 +75,7 @@ func (w *world) forgeCalls() seams.Forge {
 
 			return w.pull, w.pullFound, w.pullErr
 		},
-		CreatePullRequest: func(_ context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
+		CreatePullRequest: func(_ context.Context, request forge.NewPullRequest) (forge.Created, error) {
 			call := "open " + request.Title + " " + request.Head.Branch + ">" + request.Base + " draft=" +
 				map[bool]string{false: "no", true: "yes"}[request.Draft]
 			if people := requestPeople(request); people != "" {
@@ -85,12 +85,13 @@ func (w *world) forgeCalls() seams.Forge {
 			w.record(call + "\n" + request.Body)
 
 			// A refused create returns no pull, the way the real forge does; a pull
-			// whose reviewers could not be added returns the pull with the error.
+			// whose reviewers could not be added returns the pull with its
+			// shortfall.
 			if w.openErr != nil {
-				return forge.PullRequest{}, w.openErr
+				return forge.Created{}, w.openErr
 			}
 
-			return w.pull, w.reviewerErr
+			return forge.Created{Pull: w.pull, Shortfall: w.reviewerErr}, nil
 		},
 		EditPullRequest: func(
 			_ context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,

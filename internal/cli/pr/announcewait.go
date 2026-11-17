@@ -33,7 +33,7 @@ func announceOpened(
 		return nil
 	}
 
-	if !report.opened.Opened() {
+	if !report.ready {
 		return nil
 	}
 
