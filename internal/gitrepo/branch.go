@@ -208,7 +208,10 @@ func (r Repository) readBranch(
 		return Branch{}, err
 	}
 
-	branch.PushRemote = r.PushRemote(ctx, branch.Name)
+	branch.PushRemote, err = r.PushRemote(ctx, branch.Name)
+	if err != nil {
+		return Branch{}, err
+	}
 
 	if !branch.Detached {
 		branch.IssueLink = r.IssueLink(ctx, branch.Name)

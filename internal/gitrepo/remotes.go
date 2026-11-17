@@ -5,8 +5,12 @@ package gitrepo
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // DefaultRemote is the remote a clone names for where it came from, and the
@@ -92,23 +96,51 @@ func (found remotes) base() string {
 // PushRemote is the remote a push of branch goes to, as git itself decides
 // it: the branch's own branch.<name>.pushRemote, then the repository's
 // remote.pushDefault — a fork's clone pushes to its own remote — then the
-// remote the branch tracks, branch.<name>.remote, then DefaultRemote. git
-// exits non-zero for a key that is unset, which optional reads as the empty
-// string, so each unset key falls through cleanly, and so does one naming
-// thisRepository, as a branch started from a local one with --track records:
-// a push there publishes nothing. A detached HEAD, with no branch to keep a
-// key under, asks only for the default.
-func (r Repository) PushRemote(ctx context.Context, branch string) string {
+// remote the branch tracks, branch.<name>.remote, then DefaultRemote. Each
+// unset key falls through, and so does one naming thisRepository, as a branch
+// started from a local one with --track records: a push there publishes
+// nothing. A key git could not read is an error, not a fall-through: the
+// remote it would have named is unknown, and guessing DefaultRemote would push
+// there. A detached HEAD, with no branch to keep a key under, asks only for
+// the default.
+func (r Repository) PushRemote(ctx context.Context, branch string) (string, error) {
 	keys := []string{"remote.pushDefault"}
 	if branch != "" {
 		keys = []string{"branch." + branch + ".pushRemote", "remote.pushDefault", "branch." + branch + ".remote"}
 	}
 
 	for _, key := range keys {
-		if remote := optional(ctx, r.run, "-C", r.dir, "config", "--get", key); remote != "" && remote != thisRepository {
-			return remote
+		remote, set, err := r.configValue(ctx, key)
+		if err != nil {
+			return "", err
+		}
+
+		if set && remote != "" && remote != thisRepository {
+			return remote, nil
 		}
 	}
 
-	return DefaultRemote
+	return DefaultRemote, nil
 }
+
+// configValue reads key from the repository's configuration: its value and
+// true, or false when it is unset, which git config --get says by exiting 1.
+// Any other failure — a read that stalled, a configuration git cannot parse —
+// is an error, since it says nothing of whether the key is set.
+func (r Repository) configValue(ctx context.Context, key string) (string, bool, error) {
+	out, err := r.run(ctx, gitProgram, "-C", r.dir, "config", "--get", key)
+	if err == nil {
+		return text(out), true, nil
+	}
+
+	exit, ok := errors.AsType[*proc.ExitError](err)
+	if ok && exit.Code == configUnset {
+		return "", false, nil
+	}
+
+	return "", false, fmt.Errorf("reading %s in %s: %w", key, r.dir, err)
+}
+
+// configUnset is the status git config --get exits with for a key that is not
+// set.
+const configUnset = 1

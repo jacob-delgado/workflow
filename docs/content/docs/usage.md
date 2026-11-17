@@ -1038,6 +1038,9 @@ git which is which rather than keeping a setting of its own.
 - **The push remote** of a branch is `branch.<name>.pushRemote`, else
   `remote.pushDefault`, else the remote it tracks (`branch.<name>.remote`, as
   `git push -u fork` records), else `origin` — the order git itself pushes by.
+  A key git cannot read, from a configuration it cannot parse or a read that
+  stalls, is not passed over for the next: the branch reads as a failure, and
+  no push starts, until git can read it.
 
 What follows the base remote: the base a new branch starts from
 (`upstream/main` in a fork's clone), the fetch Start work makes first, the
