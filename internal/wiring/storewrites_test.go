@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -70,7 +71,7 @@ func TestEveryStoreWriteReportsAStoreThatCannotKeepIt(t *testing.T) {
 			return err
 		},
 		"an issue list": func(deps seams.Store) error {
-			return deps.CacheIssues(t.Context(), "assigned", []jira.Issue{{Key: "PROJ-9", Summary: "a"}})
+			return deps.CacheIssues(t.Context(), "assigned", []jira.Issue{{Key: "PROJ-9", Summary: "a"}}, time.Now())
 		},
 	}
 

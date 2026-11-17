@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -91,10 +92,12 @@ func readCachedIssues(ctx context.Context, database *sql.DB, instance, view stri
 	return issues, nil
 }
 
-// CacheIssues stores issues as the list last seen for a view of an instance,
-// replacing any earlier one in a single transaction so a re-cache never leaves a
-// half-updated view. A disabled or read-only store caches nothing.
-func (s Store) CacheIssues(ctx context.Context, instance, view string, issues []CachedIssue, now time.Time) error {
+// CacheIssues stores issues, the list for a view of an instance as it was
+// read at readAt, replacing any read no later in a single transaction so a
+// re-cache never leaves a half-updated view; a list read before the one kept
+// is dropped, so two reads landing out of order keep the newer. A disabled or
+// read-only store caches nothing.
+func (s Store) CacheIssues(ctx context.Context, instance, view string, issues []CachedIssue, readAt time.Time) error {
 	if s.writesNothing() || instance == "" {
 		return nil
 	}
@@ -106,20 +109,32 @@ func (s Store) CacheIssues(ctx context.Context, instance, view string, issues []
 	defer func() { _ = database.Close() }()
 
 	return inTransaction(ctx, database, "caching the issues", func(transaction *sql.Tx) error {
-		return writeCachedIssues(ctx, transaction, instance, view, issues, now)
+		return writeCachedIssues(ctx, transaction, instance, view, issues, readAt)
 	})
 }
 
 // writeCachedIssues upserts the parent view row and replaces its child issue rows
-// within a transaction, so the whole view is written at once or not at all.
+// within a transaction, so the whole view is written at once or not at all. A
+// list read before the one the row holds leaves the row and its issues as
+// they are.
 func writeCachedIssues(
-	ctx context.Context, transaction *sql.Tx, instance, view string, issues []CachedIssue, now time.Time,
+	ctx context.Context, transaction *sql.Tx, instance, view string, issues []CachedIssue, readAt time.Time,
 ) error {
-	_, err := transaction.ExecContext(ctx,
+	var written int
+
+	// Trade-off TRADE-70: cached_at is RFC3339 seconds, so of two wirings
+	// reading one view within one second, the last to write is kept.
+	err := transaction.QueryRowContext(ctx,
 		`INSERT INTO issue_cache (instance, view, cached_at) VALUES (?, ?, ?)
-			ON CONFLICT(instance, view) DO UPDATE SET cached_at = excluded.cached_at`,
-		instance, view, timestamp(now))
-	if err != nil {
+			ON CONFLICT(instance, view) DO UPDATE SET cached_at = excluded.cached_at
+			WHERE excluded.cached_at >= issue_cache.cached_at
+			RETURNING 1`,
+		instance, view, timestamp(readAt)).Scan(&written)
+
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil
+	case err != nil:
 		return fmt.Errorf("caching the view: %w", err)
 	}
 

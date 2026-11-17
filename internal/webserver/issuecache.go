@@ -35,8 +35,9 @@ type issuesCache struct {
 	// not been asked to keep yet, and keeping each view whose page a frame is
 	// putting in the store now. That frame keeps a page landing meanwhile
 	// after its own, so the store never ends on an older page than a newer
-	// one it was asked to keep.
-	unkept  map[string][]jira.Issue
+	// one it was asked to keep. Each page goes with when it was read, so
+	// the store keeps it over a page another process read earlier.
+	unkept  map[string]heldPage
 	keeping map[string]bool
 }
 
@@ -91,14 +92,14 @@ func (s *server) keepFirstPage(ctx context.Context, jql string) {
 		return
 	}
 
-	issues, ours := s.issuesHeld.startKeeping(jql)
+	page, ours := s.issuesHeld.startKeeping(jql)
 	for ours {
-		err := s.deps.Store.CacheIssues(ctx, jql, issues)
+		err := s.deps.Store.CacheIssues(ctx, jql, page.result.Issues, page.readAt)
 		if err != nil {
 			s.unexpected(fmt.Errorf("keeping the issue list for the next session: %w", err))
 		}
 
-		issues, ours = s.issuesHeld.nextToKeep(jql)
+		page, ours = s.issuesHeld.nextToKeep(jql)
 	}
 }
 
@@ -142,7 +143,7 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) t
 
 	if c.reading == nil {
 		c.reading, c.pages = map[string]*landing[jira.SearchResult]{}, map[string]heldPage{}
-		c.unkept, c.keeping = map[string][]jira.Issue{}, map[string]bool{}
+		c.unkept, c.keeping = map[string]heldPage{}, map[string]bool{}
 	}
 
 	c.reading[jql] = newLanding[jira.SearchResult]()
@@ -164,20 +165,20 @@ func (c *issuesCache) land(jql string, dropped int, page heldPage) {
 	c.pages[jql] = page
 
 	if page.failed == nil {
-		c.unkept[jql] = page.result.Issues
+		c.unkept[jql] = page
 	}
 }
 
 // startKeeping hands the caller the newest page of jql the store has not
-// been asked to keep, for it to keep, unless another frame is keeping the
-// view's page, which then keeps this one after its own: ours is false then,
-// and when there is none to keep.
-func (c *issuesCache) startKeeping(jql string) ([]jira.Issue, bool) {
+// been asked to keep, with when it was read, for it to keep, unless another
+// frame is keeping the view's page, which then keeps this one after its own:
+// ours is false then, and when there is none to keep.
+func (c *issuesCache) startKeeping(jql string) (heldPage, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.keeping[jql] {
-		return nil, false
+		return heldPage{}, false
 	}
 
 	return c.takeUnkept(jql)
@@ -186,7 +187,7 @@ func (c *issuesCache) startKeeping(jql string) ([]jira.Issue, bool) {
 // nextToKeep is the page of jql that landed while the caller kept the one
 // before, for it to keep next, or false once none did, when the view is left
 // for the next frame to keep.
-func (c *issuesCache) nextToKeep(jql string) ([]jira.Issue, bool) {
+func (c *issuesCache) nextToKeep(jql string) (heldPage, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -196,12 +197,12 @@ func (c *issuesCache) nextToKeep(jql string) ([]jira.Issue, bool) {
 // takeUnkept takes the newest page of jql the store has not been asked to
 // keep, and marks the view as being kept while there is one. It runs under
 // mu.
-func (c *issuesCache) takeUnkept(jql string) ([]jira.Issue, bool) {
-	issues, waiting := c.unkept[jql]
+func (c *issuesCache) takeUnkept(jql string) (heldPage, bool) {
+	page, waiting := c.unkept[jql]
 	delete(c.unkept, jql)
 	c.keeping[jql] = waiting
 
-	return issues, waiting
+	return page, waiting
 }
 
 // drop forgets every view's page, so the next frame searches again: a change

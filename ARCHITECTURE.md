@@ -414,6 +414,10 @@ erDiagram
   1NF, and so 3NF); it is a parent `issue_cache` row per view — which also lets a
   view that returned *no* issues be recorded as "cached but empty", distinct from
   "never cached" — and one ordered `cached_issue` child per issue.
+  `cached_at` is when the list was read, so a list read earlier never replaces
+  one read later: one wiring's writes keep their read order, and two
+  wirings within one second, two processes or one surface across a
+  directory switch, keep the last written (TRADE-70).
 
 Three rules from `internal/store/CLAUDE.md` are visible in the schema:
 

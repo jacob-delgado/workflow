@@ -138,15 +138,20 @@ func (m Model) pageAnswered(msg issuesLoaded) Model {
 // cacheIssues is the command that stores a freshly-loaded first page, so a
 // later session opens on it before the tracker answers, off the update loop,
 // and says so when the store could not keep it. Only a first page is cached; a
-// failure and further pages are not. It is stored under ctx.
+// failure and further pages are not. It is stored under ctx, with the time the
+// page was taken, read here on the update loop: each command writes on a
+// goroutine of its own, so two pages' writes can land in either order, and
+// the time keeps the one taken later.
 func cacheIssues(ctx context.Context, deps Deps, msg issuesLoaded) tea.Cmd {
 	write := deps.Store.CacheIssues
 	if msg.err != nil || msg.startAt != 0 || write == nil {
 		return nil
 	}
 
+	readAt := deps.now()
+
 	return func() tea.Msg {
-		err := write(ctx, msg.jql, msg.found.Issues)
+		err := write(ctx, msg.jql, msg.found.Issues, readAt)
 		if err != nil {
 			return storeNotKept{words: "the issue list was not kept for the next session: " + err.Error()}
 		}

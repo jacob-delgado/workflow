@@ -227,7 +227,7 @@ func outlastingStore(outlive lifetime.Outliving, store seams.Store) seams.Store 
 	store.ConfirmAnnounce = lifetime.Outlasting2(outlive, "confirming an announcement", store.ConfirmAnnounce)
 	store.ReleaseAnnounce = lifetime.Outlasting2(outlive, "giving up an announcement's claim", store.ReleaseAnnounce)
 	store.ReclaimAnnounce = lifetime.OutlastingAnswer2(outlive, "claiming an announcement again", store.ReclaimAnnounce)
-	store.CacheIssues = lifetime.Outlasting2(outlive, "caching the issue list", store.CacheIssues)
+	store.CacheIssues = lifetime.Outlasting3(outlive, "caching the issue list", store.CacheIssues)
 	store.LinkOwner = lifetime.Outlasting2(outlive, "linking a code owner", store.LinkOwner)
 	store.ForgetOwner = lifetime.Outlasting2(outlive, "forgetting a code owner's link", store.ForgetOwner)
 	store.SetRepoGroups = lifetime.Outlasting2(outlive, "setting the repository's groups", store.SetRepoGroups)

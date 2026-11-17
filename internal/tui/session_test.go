@@ -325,7 +325,7 @@ func TestAWriteInFlightStopsWhenTheProgramIsSignaled(t *testing.T) {
 	entered, ended := make(chan struct{}, 1), make(chan error, 1)
 	caching := newWorld()
 	deps := caching.deps()
-	deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue) error {
+	deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue, _ time.Time) error {
 		entered <- struct{}{}
 
 		select {
@@ -373,7 +373,7 @@ func TestAWriteInFlightGoesOnWhenTheInterfaceQuits(t *testing.T) {
 
 	caching := newWorld()
 	deps := caching.deps()
-	deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue) error {
+	deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue, _ time.Time) error {
 		select {
 		case asked <- ctx:
 		default:

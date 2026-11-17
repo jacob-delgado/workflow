@@ -68,7 +68,7 @@ func (h *heldCache) letLand() {
 }
 
 // write is the cache write's body.
-func (h *heldCache) write(ctx context.Context, _ string, _ []jira.Issue) error {
+func (h *heldCache) write(ctx context.Context, _ string, _ []jira.Issue, _ time.Time) error {
 	h.entering.Do(func() { close(h.entered) })
 
 	select {
@@ -85,8 +85,10 @@ func (h *heldCache) write(ctx context.Context, _ string, _ []jira.Issue) error {
 
 // writeIgnoringItsContext is the cache write's body held until it is released
 // whatever becomes of its context, as a write detached from it is.
-func (h *heldCache) writeIgnoringItsContext(ctx context.Context, repo string, issues []jira.Issue) error {
-	return h.write(context.WithoutCancel(ctx), repo, issues)
+func (h *heldCache) writeIgnoringItsContext(
+	ctx context.Context, repo string, issues []jira.Issue, readAt time.Time,
+) error {
+	return h.write(context.WithoutCancel(ctx), repo, issues, readAt)
 }
 
 // awaitBegun waits for the write to begin, failing the test once patience runs
@@ -145,7 +147,9 @@ func (b *lockedBuffer) String() string {
 // interfaceCaching is an interface whose issue list's first page is cached
 // through cacheIssues, if it is not nil, read keys from keys, run under the
 // context the command hands it.
-func interfaceCaching(cacheIssues func(context.Context, string, []jira.Issue) error, keys io.Reader) cli.RunInterface {
+func interfaceCaching(
+	cacheIssues func(context.Context, string, []jira.Issue, time.Time) error, keys io.Reader,
+) cli.RunInterface {
 	return func(ctx context.Context, _ tui.Model, _ io.Reader, _ io.Writer) (tui.Next, error) {
 		deps := tui.Deps{Jira: seams.Jira{
 			Search: func(context.Context, string, int) (jira.SearchResult, error) {
