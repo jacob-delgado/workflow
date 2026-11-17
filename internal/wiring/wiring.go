@@ -368,13 +368,13 @@ func (e Environment) hookDeps(root string) seams.Hooks {
 		Run: func(ctx context.Context, hook string) (proc.Output, error) {
 			return e.start(ctx, hooks.RunCommand(root, hook))
 		},
-		Existing: func(ctx context.Context) ([]hooks.GitHook, bool) {
+		Existing: func(ctx context.Context) (hooks.Setup, error) {
 			dir, err := gitrepo.At(e.git, root).HooksDir(ctx)
 			if err != nil {
-				return nil, false
+				return hooks.Setup{}, err
 			}
 
-			return hooks.ExistingHooks(os.DirFS(dir), runtime.GOOS), hooks.HasConfig(os.DirFS(root))
+			return hooks.Survey(os.DirFS(dir), os.DirFS(root), runtime.GOOS), nil
 		},
 		Write: func(ctx context.Context, generated hooks.Generated) error {
 			err := hooks.Write(root, generated)

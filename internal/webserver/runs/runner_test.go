@@ -25,7 +25,7 @@ func TestARunnerCountsTheUnmanagedHooksItsSeamsFind(t *testing.T) {
 
 	found := webtest.OldHooks()
 	given := runs.Seams{Hooks: seams.Hooks{
-		Existing: func(context.Context) ([]hooks.GitHook, bool) { return found, false },
+		Existing: func(context.Context) (hooks.Setup, error) { return webtest.Surveyed(found, false), nil },
 	}}
 	runner := runs.New(given, func(error) {}, &indexWrites, func() int { return 1 })
 

@@ -6,8 +6,10 @@ package tui_test
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -43,11 +45,49 @@ func withLegacyHooks() *world {
 }
 
 // existingHooks fakes looking in .git/hooks, recording each look, so a test
-// can count the looks and hold one back.
-func (w *world) existingHooks(context.Context) ([]hooks.GitHook, bool) {
+// can count the looks and hold one back; it fails as hooksDirErr says.
+func (w *world) existingHooks(context.Context) (hooks.Setup, error) {
 	w.record("existing")
 
-	return w.gitHooks, w.configured
+	if w.hooksDirErr != nil {
+		return hooks.Setup{}, w.hooksDirErr
+	}
+
+	return surveyed(w.gitHooks, w.configured), nil
+}
+
+// surveyed is how a repository with found in its hooks directory, and a
+// lefthook.yml beside it when configured, stands for setting lefthook up, as
+// hooks.Survey reads it.
+func surveyed(found []hooks.GitHook, configured bool) hooks.Setup {
+	hooksDir, repo := fstest.MapFS{}, fstest.MapFS{}
+	for _, hook := range found {
+		hooksDir[hook.Name] = &fstest.MapFile{Data: []byte(hook.Script), Mode: 0o755}
+	}
+
+	if configured {
+		repo["lefthook.yml"] = &fstest.MapFile{Data: []byte(preCommitHook + ":\n"), Mode: 0o644}
+	}
+
+	return hooks.Survey(hooksDir, repo, runtime.GOOS)
+}
+
+// errHooksDirStalled is git unable to say where the hooks directory is.
+var errHooksDirStalled = errors.New("finding the hooks directory of /work: git: gave up waiting after 30s")
+
+func TestAHooksDirectoryThatCannotBeReadIsSaidInTheCommitsPane(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unreadable := newWorld()
+	unreadable.gitHooks, unreadable.hooksDirErr = legacyHooks(), errHooksDirStalled
+
+	// Act
+	commits := typing(t, unreadable.live(t, 120, 50), "3")
+
+	// Assert
+	requireScreen(t, commits.View().Content, "finding the hooks directory of /work")
+	refuseLefthookOffered(t, commits)
 }
 
 // lefthookHint is the Commits detail's line offering to set up lefthook, and

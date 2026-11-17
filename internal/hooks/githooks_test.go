@@ -4,6 +4,7 @@
 package hooks_test
 
 import (
+	"io/fs"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -11,7 +12,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 )
 
-func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
+// offeredFrom are the hooks Survey offers from hooksDir in a repository that
+// does not configure lefthook.
+func offeredFrom(hooksDir fs.FS, goos string) []hooks.GitHook {
+	return hooks.Survey(hooksDir, fstest.MapFS{}, goos).Hooks()
+}
+
+func TestTheHooksOfferedAreTheOnesGitWouldRun(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -26,7 +33,7 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 	}
 
 	// Act
-	found := hooks.ExistingHooks(dir, "linux")
+	found := offeredFrom(dir, "linux")
 
 	// Assert
 	// Git's own order, not the directory's: commit-msg after pre-commit. Not
@@ -38,7 +45,7 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 	}
 
 	if want := []string{preCommit, commitMsg}; !slices.Equal(names, want) {
-		t.Fatalf("ExistingHooks = %q, want %q", names, want)
+		t.Fatalf("offered %q, want %q", names, want)
 	}
 
 	if found[0].Script != simplePreCommit {
@@ -46,7 +53,7 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 	}
 }
 
-func TestExistingHooksTellLefthooksShimFromAHookThatMentionsIt(t *testing.T) {
+func TestTheHooksOfferedTellLefthooksShimFromAHookThatMentionsIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -61,15 +68,15 @@ func TestExistingHooksTellLefthooksShimFromAHookThatMentionsIt(t *testing.T) {
 	}
 
 	// Act
-	found := hooks.ExistingHooks(dir, "linux")
+	found := offeredFrom(dir, "linux")
 
 	// Assert
 	if len(found) != 1 || found[0].Name != preCommit || found[0].Script != mentions {
-		t.Errorf("ExistingHooks = %+v, want only the hook that mentions lefthook", found)
+		t.Errorf("offered %+v, want only the hook that mentions lefthook", found)
 	}
 }
 
-func TestExistingHooksNeedNoExecutableBitOnWindows(t *testing.T) {
+func TestTheHooksOfferedNeedNoExecutableBitOnWindows(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -80,10 +87,64 @@ func TestExistingHooksNeedNoExecutableBitOnWindows(t *testing.T) {
 	}
 
 	// Act
-	found := hooks.ExistingHooks(dir, "windows")
+	found := offeredFrom(dir, "windows")
 
 	// Assert
 	if len(found) != 1 || found[0].Name != preCommit {
-		t.Errorf("ExistingHooks on Windows = %+v, want the non-executable pre-commit found", found)
+		t.Errorf("offered %+v on Windows, want the non-executable pre-commit found", found)
+	}
+}
+
+// lefthookYML is the configuration lefthook reads first.
+const lefthookYML = "lefthook.yml"
+
+func TestSurveyOffersTheHooksOfARepositoryLefthookDoesNotConfigure(t *testing.T) {
+	t.Parallel()
+
+	withHooks := fstest.MapFS{preCommit: executable(simplePreCommit)}
+	configured := fstest.MapFS{lefthookYML: {Data: []byte(preCommit + ":\n"), Mode: 0o644}}
+
+	cases := map[string]struct {
+		hooksDir, repo fstest.MapFS
+		offering       hooks.Offering
+		offered        []hooks.GitHook
+	}{
+		"hooks and no configuration": {
+			hooksDir: withHooks, repo: fstest.MapFS{}, offering: hooks.OfferingHooks,
+			offered: []hooks.GitHook{{Name: preCommit, Script: simplePreCommit}},
+		},
+		"hooks in a repository lefthook configures": {
+			hooksDir: withHooks, repo: configured, offering: hooks.OfferingConfigured,
+		},
+		"no hooks": {hooksDir: fstest.MapFS{}, repo: fstest.MapFS{}, offering: hooks.OfferingNothing},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			setup := hooks.Survey(tt.hooksDir, tt.repo, "linux")
+
+			// Assert
+			if setup.Offering() != tt.offering || !slices.Equal(setup.Hooks(), tt.offered) {
+				t.Errorf("Survey = %v offering %+v, want %v offering %+v",
+					setup.Offering(), setup.Hooks(), tt.offering, tt.offered)
+			}
+		})
+	}
+}
+
+// A Setup made of nothing, as a seam answers beside its failure, offers
+// nothing.
+func TestTheZeroSetupOffersNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var setup hooks.Setup
+
+	// Act & Assert
+	if setup.Offering() != hooks.OfferingNothing || len(setup.Hooks()) != 0 {
+		t.Errorf("the zero Setup offers %v: %+v; want nothing", setup.Offering(), setup.Hooks())
 	}
 }

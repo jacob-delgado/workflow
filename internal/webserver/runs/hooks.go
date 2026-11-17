@@ -22,6 +22,8 @@ var (
 	errHooksUnavailable = errors.New("lefthook's hooks cannot be listed here: lefthook is not installed")
 	errHooksUnreadable  = errors.New("lefthook's configuration could not be read; " +
 		"run lefthook dump in a terminal to see why")
+	errHooksDirUnreadable = errors.New("the repository's hooks directory could not be read; " +
+		"git rev-parse --git-path hooks in a terminal says why")
 )
 
 // ListHooks is the hooks lefthook configures, read each time it is asked, as
@@ -61,7 +63,9 @@ func configuredDTO(configured hooks.Configured) api.ConfiguredHooks {
 
 // GetHookSetup is the lefthook configuration offered for the hooks lefthook
 // does not manage, as the terminal's g offers it, or nothing offered once
-// lefthook is configured or there is no such hook.
+// lefthook is configured or there is no such hook. A hooks directory git
+// cannot say is a 422, git's words, which name the repository, going to the
+// unexpected New is handed rather than onto the wire.
 func (r *Runner) GetHookSetup(
 	ctx context.Context, _ api.GetHookSetupRequestObject,
 ) (api.GetHookSetupResponseObject, error) {
@@ -70,7 +74,11 @@ func (r *Runner) GetHookSetup(
 			problem.New(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
 
-	found := r.unmanagedHooks(ctx)
+	found, err := r.unmanagedHooks(ctx)
+	if err != nil {
+		return api.GetHookSetup422ApplicationProblemPlusJSONResponse(r.hooksDirUnreadable(err)), nil
+	}
+
 	setup := api.HookSetup{Offered: len(found) > 0, Hooks: unmanagedDTO(found), Config: "", Scripts: 0}
 
 	if setup.Offered {
@@ -83,9 +91,10 @@ func (r *Runner) GetHookSetup(
 
 // SetUpHooks writes the configuration offered — or one keeping every hook
 // whole as a script — and installs lefthook, as the terminal's offer does.
-// With nothing offered it is a 409; a write or an install that fails is a 422
-// whose words stay off the wire, since they name where the repository is;
-// the unexpected New is handed hears them. It holds the index, as a run and a
+// With nothing offered it is a 409; a hooks directory git cannot say, or a
+// write or an install that fails, is a 422 whose words stay off the wire,
+// since they name where the repository is; the unexpected New is handed
+// hears them. It holds the index, as a run and a
 // commit do while git runs the hooks, so it waits for them rather than
 // replace the hooks under one.
 func (r *Runner) SetUpHooks(
@@ -99,7 +108,11 @@ func (r *Runner) SetUpHooks(
 	r.indexWrites.Lock()
 	defer r.indexWrites.Unlock()
 
-	found := r.unmanagedHooks(ctx)
+	found, err := r.unmanagedHooks(ctx)
+	if err != nil {
+		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(r.hooksDirUnreadable(err)), nil
+	}
+
 	if len(found) == 0 {
 		return api.SetUpHooks409ApplicationProblemPlusJSONResponse(
 			problem.New(api.ProblemCodeConflict, errNothingToSetUp.Error())), nil
@@ -110,7 +123,7 @@ func (r *Runner) SetUpHooks(
 		generated = hooks.Verbatim(found)
 	}
 
-	err := r.seams.Hooks.Write(ctx, generated)
+	err = r.seams.Hooks.Write(ctx, generated)
 	if err != nil {
 		// The answer leaves the cause out; the server's own log keeps it.
 		r.unexpected(err)
@@ -124,24 +137,39 @@ func (r *Runner) SetUpHooks(
 }
 
 // unmanagedHooks is the hooks lefthook does not manage, or none once the
-// repository configures lefthook, as the terminal forgets them then.
-func (r *Runner) unmanagedHooks(ctx context.Context) []hooks.GitHook {
-	found, configured := r.seams.Hooks.Existing(ctx)
-	if configured {
-		return nil
+// repository configures lefthook, as the terminal forgets them then, or why
+// the hooks directory could not be read.
+func (r *Runner) unmanagedHooks(ctx context.Context) ([]hooks.GitHook, error) {
+	setup, err := r.seams.Hooks.Existing(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	return found
+	return setup.Hooks(), nil
+}
+
+// hooksDirUnreadable is the problem a hooks directory git cannot say answers
+// with, git's words heard by the unexpected New is handed and kept off it.
+func (r *Runner) hooksDirUnreadable(err error) api.Problem {
+	r.unexpected(err)
+
+	return problem.New(api.ProblemCodeUnprocessable, errHooksDirUnreadable.Error())
 }
 
 // HooksUnmanaged counts the hooks a frame offers to set up lefthook for, or
-// none without a repository.
+// none without a repository, or with a hooks directory that cannot be read:
+// the offer's own read says why when it is asked, so no frame says it again.
 func (r *Runner) HooksUnmanaged(ctx context.Context) int {
 	if r.seams.Hooks.Existing == nil {
 		return 0
 	}
 
-	return len(r.unmanagedHooks(ctx))
+	found, err := r.unmanagedHooks(ctx)
+	if err != nil {
+		return 0
+	}
+
+	return len(found)
 }
 
 // unmanagedDTO maps the hooks found onto the wire, each by its name and how

@@ -5,6 +5,7 @@ package hooks
 
 import (
 	"io/fs"
+	"slices"
 	"strings"
 )
 
@@ -61,11 +62,11 @@ func handedByGit() map[string]string {
 	}
 }
 
-// ExistingHooks finds the hooks git would run from a hooks directory, in git's
+// existingHooks finds the hooks git would run from a hooks directory, in git's
 // order: files named for a hook, runnable as one, that are not lefthook's own
 // shim. Whether a file is runnable is decided by goos, since Windows has no
 // executable bit to check.
-func ExistingHooks(hooksDir fs.FS, goos string) []GitHook {
+func existingHooks(hooksDir fs.FS, goos string) []GitHook {
 	var found []GitHook
 
 	for _, name := range gitHookNames() {
@@ -83,6 +84,56 @@ func ExistingHooks(hooksDir fs.FS, goos string) []GitHook {
 	}
 
 	return found
+}
+
+// Offering is what a repository offers to set lefthook up for.
+type Offering int
+
+const (
+	// OfferingNothing is a hooks directory holding no hook git would run that
+	// lefthook does not manage.
+	OfferingNothing Offering = iota
+	// OfferingHooks is hooks lefthook does not manage, in a repository that
+	// does not configure lefthook.
+	OfferingHooks
+	// OfferingConfigured is a repository that configures lefthook, which is
+	// offered nothing, whatever its hooks directory holds.
+	OfferingConfigured
+)
+
+// Setup is how a repository stands for setting lefthook up: what it offers,
+// and the hooks it offers to set lefthook up for. Its zero value offers
+// nothing.
+type Setup struct {
+	offering Offering
+	hooks    []GitHook
+}
+
+// Survey reads how a repository stands for setting lefthook up, from its hooks
+// directory and its root. goos decides what a runnable hook is, since Windows
+// has no executable bit to check.
+func Survey(hooksDir, repo fs.FS, goos string) Setup {
+	if HasConfig(repo) {
+		return Setup{offering: OfferingConfigured, hooks: nil}
+	}
+
+	found := existingHooks(hooksDir, goos)
+	if len(found) == 0 {
+		return Setup{offering: OfferingNothing, hooks: nil}
+	}
+
+	return Setup{offering: OfferingHooks, hooks: found}
+}
+
+// Offering is what the repository offers.
+func (s Setup) Offering() Offering {
+	return s.offering
+}
+
+// Hooks are the hooks offered, in git's order: none unless it offers
+// OfferingHooks.
+func (s Setup) Hooks() []GitHook {
+	return slices.Clone(s.hooks)
 }
 
 // lefthooksShim reports a hook lefthook installed itself: one that carries its

@@ -301,10 +301,11 @@ func TestTheGitSeamsFinishAForkCloneWithNoLocalBase(t *testing.T) {
 	}
 }
 
-// stallingGit puts a git first on PATH that fails reading key as a stalled
-// config read does, writes each push it is asked for to the file it returns,
-// and runs the real git for everything else.
-func stallingGit(t *testing.T, key string) string {
+// stallingGit puts a git first on PATH that fails the git command whose
+// arguments end with command, as a read that stalled does, writes each push it
+// is asked for to the file it returns, and runs the real git for everything
+// else.
+func stallingGit(t *testing.T, command string) string {
 	t.Helper()
 
 	gitPath, err := exec.LookPath("git")
@@ -314,7 +315,7 @@ func stallingGit(t *testing.T, key string) string {
 
 	bin, pushes := t.TempDir(), filepath.Join(t.TempDir(), "pushes")
 	write(t, filepath.Join(bin, "git"), "#!/bin/sh\n"+
-		"case \"$*\" in *\"config --get "+key+"\") echo 'fatal: config read stalled' >&2; exit 128;; esac\n"+
+		"case \"$*\" in *\""+command+"\") echo 'fatal: read stalled' >&2; exit 128;; esac\n"+
 		"case \" $* \" in *\" push \"*) echo \"$*\" >> '"+pushes+"';; esac\n"+
 		"exec '"+gitPath+"' \"$@\"\n", 0o700)
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -332,7 +333,7 @@ func TestAPushWhoseRemoteCannotBeReadStartsNoGit(t *testing.T) {
 		t.Fatalf("CreateBranch: %v", err)
 	}
 
-	pushes := stallingGit(t, "branch."+featureBranch+".pushRemote")
+	pushes := stallingGit(t, "config --get branch."+featureBranch+".pushRemote")
 
 	// Act
 	push, err := repo.Push(t.Context(), featureBranch)
