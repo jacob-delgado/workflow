@@ -30,11 +30,12 @@ const pushNotStarted = "the push could not be started; push from a terminal to s
 
 // Push publishes the checked-out branch to its remote, setting upstream if it
 // has none — the first outward step toward a pull request. There is nothing to
-// push, so a 409, when the tree is not on a feature branch or the branch is not
-// ahead of its upstream on the push remote; a push that fails is a 422 carrying
-// its output with its URLs and user@host:path addresses taken out, one that
-// cannot start a 422 saying how to see why, and a branch that cannot be read is
-// answered by fault. On success it returns the branch as published.
+// push, so a 409, when the tree is not on a feature branch or the branch is
+// already published on its push remote and not ahead of it there; a push that
+// fails is a 422 carrying its output with its URLs and user@host:path addresses
+// taken out, one that cannot start a 422 saying how to see why, and a branch
+// that cannot be read is answered by fault. On success it returns the branch as
+// published.
 func (s *server) Push(ctx context.Context, _ api.PushRequestObject) (api.PushResponseObject, error) {
 	if s.deps.Git.Push == nil || s.deps.Git.Branch == nil {
 		return pushUnprocessable("pushing is not available"), nil
@@ -60,17 +61,14 @@ func (s *server) Push(ctx context.Context, _ api.PushRequestObject) (api.PushRes
 
 // nothingToPush reports whether the branch has nothing to send: the tree is not
 // on a feature branch (a detached HEAD, which cannot be pushed, or the base,
-// which work merges into rather than publishes), or the branch has an upstream
-// on the remote a push goes to that holds every commit on it. A branch with no
-// upstream there can always be published, so its commit count — which the base
-// may make unknowable — is not consulted, and an ahead count git could not give
-// is not taken for none.
+// which work merges into rather than publishes), or the branch is pushed, as
+// the terminal reads it: it tracks itself on the remote a push goes to, which
+// holds every commit on it. A branch tracking anything else there, as one made
+// from origin/main without --no-track does, can always be published, so its
+// commit count — which the base may make unknowable — is not consulted, and an
+// ahead count git could not give is not taken for none.
 func nothingToPush(branch gitrepo.Branch) bool {
-	if !loop.OnFeatureBranch(branch) {
-		return true
-	}
-
-	return strings.HasPrefix(branch.Upstream, branch.PushRemote+"/") && branch.UpstreamHoldsAll()
+	return !loop.OnFeatureBranch(branch) || branch.Pushed()
 }
 
 // pushFailure words a push that did not publish the branch: the push's own
