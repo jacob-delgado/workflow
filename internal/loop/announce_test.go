@@ -304,7 +304,7 @@ func TestDeliverRecordsTheAnnouncementOnceItIsPosted(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), sent.memory(), merged())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), sent.memory(), merged())
 
 	// Assert
 	if err != nil || !slices.Equal(sent.posted, []string{"#dev merged"}) ||
@@ -340,7 +340,7 @@ func TestDeliverRecordsNothingItCouldNotPost(t *testing.T) {
 			var sent deliveries
 
 			// Act
-			err := loop.Deliver(t.Context(), passing(tt.post(&sent)), sent.memory(), merged())
+			_, err := loop.Deliver(t.Context(), passing(tt.post(&sent)), sent.memory(), merged())
 
 			// Assert
 			if !errors.Is(err, tt.want) || len(sent.recorded) != 0 {
@@ -357,7 +357,7 @@ func TestDeliverPostsWithNothingToRememberItIn(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), loop.AnnounceMemory{}, merged())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), loop.AnnounceMemory{}, merged())
 
 	// Assert
 	if err != nil || len(sent.posted) != 1 {

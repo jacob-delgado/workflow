@@ -26,7 +26,7 @@ func TestAGateRefusalClaimsNothing(t *testing.T) {
 	claims := &ledger{}
 
 	// Act
-	err := loop.Deliver(t.Context(), seams, claims.memory(), ready())
+	_, err := loop.Deliver(t.Context(), seams, claims.memory(), ready())
 
 	// Assert
 	var refusal loop.GateRefusalError
@@ -50,7 +50,7 @@ func TestAHeldClaimPostsNothing(t *testing.T) {
 	_, _ = claims.claim(t.Context(), ready().Made())
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
 
 	// Assert
 	var already loop.AnnouncedAlreadyError
@@ -78,7 +78,7 @@ func TestAClaimOfAKindNotKnownPostsNothing(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), unknown, ready())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), unknown, ready())
 
 	// Assert
 	if len(sent.posted) != 0 {
@@ -106,7 +106,7 @@ func TestAClaimThatNamesNoKindIsNotClaimed(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), unnamed, ready())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), unnamed, ready())
 
 	// Assert
 	if len(sent.posted) != 0 {
@@ -127,7 +127,7 @@ func TestAClaimTheStoreCannotTakePostsNothing(t *testing.T) {
 	claims := &ledger{claimErr: errSeam}
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
 
 	// Assert
 	if !errors.Is(err, loop.ErrNotClaimed) || !errors.Is(err, errSeam) || len(sent.posted) != 0 {
@@ -155,7 +155,7 @@ func TestAPostSurelyNotDeliveredGivesUpItsClaim(t *testing.T) {
 			claims := &ledger{}
 
 			// Act
-			err := loop.Deliver(t.Context(), passing(sent.post(refused)), claims.memory(), ready())
+			_, err := loop.Deliver(t.Context(), passing(sent.post(refused)), claims.memory(), ready())
 
 			// Assert
 			if !errors.Is(err, loop.ErrNotDelivered) || !errors.Is(err, refused) {
@@ -188,7 +188,7 @@ func TestAPostThatMayHaveGoneOutKeepsItsClaim(t *testing.T) {
 			claims := &ledger{}
 
 			// Act
-			err := loop.Deliver(t.Context(), passing(sent.post(unknown)), claims.memory(), ready())
+			_, err := loop.Deliver(t.Context(), passing(sent.post(unknown)), claims.memory(), ready())
 
 			// Assert
 			if !errors.Is(err, loop.ErrPostUncertain) || !errors.Is(err, unknown) {
@@ -212,7 +212,7 @@ func TestAClaimThatCannotBeGivenUpLeavesThePostUncertain(t *testing.T) {
 	refused := messaging.PostRefusedError{Reason: "is_archived"}
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(refused)), claims.memory(), ready())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(refused)), claims.memory(), ready())
 
 	// Assert
 	if !errors.Is(err, loop.ErrPostUncertain) || !errors.Is(err, refused) || !errors.Is(err, errSeam) {
@@ -233,7 +233,7 @@ func TestAClaimTakenWithNoWayToConfirmItPostsOnce(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), unconfirmable, ready())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), unconfirmable, ready())
 
 	// Assert
 	if err != nil || len(sent.posted) != 1 {
@@ -250,7 +250,7 @@ func TestAPostTheStoreCannotConfirmIsUnconfirmed(t *testing.T) {
 	claims := &ledger{confirmErr: errSeam}
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
+	_, err := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
 
 	// Assert
 	why, unconfirmed := loop.UnconfirmedReason(fmt.Errorf("announcing: %w", err))
@@ -288,10 +288,10 @@ func TestTwoDeliveriesOfOneAnnouncementPostOnce(t *testing.T) {
 	var sent deliveries
 
 	claims := &ledger{}
-	first := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
+	_, first := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
 
 	// Act
-	second := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
+	_, second := loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
 
 	// Assert
 	if first != nil || !errors.Is(second, loop.ErrAnnouncedAlready) || len(sent.posted) != 1 {
@@ -307,11 +307,11 @@ func TestRedeliverPostsAgainFromTheGenerationSeen(t *testing.T) {
 	var sent deliveries
 
 	claims := &ledger{}
-	_ = loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
-	again := loop.Redeliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready(), 1)
+	_, _ = loop.Deliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready())
+	_, again := loop.Redeliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready(), 1)
 
 	// Act
-	twice := loop.Redeliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready(), 1)
+	_, twice := loop.Redeliver(t.Context(), passing(sent.post(nil)), claims.memory(), ready(), 1)
 
 	// Assert
 	if again != nil || !errors.Is(twice, loop.ErrAnnouncedAlready) || len(sent.posted) != 2 {
@@ -346,7 +346,7 @@ func TestAStoreThatKeepsNothingPostsUnguarded(t *testing.T) {
 			}
 
 			// Act
-			err := loop.Deliver(t.Context(), passing(sent.post(tt.post)), unkept, ready())
+			_, err := loop.Deliver(t.Context(), passing(sent.post(tt.post)), unkept, ready())
 
 			// Assert
 			if !errors.Is(err, tt.want) || errors.Is(err, loop.ErrNotDelivered) || errors.Is(err, loop.ErrPostUncertain) ||

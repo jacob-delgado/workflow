@@ -152,16 +152,17 @@ through seams; the command line and the web keep `loop.ComposeAnnouncement` and
 surface posts an announcement through `loop.Deliver`, which reads the pull
 request's CI as it posts and refuses one a check has failed on, then claims
 it in the store, so one announcement is posted once across sessions and
-processes, posts it, and confirms the claim; and every surface that waits for CI to pass —
-the terminal, the web and `--when-green` — keeps one `armed.Hold`, in
-`internal/armed`: a value with an explicit stage, which counts each read
-asked of it and is stepped by each event (a read heard or failed, a post's
-outcome, a stop) to the effect it asks for next (a read now or an interval
-on, or the post), which each surface carries out by its own clock and
-`armed.Drive` carries out for the command line. It hears only the read asked
-last in its round, so a slow read never steps it back past a later one. The
-hold finds its pull request by the branch it was armed on, reads CI at the
-commit the forge says it is at, waits past failures for
+processes, posts it, and confirms the claim, naming how it went as a
+`loop.Delivered` beside the error that says why; and every surface that waits
+for CI to pass — the terminal, the web and `--when-green` — keeps one
+`armed.Hold`, in `internal/armed`: a value with an explicit stage, which
+counts each read asked of it and is stepped by each event (a read heard or
+failed, a post's outcome, a stop) to the effect it asks for next (a read now
+or an interval on, or the post), which each surface carries out by its own
+clock and `armed.Drive` carries out for the command line. It hears only the
+read asked last in its round, so a slow read never steps it back past a later
+one. The hold finds its pull request by the branch it was armed on, reads CI
+at the commit the forge says it is at, waits past failures for
 `armed.UnheardPatience` (TRADE-59) and counts no-check patience by
 `armed.CIWatch`. `internal/armed` sits above `internal/loop` and below the
 surfaces, which an `armed-below-the-surfaces` rule in `.golangci.yml` holds.

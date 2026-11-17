@@ -66,12 +66,16 @@ func (s Seams) DeliverHeld(ctx context.Context, hold Hold, now func() time.Time)
 		delivery.Mentions = s.UnaskedTags(ctx, delivery)
 	}
 
-	var err error
+	var (
+		kind loop.Delivered
+		err  error
+	)
+
 	if seen := hold.arming.Seen; seen > 0 {
-		err = loop.Redeliver(ctx, s.Deliver, s.Memory, delivery, seen)
+		kind, err = loop.Redeliver(ctx, s.Deliver, s.Memory, delivery, seen)
 	} else {
-		err = loop.Deliver(ctx, s.Deliver, s.Memory, delivery)
+		kind, err = loop.Deliver(ctx, s.Deliver, s.Memory, delivery)
 	}
 
-	return Outcome{Round: hold.Round(), Err: err, At: now()}
+	return Outcome{Round: hold.Round(), Kind: kind, Err: err, At: now()}
 }

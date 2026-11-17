@@ -105,9 +105,10 @@ func unheardAt(hold armed.Hold, elapsed time.Duration) armed.Hold {
 	return stepped
 }
 
-// deliveredAs is hold stepped on its post's outcome, err, after elapsed.
-func deliveredAs(hold armed.Hold, err error, elapsed time.Duration) armed.Hold {
-	stepped, _ := hold.Delivered(armed.Outcome{Round: hold.Round(), Err: err, At: after(elapsed)})
+// deliveredAs is hold stepped on its post's outcome, kind with err, after
+// elapsed.
+func deliveredAs(hold armed.Hold, kind loop.Delivered, err error, elapsed time.Duration) armed.Hold {
+	stepped, _ := hold.Delivered(armed.Outcome{Round: hold.Round(), Kind: kind, Err: err, At: after(elapsed)})
 
 	return stepped
 }
@@ -156,7 +157,7 @@ func due(t *testing.T) armed.Hold {
 func posted(t *testing.T) armed.Hold {
 	t.Helper()
 
-	return deliveredAs(due(t), nil, 2*time.Minute)
+	return deliveredAs(due(t), loop.DeliveredPosted, nil, 2*time.Minute)
 }
 
 func dropped(t *testing.T) armed.Hold {

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
@@ -205,44 +204,75 @@ func (h Hold) Delivered(outcome Outcome) (Hold, Next) {
 		return h, NextNothing
 	}
 
-	err := outcome.Err
-
-	refusal, refused := errors.AsType[loop.GateRefusalError](err)
-
-	switch {
-	case err == nil || errors.Is(err, loop.ErrUnconfirmed):
-		return h.ended(StagePosted, err), NextNothing
-	case refused && errors.Is(err, loop.ErrCIFailed):
-		return h.refusedByGate(refusal, outcome.At), NextReadLater
-	case toTryAgain(err):
-		return h.reclaimedFrom(err).unheard(err, outcome.At)
-	case errors.Is(err, loop.ErrAnnouncedAlready):
-		return h.ended(StageElsewhere, err), NextNothing
-	default:
-		return h.ended(StageDropped, err), NextNothing
-	}
+	return afterPost(outcome.Kind)(h, outcome)
 }
 
-// toTryAgain reports whether err, a post's outcome, is one to try again
-// past: the gate could not read CI, the store could not take the claim, or
-// the service asked the post to wait. A post that may have gone out never is,
-// whatever else it wraps: a rate limit whose claim could not be given up
-// keeps it, so a second try would only find it held.
-func toTryAgain(err error) bool {
-	if errors.Is(err, loop.ErrPostUncertain) {
-		return false
+// afterPost is how a hold steps on a post that went as kind. It tries again
+// only past what a wait can change: CI the gate could not read, a claim the
+// store could not take, or a service that asked it to wait. One that may
+// have gone out never is: its claim is kept, so a second try would only find
+// it held. A map, not a switch, so exhaustive names a kind added later until
+// it is placed here; one with no entry, of no kind loop.Deliver names, drops
+// the hold.
+func afterPost(kind loop.Delivered) func(Hold, Outcome) (Hold, Next) {
+	step, placed := map[loop.Delivered]func(Hold, Outcome) (Hold, Next){
+		loop.DeliveredFailed:            Hold.droppedOn,
+		loop.DeliveredPosted:            Hold.postedOn,
+		loop.DeliveredUnconfirmed:       Hold.postedOn,
+		loop.DeliveredCIFailed:          Hold.awaitingFixOn,
+		loop.DeliveredCIUnread:          Hold.triedAgainOn,
+		loop.DeliveredNotClaimed:        Hold.triedAgainOn,
+		loop.DeliveredElsewhere:         Hold.elsewhereOn,
+		loop.DeliveredRefused:           Hold.droppedOn,
+		loop.DeliveredDeferred:          Hold.triedAgainOn,
+		loop.DeliveredDeferredUnclaimed: Hold.triedAgainOn,
+		loop.DeliveredUncertain:         Hold.droppedOn,
+	}[kind]
+	if !placed {
+		return Hold.droppedOn
 	}
 
-	return errors.Is(err, loop.ErrCIUnread) || errors.Is(err, loop.ErrNotClaimed) ||
-		errors.Is(err, httpx.ErrRateLimited)
+	return step
 }
 
-// reclaimedFrom is a hold asked for again whose post, which failed with err,
+// postedOn is the hold posted by outcome, the store's failure to confirm it,
+// if any, kept as its reason.
+func (h Hold) postedOn(outcome Outcome) (Hold, Next) {
+	return h.ended(StagePosted, outcome.Err), NextNothing
+}
+
+// awaitingFixOn is the hold waiting on a fix the gate's refusal in outcome
+// says is needed.
+func (h Hold) awaitingFixOn(outcome Outcome) (Hold, Next) {
+	refusal, _ := errors.AsType[loop.GateRefusalError](outcome.Err)
+
+	return h.refusedByGate(refusal, outcome.At), NextReadLater
+}
+
+// triedAgainOn is the hold waiting past outcome's failure, which a wait can
+// change, within UnheardPatience.
+func (h Hold) triedAgainOn(outcome Outcome) (Hold, Next) {
+	return h.reclaimedFrom(outcome.Kind).unheard(outcome.Err, outcome.At)
+}
+
+// elsewhereOn is the hold whose announcement outcome found claimed
+// elsewhere first.
+func (h Hold) elsewhereOn(outcome Outcome) (Hold, Next) {
+	return h.ended(StageElsewhere, outcome.Err), NextNothing
+}
+
+// droppedOn is the hold dropped on outcome, the claim kept or given up as
+// loop.Deliver decided.
+func (h Hold) droppedOn(outcome Outcome) (Hold, Next) {
+	return h.ended(StageDropped, outcome.Err), NextNothing
+}
+
+// reclaimedFrom is a hold asked for again whose post, which went as kind,
 // re-claimed it: its next post re-claims from the generation that one took.
-// A post refused by the service is the one way it tries again having taken
-// the claim, which loop.Redeliver keeps; any other hold is unchanged.
-func (h Hold) reclaimedFrom(err error) Hold {
-	if h.arming.Seen > 0 && errors.Is(err, loop.ErrNotDelivered) {
+// A post the service asked to wait is the one way it tries again having
+// taken the claim, which loop.Redeliver keeps; any other hold is unchanged.
+func (h Hold) reclaimedFrom(kind loop.Delivered) Hold {
+	if h.arming.Seen > 0 && kind == loop.DeliveredDeferred {
 		h.arming.Seen++
 	}
 

@@ -33,7 +33,8 @@ func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	m.messaging.postNow, _ = m.messaging.postNow.Sent()
 
 	return m, func() tea.Msg {
-		err := refusedAt(delivery.Moment, withFailedChecks(loop.Deliver(ctx, seams, memory, delivery)))
+		_, err := loop.Deliver(ctx, seams, memory, delivery)
+		err = refusedAt(delivery.Moment, withFailedChecks(err))
 
 		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, outcome: outcomeOf(err), err: err}
 	}

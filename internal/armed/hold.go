@@ -143,9 +143,10 @@ type Failure struct {
 }
 
 // Outcome is how a post of the held delivery in round went, at At:
-// loop.Deliver's answer.
+// loop.Deliver's answer, the kind it named and the error that says why.
 type Outcome struct {
 	Round int
+	Kind  loop.Delivered
 	Err   error
 	At    time.Time
 }

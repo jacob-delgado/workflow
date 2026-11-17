@@ -80,7 +80,7 @@ func TestAClaimWhosePostWasNeverConfirmedReadsUnconfirmedAndIsNotPosted(t *testi
 
 	// Act
 	records, readErr := next.Announced(t.Context())
-	deliverErr := loop.Deliver(t.Context(), posting(&posts), claimsOf(next), readyAt7())
+	_, deliverErr := loop.Deliver(t.Context(), posting(&posts), claimsOf(next), readyAt7())
 
 	// Assert
 	open := forge.PullRequest{Number: 7, State: forge.StateOpen}
@@ -111,7 +111,7 @@ func TestTwoProcessesDeliveringOneAnnouncementPostItOnce(t *testing.T) {
 	)
 
 	deliver := func(store seams.Store) {
-		_ = loop.Deliver(context.Background(), posting(&posts), claimsOf(store), readyAt7())
+		_, _ = loop.Deliver(context.Background(), posting(&posts), claimsOf(store), readyAt7())
 	}
 
 	// Act
@@ -167,8 +167,8 @@ func TestNoCredentialReachesAnAnnouncementsRow(t *testing.T) {
 	merged.Moment = messaging.MomentMerged
 
 	// Act
-	_ = loop.Deliver(t.Context(), posting(&posts), claimsOf(deps), readyAt7())
-	_ = loop.Redeliver(t.Context(), posting(&posts), claimsOf(deps), readyAt7(), 1)
+	_, _ = loop.Deliver(t.Context(), posting(&posts), claimsOf(deps), readyAt7())
+	_, _ = loop.Redeliver(t.Context(), posting(&posts), claimsOf(deps), readyAt7(), 1)
 	_, _ = deps.ClaimAnnounce(t.Context(), merged.Made())
 	_ = deps.ReleaseAnnounce(t.Context(), merged.Made(), 1)
 

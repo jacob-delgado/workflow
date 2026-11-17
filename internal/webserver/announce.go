@@ -191,7 +191,7 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 
 	var warning string
 
-	err := loop.Deliver(ctx, s.deliverSeams(), post.memory, post.delivery)
+	_, err := loop.Deliver(ctx, s.deliverSeams(), post.memory, post.delivery)
 	if _, unconfirmed := loop.UnconfirmedReason(err); unconfirmed {
 		// Why the store could not goes to the log alone: its error can name
 		// the file.
