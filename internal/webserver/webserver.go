@@ -220,7 +220,7 @@ type server struct {
 	opened *openedPulls
 
 	// issuesHeld is each view's first page of issues, held for an interval.
-	issuesHeld issuesCache
+	issuesHeld *issuesCache
 
 	// assigned is which of the branches' issues the tracker last said are yours.
 	assigned assignedCache

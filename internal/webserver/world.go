@@ -266,7 +266,7 @@ func (w *worlds) install(world World) (*server, error) {
 	srv := &server{
 		deps: world.Deps, info: world.Info, files: world.Config.Layers(), cfg: inEffect, seen: seen,
 		forgeKind: world.Info.ForgeKind, opened: newOpenedPulls(), worlds: w, retired: make(chan struct{}),
-		forgeAnswer: newForgeCache(),
+		forgeAnswer: newForgeCache(), issuesHeld: newIssuesCache(),
 	}
 	srv.Handlers = srv.taskHandlers()
 	srv.Runner = runs.New(runs.Seams{Git: world.Deps.Git, Hooks: world.Deps.Hooks},
