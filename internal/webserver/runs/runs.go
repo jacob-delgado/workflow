@@ -9,7 +9,6 @@ import (
 	"errors"
 	"net/http"
 	"slices"
-	"sync"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -37,23 +36,6 @@ var (
 	errHookNotRunnable = errors.New("that hook is not one lefthook runs by hand here; " +
 		"GET /api/hooks lists those it does")
 )
-
-// runSlot is the one git run going, if any: POST /api/runs claims it before it
-// starts a program and frees it once the run has said how it ended, unless
-// the next run has taken it by then. Its lock is its own, since the stream
-// reads it while the run writes to it.
-type runSlot struct {
-	mu    sync.Mutex
-	going *goingRun
-}
-
-// goingRun is the run going now: how it stands, how to stop it once its
-// program has started, and whether it was asked to stop.
-type goingRun struct {
-	run     api.Run
-	stop    func()
-	stopped bool
-}
 
 // plannedRun is a run ready to start: what it is, how to start its program, and
 // what it says once it has ended either way.
@@ -93,14 +75,14 @@ func (r *Runner) StartRun(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	claimed := r.claimRun(planned)
-	if claimed == nil {
+	claim, claimed := r.claimRun(planned)
+	if !claimed {
 		problem.Write(w, api.ProblemCodeConflict, errRunGoing.Error())
 
 		return
 	}
 
-	defer r.freeRun(claimed)
+	defer r.freeRun(claim)
 
 	r.runHoldingTheIndex(ctx, w, asked)
 }
@@ -278,39 +260,28 @@ func (r *Runner) foldable(ctx context.Context) ([]gitrepo.Commit, error) {
 	return foldable, nil
 }
 
-// claimRun makes planned the run going and answers it, or nil when one is
-// going already. A run that has ended is going no longer, though it holds the
-// slot until it has said so, so the next run a page asks for the moment it
-// reads that end takes the slot from it, and waits for the index.
-func (r *Runner) claimRun(planned plannedRun) *goingRun {
+// claimRun makes planned the run going and answers the number of its claim,
+// or false when one is going already. A run that has ended is going no
+// longer, though it holds the slot until it has said so, so the next run a
+// page asks for the moment it reads that end takes the slot from it, and
+// waits for the index.
+func (r *Runner) claimRun(planned plannedRun) (int, bool) {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	if r.run.going.isGoing() {
-		return nil
-	}
+	next, claim, claimed := r.run.state.claimed(planned)
+	r.run.state = next
 
-	r.run.going = &goingRun{run: api.Run{
-		Kind: planned.kind, Title: planned.title, State: api.RunStateInProgress, Lines: []string{}, Outcome: "",
-	}}
-
-	return r.run.going
+	return claim, claimed
 }
 
-// isGoing reports a run that has not ended; nil is none.
-func (g *goingRun) isGoing() bool {
-	return g != nil && g.run.State == api.RunStateInProgress
-}
-
-// freeRun lets the next run start, unless claimed, the run ending, has had
-// the slot taken from it already.
-func (r *Runner) freeRun(claimed *goingRun) {
+// freeRun lets the next run start, unless claim, the run ending, has had the
+// slot taken from it already.
+func (r *Runner) freeRun(claim int) {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	if r.run.going == claimed {
-		r.run.going = nil
-	}
+	r.run.state = r.run.state.freed(claim)
 }
 
 // streamRun writes the run as it starts, each line its program writes as it
@@ -342,12 +313,14 @@ func (r *Runner) runStarted(stop func()) *api.Run {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	r.run.going.stop = stop
-	if r.run.going.stopped {
+	next, stopNow := r.run.state.started(stop)
+	r.run.state = next
+
+	if stopNow {
 		stop()
 	}
 
-	started := r.run.going.run
+	started := next.run
 
 	return &started
 }
@@ -357,29 +330,16 @@ func (r *Runner) addRunLine(line string) {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	r.run.going.run.Lines = append(r.run.going.run.Lines, line)
+	r.run.state = r.run.state.wrote(line)
 }
 
-// runEnded records how the run ended — stopped, refused or passed — and
-// answers it whole. A run asked to stop was stopped only when its program did
-// not pass: a stop kills it, which no program passes through, so one that
-// passed had ended before the stop reached it.
+// runEnded records how the run ended and answers it whole.
 func (r *Runner) runEnded(planned plannedRun, exit error) *api.Run {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	going := r.run.going
-
-	switch {
-	case going.stopped && exit != nil:
-		going.run.State, going.run.Outcome = api.RunStateStopped, "Stopped "+planned.title+"."
-	case exit != nil:
-		going.run.State, going.run.Outcome = api.RunStateRefused, planned.refused
-	default:
-		going.run.State, going.run.Outcome = api.RunStateSucceeded, planned.succeeded
-	}
-
-	ended := going.run
+	next, ended := r.run.state.ended(planned, exit)
+	r.run.state = next
 
 	return &ended
 }
@@ -390,14 +350,7 @@ func (r *Runner) RunShown() *api.Run {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	if r.run.going == nil {
-		return nil
-	}
-
-	shown := r.run.going.run
-	shown.Lines = slices.Clone(shown.Lines[max(0, len(shown.Lines)-runTail):])
-
-	return &shown
+	return r.run.state.shown()
 }
 
 // StopRun stops the run going — its program's whole process group — as the
@@ -407,16 +360,15 @@ func (r *Runner) StopRun(context.Context, api.StopRunRequestObject) (api.StopRun
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	going := r.run.going
-	if !going.isGoing() {
+	next, stop, going := r.run.state.stopAsked()
+	if !going {
 		return api.StopRun404ApplicationProblemPlusJSONResponse(
 			problem.New(api.ProblemCodeNotFound, errNoRunGoing.Error())), nil
 	}
 
-	going.stopped = true
-	if going.stop != nil {
-		going.stop()
-	}
+	r.run.state = next
+
+	stop()
 
 	return api.StopRun204Response{}, nil
 }
