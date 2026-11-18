@@ -1957,3 +1957,27 @@ before the edit.
 **Reopen when.** A user reports a hand edit that the page did not take up
 until Settings opened, or the stream comes to read the file for another
 reason.
+
+### TRADE-76 A late list find can erase a fresher failed search
+
+**Decided.** 2026-11-17 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: the Tasks list of `--web`,
+which searches for Taskwarrior each time it is read, lets go of the event
+stream's held search whenever its own search finds Taskwarrior
+(`listDetection` and `detection.forgotten`,
+`internal/webserver/tasks/tasks.go`), whenever that search began. A list
+search that began before a stream's search that found none, and lands after
+it, erases that fresher failure, and the next frame searches again rather
+than serve the failure for the rest of `taskwarriorHold`. Ordering the two
+would number the list's searches too, and hold its letting go to a search
+begun after the last one the stream held: a round in the list's path for a
+case where one search, run once, settles it.
+
+**Cost.** One search for Taskwarrior that the hold would have spared, run
+by the next frame, at most once for each such list read. It runs every task
+program on PATH, as each search does, and says what it finds, so the page
+never shows a wrong answer for longer than that search.
+
+**Reopen when.** A search for Taskwarrior comes to cost enough that one more
+matters, or a user reports the Tasks section going back and forth between
+found and not found.
