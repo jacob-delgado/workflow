@@ -80,7 +80,9 @@ func Open(goos, service string, run Runner, currentUser UserLookup, getenv func(
 // secret is never one of the program's arguments. It requires an account name,
 // and the secret is stored under the login name of the user running this
 // program: currentUser's, or getenv's $USER where that lookup fails or gives
-// none.
+// none. The secret is then read back, since whether security -i exits 0 after
+// a command it failed cannot be relied on: an item that does not hold secret
+// afterwards is ErrNotKept. The cost is one more run of security per store.
 func (i Item) Store(ctx context.Context, secret string) error {
 	account, err := accountName(i.currentUser, i.getenv)
 	if err != nil {
@@ -97,7 +99,7 @@ func (i Item) Store(ctx context.Context, secret string) error {
 		return failed(ErrNotKept, err)
 	}
 
-	return nil
+	return i.holds(ctx, account, secret)
 }
 
 // failed is why security did not do what it was asked, as outcome, told by
@@ -119,9 +121,7 @@ func (i Item) Read(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	args := []string{"find-generic-password", "-a", account, "-s", i.service, "-w"}
-
-	output, err := i.security(ctx, args, nil)
+	output, err := i.find(ctx, account)
 	if code, _, exited := proc.Failure(err); exited && code == itemNotFound {
 		return "", fmt.Errorf("%w: %s", ErrNotStored, i.service)
 	}
@@ -131,6 +131,33 @@ func (i Item) Read(ctx context.Context) (string, error) {
 	}
 
 	return strings.TrimRight(string(output), "\n"), nil
+}
+
+// find runs security to find the secret the item holds for account.
+func (i Item) find(ctx context.Context, account string) ([]byte, error) {
+	args := []string{"find-generic-password", "-a", account, "-s", i.service, "-w"}
+
+	return i.security(ctx, args, nil)
+}
+
+// holds reports an item that does not hold secret for account, read back, as
+// ErrNotKept alone: told by the read's exit status, as failed tells it, or by
+// the mismatch, never with what the item holds or secret in the error. It is
+// never Read's ErrNotRead or ErrNotStored, which a caller may answer by saving
+// again once the keychain is unlocked: the store has been made by now, and
+// one that spent something to make it, as a Slack refresh spends its refresh
+// token, cannot be made again.
+func (i Item) holds(ctx context.Context, account, secret string) error {
+	output, err := i.find(ctx, account)
+	if err != nil {
+		return failed(fmt.Errorf("%w: reading it back", ErrNotKept), err)
+	}
+
+	if strings.TrimRight(string(output), "\n") != secret {
+		return fmt.Errorf("%w: %s holds another secret", ErrNotKept, i.service)
+	}
+
+	return nil
 }
 
 // security runs security with args, input on its standard input, bounded as

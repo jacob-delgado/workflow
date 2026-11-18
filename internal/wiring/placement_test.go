@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -284,6 +285,40 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) || strings.Contains(err.Error(), typedSecret) {
 		t.Errorf("Place = %v; want ErrNotKept with no secret in it", err)
+	}
+}
+
+func TestPlacingAPairTheKeychainCannotReadBackIsNotKeptRatherThanUnreadable(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack := &slackRefreshes{answer: renewedPair}
+	// The keychain reads what it keeps and takes the new pair, then cannot
+	// read it back: Slack has spent the typed refresh token by then, so the
+	// pair is not kept, which saving again cannot mend as unlocking would.
+	var stored atomic.Bool
+
+	readsBackNothing := func(_ context.Context, program proc.Command, _ []byte) ([]byte, error) {
+		switch {
+		case program.Args[0] == "-i":
+			stored.Store(true)
+
+			return nil, nil
+		case stored.Load():
+			return nil, errKeychainLocked
+		default:
+			return []byte(keptPair + "\n"), nil
+		}
+	}
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOSRunning(readsBackNothing))
+
+	// Act
+	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotKept) || errors.Is(err, keychain.ErrNotRead) ||
+		strings.Contains(err.Error(), typedSecret) {
+		t.Errorf("Place = %v; want ErrNotKept, not ErrNotRead, with no secret in it", err)
 	}
 }
 

@@ -32,14 +32,86 @@ type ran struct {
 	input   string
 }
 
-// recordingRunner is a Runner that records what it is asked to run and answers
-// with err.
+// recordingRunner is a Runner that records what it is asked to run and
+// answers with err, or, where err is nil, as a security that keeps what it is
+// handed does.
 func recordingRunner(runs *[]ran, err error) keychain.Runner {
-	return func(_ context.Context, program proc.Command, input []byte) ([]byte, error) {
+	keeping := securityKeeping()
+
+	return func(ctx context.Context, program proc.Command, input []byte) ([]byte, error) {
 		*runs = append(*runs, ran{program: program, input: string(input)})
 
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+
+		return keeping(ctx, program, input)
 	}
+}
+
+// securityKeeping is a fake security that keeps the secret each
+// add-generic-password line on its input hands it, under that line's service,
+// and answers find-generic-password -w with the secret kept under the service
+// asked for, or exits 44 where none is.
+func securityKeeping() keychain.Runner {
+	kept := map[string]string{}
+
+	return func(_ context.Context, program proc.Command, input []byte) ([]byte, error) {
+		if program.Args[0] == "-i" {
+			words := securityWords(string(input))
+			kept[wordAfter(words, "-s")] = wordAfter(words, "-w")
+
+			return nil, nil
+		}
+
+		secret, ok := kept[wordAfter(program.Args, "-s")]
+		if !ok {
+			return nil, exitedWith(44)
+		}
+
+		return []byte(secret + "\n"), nil
+	}
+}
+
+// securityWords splits a line of security's input into its words, as its own
+// parser does: a double-quoted word may hold spaces, and a backslash takes the
+// next character as it is.
+func securityWords(line string) []string {
+	var (
+		words           []string
+		word            strings.Builder
+		quoted, escaped bool
+	)
+
+	for _, char := range strings.TrimSuffix(line, "\n") {
+		switch {
+		case escaped:
+			escaped = false
+
+			word.WriteRune(char)
+		case char == '\\':
+			escaped = true
+		case char == '"':
+			quoted = !quoted
+		case char == ' ' && !quoted:
+			words = append(words, word.String())
+			word.Reset()
+		default:
+			word.WriteRune(char)
+		}
+	}
+
+	return append(words, word.String())
+}
+
+// wordAfter is the word that follows flag in words, or "" where none does.
+func wordAfter(words []string, flag string) string {
+	at := slices.Index(words, flag)
+	if at < 0 || at+1 == len(words) {
+		return ""
+	}
+
+	return words[at+1]
 }
 
 // loggedInAs is a user lookup that finds a user whose login name is name.
@@ -117,9 +189,9 @@ func TestStorerSavesUnderTheServiceNamedUpdatably(t *testing.T) {
 		program: proc.Command{Name: securityProgram, Args: []string{"-i"}},
 		input:   `add-generic-password -U -a "jacob" -s "workflow-jira https://jira.example.com" -w "s3cret"` + "\n",
 	}
-	if len(runs) != 1 || runs[0].program.Name != want.program.Name ||
+	if len(runs) != 2 || runs[0].program.Name != want.program.Name ||
 		!slices.Equal(runs[0].program.Args, want.program.Args) || runs[0].input != want.input {
-		t.Errorf("store ran %+v, want %+v once", runs, want)
+		t.Errorf("store ran %+v, want %+v, then the secret read back", runs, want)
 	}
 }
 
@@ -135,8 +207,8 @@ func TestStorerKeepsTheSecretOutOfTheArguments(t *testing.T) {
 	err := store(t.Context(), jiraItem, "s3cret")
 
 	// Assert
-	if err != nil || len(runs) != 1 {
-		t.Fatalf("store ran %d programs, %v; want one", len(runs), err)
+	if err != nil || len(runs) != 2 {
+		t.Fatalf("store ran %d programs, %v; want the store and its read back", len(runs), err)
 	}
 
 	for _, arg := range append([]string{runs[0].program.Name}, runs[0].program.Args...) {
@@ -177,8 +249,8 @@ func TestStorerQuotesTheSecretForSecurity(t *testing.T) {
 
 			// Assert
 			want := `add-generic-password -U -a "jacob" -s "` + jiraItem + `" -w ` + secret.quoted + "\n"
-			if err != nil || len(runs) != 1 || runs[0].input != want {
-				t.Errorf("store(%q) sent %+v, %v; want the line %q", secret.plain, runs, err, want)
+			if err != nil || len(runs) != 2 || runs[0].input != want {
+				t.Errorf("store(%q) sent %+v, %v; want the line %q, then a read back", secret.plain, runs, err, want)
 			}
 		})
 	}
@@ -265,10 +337,11 @@ func TestStorerBoundsSecurityByTheDefaultRunTimeout(t *testing.T) {
 		bounded  bool
 	)
 
-	runner := func(ctx context.Context, _ proc.Command, _ []byte) ([]byte, error) {
+	keeping := securityKeeping()
+	runner := func(ctx context.Context, program proc.Command, input []byte) ([]byte, error) {
 		deadline, bounded = ctx.Deadline()
 
-		return nil, nil
+		return keeping(ctx, program, input)
 	}
 	store := keychain.Storer("darwin", runner, loggedInAs("jacob"), userIs(""))
 	before := time.Now()
@@ -317,8 +390,8 @@ func TestStorerNamesTheAccountAfterTheUser(t *testing.T) {
 
 			// Assert
 			want := "add-generic-password -U -a " + tt.account + ` -s "` + jiraItem + `" -w "s3cret"` + "\n"
-			if err != nil || len(runs) != 1 || runs[0].input != want {
-				t.Errorf("store sent %+v, %v; want the line %q", runs, err, want)
+			if err != nil || len(runs) != 2 || runs[0].input != want {
+				t.Errorf("store sent %+v, %v; want the line %q, then a read back", runs, err, want)
 			}
 		})
 	}

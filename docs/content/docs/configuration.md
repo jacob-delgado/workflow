@@ -381,7 +381,8 @@ item, use Keychain Access, or
 workflow gives each run of `security` 30 seconds, whether it keeps a token or
 reads one. When the keychain is locked, macOS asks you to unlock it: answer
 within those 30 seconds, or the save or the read fails, and the next one asks
-again.
+again. A token kept is read back at once, and one the keychain does not then
+hold is reported as not kept, whatever `security` said of the store.
 
 Elsewhere workflow drives no keychain, and `jira.keychain` gives no token. On
 Linux, store the token once and point `token_command` at it by hand:
