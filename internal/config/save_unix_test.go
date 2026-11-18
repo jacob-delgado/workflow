@@ -10,7 +10,7 @@ package config_test
 // save is refused with the reason, the part written is removed, and the
 // configuration is left as it was. A limit on the size of the files the process
 // may write is what fails the write here: it holds for every write the process
-// makes, so the test runs alone and lifts it the moment Save returns.
+// makes, so the test runs alone and lifts it the moment ReplaceFile returns.
 //
 // The limit is far past the size of anything else the process writes meanwhile,
 // go test's own record of the files a test opens among them: at a byte, a flush
@@ -48,13 +48,13 @@ func TestASaveCutShortLeavesTheConfigurationAsItWas(t *testing.T) {
 	lift := rlimit.Lower(t, syscall.RLIMIT_FSIZE, fileSizeLimit)
 
 	// Act
-	err := config.Save(path, tooLong)
+	err := replaceFile(path, tooLong)
 
 	lift()
 
 	// Assert
 	if !errors.Is(err, syscall.EFBIG) || !strings.Contains(err.Error(), config.FileName) {
-		t.Errorf("Save = %v, want the write's own failure, naming the file", err)
+		t.Errorf("ReplaceFile = %v, want the write's own failure, naming the file", err)
 	}
 
 	contents, readErr := os.ReadFile(path)

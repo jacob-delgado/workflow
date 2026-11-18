@@ -72,7 +72,7 @@ func storedConfig(t *testing.T) config.Config {
 	cfg.Jira.BaseURL = jiraBaseURL
 	cfg.Jira.Token = storedJiraToken
 
-	err := config.Save(cfg.Path, cfg)
+	_, err := config.ReplaceFile(config.SaveLocksIn(""), cfg.Path, cfg)
 	if err != nil {
 		t.Fatalf("writing the file: %v", err)
 	}

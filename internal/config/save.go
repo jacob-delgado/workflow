@@ -90,18 +90,6 @@ func revisionOfContents(contents []byte) Revision {
 	return Revision{digest: [sha256.Size]byte(mac.Sum(nil)), exists: true}
 }
 
-// Save writes the configuration to path at FileMode, replacing whatever is
-// there, or the file a link there points at. The new file is made in the
-// directory of the file it replaces, so that directory must be writable too.
-func Save(path string, cfg Config) error {
-	err := writePrivate(path, indented(cfg))
-	if err != nil {
-		return fmt.Errorf("writing %s: %w", path, err)
-	}
-
-	return nil
-}
-
 // Create writes the configuration to a new file at path, at FileMode, and
 // writes nothing when anything is already there, a link included, so a link
 // planted where the file goes cannot steer its credentials elsewhere. The
