@@ -6,7 +6,6 @@ package setup_test
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,28 +33,20 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 
 	// Arrange
 	// The fixture that starts git: a repository made where the file is written.
-	// A hook or a rebase's exec in a linked worktree names that worktree's git
-	// directory, whose configuration is the shared repository's: a git init
-	// there marks the shared repository bare.
 	fixtures := []string{"TestWriteNamesAFileGitWouldCommit"}
 
-	named := t.TempDir()
-	gittest.Run(t, named, "init", "--quiet")
-	gittest.Run(t, named, "-c", "user.name=Tester", "-c", "user.email=t@example.com",
-		"commit", "--quiet", "--allow-empty", "-m", "first")
-	gittest.Run(t, named, "worktree", "add", "--quiet", "--detach", t.TempDir())
-
-	before := gittest.FilesUnder(t, named)
+	hooked := gittest.LinkedWorktreeHook(t)
+	before := gittest.FilesUnder(t, hooked.Repo)
 
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^("+strings.Join(fixtures, "|")+")$", "-test.v")
 
-	child.Env = append(os.Environ(), "GIT_DIR="+linkedGitDir(t, named))
+	child.Env = append(os.Environ(), hooked.Environment...)
 
 	// Act
 	output, err := child.CombinedOutput()
 
 	// Assert
-	if changed := gittest.ChangedFiles(before, gittest.FilesUnder(t, named)); len(changed) != 0 {
+	if changed := gittest.ChangedFiles(before, gittest.FilesUnder(t, hooked.Repo)); len(changed) != 0 {
 		t.Errorf("the tests wrote into the repository git's environment names: %q", changed)
 	}
 
@@ -68,16 +59,4 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 			t.Errorf("%s did not pass with git's environment naming another repository:\n%s", fixture, output)
 		}
 	}
-}
-
-// linkedGitDir is the git directory of the one linked worktree of repo.
-func linkedGitDir(t *testing.T, repo string) string {
-	t.Helper()
-
-	worktrees, err := os.ReadDir(filepath.Join(repo, ".git", "worktrees"))
-	if err != nil || len(worktrees) != 1 {
-		t.Fatalf("the linked worktree of %s: %v, %d found", repo, err, len(worktrees))
-	}
-
-	return filepath.Join(repo, ".git", "worktrees", worktrees[0].Name())
 }
