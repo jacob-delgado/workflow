@@ -32,6 +32,8 @@ callers' tests. Three tests drive no script here: `lefthook_test.sh` runs
 runs out of the workflow and runs it under node, and
 `release/packages-workflow_test.sh` reads the step `packages.yml` finds the
 latest release with out of the workflow and runs it under bash.
+`ci-gate_test.sh` also reads `ci.yml`'s jobs, holding ci-gate's `needs` and
+the skips it allows to them.
 
 - **The harness is `lib/testing.sh`**, sourced after the test's own
   `set -euo pipefail`. It makes a work directory removed on exit

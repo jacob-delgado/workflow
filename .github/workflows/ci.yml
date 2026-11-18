@@ -753,7 +753,11 @@ jobs:
   # matching settings change that nobody remembers to make — and a required check
   # whose name no longer matches any job blocks every pull request permanently,
   # including the one that would fix it. One indirection removes that whole class
-  # of mistake: add a job here, add it to `needs`, and protection keeps working.
+  # of mistake: protection keeps working whatever the jobs are named.
+  # scripts/ci-gate_test.sh holds `needs` to every job but the three reporting
+  # ones below, and the skips ci-gate.sh allows to each job's `if:`, so a job
+  # added without its `needs` entry, or skipped on a condition the gate does
+  # not allow, fails the test.
   ci-gate:
     name: ci-gate
     needs: [changes, lint, test, scripts, branch-coverage, web, e2e, e2e-engines, e2e-server, cross, scan, commit-lint]
