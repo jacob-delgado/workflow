@@ -157,8 +157,9 @@ func pause(ctx context.Context, wait time.Duration) error {
 // each as a post asked for now says it; given up on, for why. Drive ends a
 // hold only so.
 func heldOutcome(notes console.Notes, seams announceSeams, pull string, final armed.Hold) error {
-	if final.Stage() == armed.StageDropped && gaveUpWaiting(final.Reason()) {
-		return gaveUp(final.Reason(), pull, seams.Messaging.Service())
+	worded, gaveUpOn := gaveUp(final.Reason(), pull, seams.Messaging.Service())
+	if final.Stage() == armed.StageDropped && gaveUpOn {
+		return worded
 	}
 
 	answer := postAnswer{kind: final.LastPost(), err: final.Reason()}
@@ -166,41 +167,36 @@ func heldOutcome(notes console.Notes, seams announceSeams, pull string, final ar
 	return postOutcome(notes, seams, pull, final.Delivery().Moment, answer)
 }
 
-// gaveUpWaiting reports whether reason, why a hold was dropped, is one the
-// wait gave up on before anything was posted: no check reported, CI that ran
-// unchanged for too long, the pull request no longer the one, merged or
-// merging first, or nothing heard for too long.
-func gaveUpWaiting(reason error) bool {
-	return errors.Is(reason, armed.ErrNoCI) || errors.Is(reason, armed.ErrRunningTooLong) ||
-		errors.Is(reason, armed.ErrPullChanged) || errors.Is(reason, armed.ErrMergedFirst) ||
-		errors.Is(reason, armed.ErrMergingFirst) ||
-		errors.Is(reason, armed.ErrUnheard)
-}
-
 // gaveUp words why a wait for the CI of pull gave up without announcing to
-// service: no check reported, CI that ran unchanged for too long, the pull
-// request merged or merging first or no longer the one to announce, or
-// nothing heard of it for too long.
-func gaveUp(reason error, pull, service string) error {
+// service, and reports whether reason, why a hold was dropped, is one the
+// wait gave up on before anything was posted: no check reported, CI that ran
+// unchanged for too long, the pull request merged or merging first or no
+// longer the one to announce, or nothing heard of it for too long. Any other
+// reason is no giving up, and has no words here.
+func gaveUp(reason error, pull, service string) (forgeWordedError, bool) {
 	patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
 
 	switch {
 	case errors.Is(reason, armed.ErrNoCI):
 		return forgeWordedError{armed.ErrNoCI, "no checks were reported on " + pull + " within " + patience +
-			"; if the repository has no CI, announce it by hand with workflow announce"}
+			"; if the repository has no CI, announce it by hand with workflow announce"}, true
 	case errors.Is(reason, armed.ErrRunningTooLong):
 		return forgeWordedError{armed.ErrRunningTooLong, "CI on " + pull + " has been running for " +
-			strconv.Itoa(int(armed.RunningPatience.Hours())) + "h; not announced"}
+			strconv.Itoa(int(armed.RunningPatience.Hours())) + "h; not announced"}, true
 	case errors.Is(reason, armed.ErrMergedFirst):
-		return forgeWordedError{armed.ErrMergedFirst, pull + " merged before its CI passed, so it was not announced"}
+		return forgeWordedError{armed.ErrMergedFirst, pull + " merged before its CI passed, so it was not announced"},
+			true
 	case errors.Is(reason, armed.ErrMergingFirst):
 		return forgeWordedError{
 			armed.ErrMergingFirst, pull + " began merging before its CI passed, so it was not announced",
-		}
+		}, true
 	case errors.Is(reason, armed.ErrPullChanged):
-		return forgeWordedError{armed.ErrPullChanged, pull + " is no longer this branch's, so it was not announced"}
+		return forgeWordedError{armed.ErrPullChanged, pull + " is no longer this branch's, so it was not announced"},
+			true
+	case errors.Is(reason, armed.ErrUnheard):
+		return unheardFor(reason, pull, service), true
 	default:
-		return unheardFor(reason, pull, service)
+		return forgeWordedError{}, false
 	}
 }
 
@@ -210,7 +206,7 @@ func gaveUp(reason error, pull, service string) error {
 // and as a refused precondition where it is in none a script can try again
 // on: a forge it could not reach, or one that asked it to wait, is not
 // refused.
-func unheardFor(reason error, pull, service string) error {
+func unheardFor(reason error, pull, service string) forgeWordedError {
 	unheard, _ := errors.AsType[armed.UnheardError](reason)
 	patience := strconv.Itoa(int(armed.UnheardPatience.Minutes())) + "m"
 	last := sanitize.Line(unheard.Last.Error())
