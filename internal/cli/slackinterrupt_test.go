@@ -5,8 +5,9 @@ package cli_test
 
 // A Slack request that goes on when its asker leaves (the directory's read,
 // which others may share, and a token's refresh, which must not stop between
-// Slack's answer and keeping it) still ends with the command: SIGINT and
-// SIGTERM cancel what every command runs.
+// Slack's answer and keeping it) still ends with the command, and so does a
+// login's refresh, which runs under the command itself: SIGINT and SIGTERM
+// cancel what every command runs.
 
 import (
 	"context"
@@ -144,4 +145,52 @@ func TestACtrlCStopsASlackRequestThatOutlastsItsAsker(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestACtrlCStopsASlackLoginsRefresh(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A login's refresh and keep end with the command, as every renewal's
+	// do: a Ctrl+C once Slack has taken the refresh token typed can lose the
+	// pair it gives, which TRADE-38's Cost names, rather than leave a hung
+	// Slack holding the Ctrl+C.
+	command, interrupt := context.WithCancel(t.Context())
+	defer interrupt()
+
+	slack := interruptingSlack(t, slackRefresh, interrupt)
+	dir := t.TempDir()
+	contents := `{` + patientTiming + `,"messaging": {"kind": "slack", "client_id": "` + clitest.SlackClientID +
+		`", "client_secret": "client-secret-old", "channel": "#dev"}}`
+	path := clitest.WriteFile(t, dir, contents)
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: dir, Home: t.TempDir()})
+	root := cli.NewRootCmdOver(loginTyped(), nil, nil, env)
+	root.SetArgs([]string{"slack", "login"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+
+	returned := make(chan struct{})
+
+	t.Cleanup(func() { <-returned })
+
+	// Act
+	go func() {
+		defer close(returned)
+
+		err = root.ExecuteContext(command)
+	}()
+
+	// Assert
+	slack.awaitAsked(t)
+
+	select {
+	case <-returned:
+	case <-time.After(signalPatience):
+		t.Fatalf("slack login ran on %v after it was interrupted, want it stopped", signalPatience)
+	}
+
+	wantExit(t, err, 130)
+	unchanged(t, path, contents)
 }
