@@ -469,8 +469,14 @@ names `messaging.client_id`, and a post says to run `workflow slack login`
 again.
 
 Every post asks for the token anew and refreshes it when it has less than ten
-minutes left, and once more if Slack still calls it expired. Two workflows
-running at once — the terminal and `--web`, say — take turns through a lock
+minutes left, and once more if Slack still calls it expired. Slack spends the
+refresh token as it answers, so a refresh first checks that where the token is
+kept takes a write: the keychain stores and deletes an item of its own,
+`workflow-slack-probe`, and the file must parse and have a file made beside
+it. Where it does not, the post is refused with nothing spent and the token as
+it was: unlock the keychain, make the file's directory writable, or fix a
+file that does not parse, then post again. Two
+workflows running at once — the terminal and `--web`, say — take turns through a lock
 the system holds on a file beside the store, so they never spend the same
 refresh token twice. `workflow slack login` and a Settings save that
 refreshes take the same lock, so a post never keeps its pair over the one they

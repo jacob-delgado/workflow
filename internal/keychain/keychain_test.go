@@ -51,8 +51,9 @@ func recordingRunner(runs *[]ran, err error) keychain.Runner {
 
 // securityKeeping is a fake security that keeps the secret each
 // add-generic-password line on its input hands it, under that line's service,
-// and answers find-generic-password -w with the secret kept under the service
-// asked for, or exits 44 where none is.
+// answers find-generic-password -w with the secret kept under the service
+// asked for, and delete-generic-password by forgetting it, exiting 44 where
+// none is kept.
 func securityKeeping() keychain.Runner {
 	kept := map[string]string{}
 
@@ -64,9 +65,17 @@ func securityKeeping() keychain.Runner {
 			return nil, nil
 		}
 
-		secret, ok := kept[wordAfter(program.Args, "-s")]
+		service := wordAfter(program.Args, "-s")
+
+		secret, ok := kept[service]
 		if !ok {
 			return nil, exitedWith(44)
+		}
+
+		if program.Args[0] == "delete-generic-password" {
+			delete(kept, service)
+
+			return nil, nil
 		}
 
 		return []byte(secret + "\n"), nil

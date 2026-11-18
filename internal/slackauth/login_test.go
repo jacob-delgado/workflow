@@ -41,7 +41,7 @@ func refusingKeychain(t *testing.T) keychain.Item {
 	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errSecurityRefused }
 
 	item, ok := keychain.Open("darwin", slackauth.KeychainService, refusing,
-		func() (*user.User, error) { return &user.User{Username: "jacob"}, nil }, func(string) string { return "" })
+		func() (*user.User, error) { return &user.User{Username: keychainUser}, nil }, func(string) string { return "" })
 	if !ok {
 		t.Fatal("no keychain item on darwin")
 	}
@@ -86,7 +86,7 @@ func TestAKeychainLoginNamesTheAppInTheHomeFile(t *testing.T) {
 
 	// Arrange
 	files := homeAndRepository(t)
-	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, files)
+	store := slackauth.KeychainStore(emptyKeychain(t), config.SaveLocks{}, files)
 	pair := pairExpiringIn(0)
 
 	// Act
@@ -141,7 +141,7 @@ func TestAKeychainLoginThatCannotNameTheAppKeepsNoPair(t *testing.T) {
 
 	// Arrange
 	files := config.Files{Home: configFile(t, `{"messaging": `)}
-	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, files)
+	store := slackauth.KeychainStore(emptyKeychain(t), config.SaveLocks{}, files)
 
 	// Act
 	err := store.KeepLogin(t.Context(), clientID, pairExpiringIn(0))

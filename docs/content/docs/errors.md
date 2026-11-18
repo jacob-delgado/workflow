@@ -172,7 +172,10 @@ answered as a read's failure is, under the code its cause belongs to. An
 announcement the messaging service refused, or one that could not be sent
 because messaging has no credential (none set, or a token its command or
 variable did not give) or its webhook is not https, is answered here too — never
-with the service's own error, which can name the webhook. So is a change to your
+with the service's own error, which can name the webhook. So is one whose Slack
+user token is due a refresh where the configuration file it is kept in does
+not parse: nothing was spent, and the detail says `workflow doctor` names what
+is wrong with the file. So is a change to your
 Taskwarrior tasks when there is no Taskwarrior to make it — turned off by
 `taskwarrior.disabled`, one older than 3.5.0, or one whose taskrc has a
 malformed line — as is an empty task line or note, or an issue whose tracker key
@@ -322,4 +325,10 @@ detail stays generic on purpose, and says to try again and to run `workflow
 doctor` if it keeps failing; the cause is not in the response but on the
 standard error of the `workflow --web` that answered, one `workflow web:` line
 per failure, a cause of several lines joined by semicolons, with every
-credential the configuration holds masked.
+credential the configuration holds masked. An announcement or a post whose
+Slack user token is due a refresh where the place it is kept would not take a
+write — a locked keychain, or a configuration file whose directory takes no
+new file — is answered here too, with a detail that says so: nothing was
+spent, and the token still works once the keychain is unlocked or the
+directory writable. One whose configuration file does not parse is
+`unprocessable` instead.

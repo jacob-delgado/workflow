@@ -5,6 +5,7 @@ package slackauth
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,6 +27,20 @@ var ErrNotLoggedIn = errors.New("no Slack user token is set up; run `workflow sl
 var ErrNotKept = errors.New("slack gave a new token that could not be kept, and the refresh token it " +
 	"replaced is spent; reinstall the app for a fresh refresh token, then run `workflow slack login`")
 
+// ErrKeepRefused reports a place the Slack token is kept that would not take
+// a write, found before a refresh, so no refresh token was spent and the pair
+// held still works. What to do about it follows the cause: see Store.refused.
+var ErrKeepRefused = errors.New("the place the Slack token is kept would not take a write, so no refresh " +
+	"token was spent")
+
+// unwritableAdvice is what to do about a keychain that would not store, or a
+// directory that takes no new file; unparsedAdvice about a configuration file
+// that does not parse, which no keychain or directory answers.
+const (
+	unwritableAdvice = "unlock the keychain or make the configuration file's directory writable, then try again"
+	unparsedAdvice   = "fix the file, as workflow doctor says, then try again"
+)
+
 // ErrAppOverridden reports a login whose app a repository's own file would
 // override with another app's client ID, so the secrets kept would be refreshed
 // for the wrong app there.
@@ -39,23 +54,33 @@ const keepTries = 3
 // KeychainService is the name the credentials are kept under in the keychain.
 const KeychainService = "workflow-slack"
 
+// probeService is the keychain item a keychain store proves itself by,
+// stored with a fresh value and deleted again, so the item the credentials
+// are kept in is never touched by a prove.
+const probeService = "workflow-slack-probe"
+
 // Store is where a user token's credentials are kept: the macOS keychain, or the
 // configuration file.
 type Store struct {
-	where string
-	load  func(ctx context.Context) (Credentials, error)
-	save  func(ctx context.Context, credentials Credentials) error
-	login func(ctx context.Context, clientID string, credentials Credentials) error
+	where      string
+	load       func(ctx context.Context) (Credentials, error)
+	save       func(ctx context.Context, credentials Credentials) error
+	login      func(ctx context.Context, clientID string, credentials Credentials) error
+	prove      func(ctx context.Context) error
+	proveLogin func(ctx context.Context) error
 }
 
-// NewStore is a Store that keeps credentials through load and save, described
-// as where. It names no app: a login keeps the credentials alone.
+// NewStore is a Store that keeps credentials through load and save, and
+// proves it would take a write through prove, described as where. It names
+// no app: a login keeps the credentials alone, and proves as a refresh does.
 func NewStore(
 	where string, load func(context.Context) (Credentials, error), save func(context.Context, Credentials) error,
+	prove func(context.Context) error,
 ) Store {
 	return Store{
 		where: where, load: load, save: save,
 		login: func(ctx context.Context, _ string, credentials Credentials) error { return save(ctx, credentials) },
+		prove: prove, proveLogin: prove,
 	}
 }
 
@@ -85,9 +110,40 @@ func (s Store) KeepLogin(ctx context.Context, clientID string, renewed Credentia
 	return s.keepTrying(func() error { return s.login(ctx, clientID, renewed) })
 }
 
+// Prove reports, as ErrKeepRefused, a store that would not take a write now,
+// found without touching what it holds, so a refresh, which spends the
+// refresh token as Slack answers, is made only where its pair can be kept.
+// Trade-off TRADE-82: a store that turns between the prove and the keep, or
+// refuses the keep for a reason no probe meets, still loses the pair.
+func (s Store) Prove(ctx context.Context) error {
+	return s.refused(s.prove(ctx))
+}
+
+// ProveLogin is Prove for a login, which also names its app in a
+// configuration file: that file is proved to take a write too.
+func (s Store) ProveLogin(ctx context.Context) error {
+	return s.refused(s.proveLogin(ctx))
+}
+
 // Where says where the credentials are kept, for doctor and the login to say.
 func (s Store) Where() string {
 	return s.where
+}
+
+// refused is a prove's failure as ErrKeepRefused, naming where, and then
+// what answers it: fixing a file that does not parse, or else unlocking the
+// keychain or the directory.
+func (s Store) refused(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	advice := unwritableAdvice
+	if errors.Is(err, config.ErrInvalid) {
+		advice = unparsedAdvice
+	}
+
+	return fmt.Errorf("%w (in %s): %w; %s", ErrKeepRefused, s.where, err, advice)
 }
 
 // keepTrying runs save until it succeeds, keepTries times at most.
@@ -122,6 +178,7 @@ func Choose(goos string, cfg config.Config, item keychain.Item, locks config.Sav
 // locks, as config.SaveLayers holds them.
 func FileStore(locks config.SaveLocks, files config.Files) Store {
 	path := secretsFile(files)
+	prove := func(context.Context) error { return proveFile(files, path) }
 
 	return Store{
 		where: "the configuration file " + path,
@@ -134,6 +191,7 @@ func FileStore(locks config.SaveLocks, files config.Files) Store {
 				return naming(clientID)(holding(credentials)(messaging))
 			})
 		},
+		prove: prove, proveLogin: prove,
 	}
 }
 
@@ -230,10 +288,7 @@ func loadFile(path string) (Credentials, error) {
 func saveFile(
 	locks config.SaveLocks, files config.Files, path string, change func(config.Messaging) config.Messaging,
 ) error {
-	layers := files
-	if path == files.Home {
-		layers = config.Files{Home: path}
-	}
+	layers := savedLayers(files, path)
 
 	cfg, revision, err := config.LoadLayersAt(layers)
 	if err != nil {
@@ -245,6 +300,29 @@ func saveFile(
 	_, err = config.SaveLayers(locks, layers, cfg, revision)
 
 	return err
+}
+
+// savedLayers are the layers a save into path, one of files, reads and
+// writes: the repository's file as the layer it is over the home file, and
+// the home file whole, as itself.
+func savedLayers(files config.Files, path string) config.Files {
+	if path == files.Home {
+		return config.Files{Home: path}
+	}
+
+	return files
+}
+
+// proveFile proves that path, one of files, would take the save of a pair:
+// the layers its save reads parse, as the save would refuse them otherwise,
+// and a file can be made beside it. The file itself is left as it is.
+func proveFile(files config.Files, path string) error {
+	_, _, err := config.LoadLayersAt(savedLayers(files, path))
+	if err != nil {
+		return err
+	}
+
+	return config.ProveWritable(path)
 }
 
 // holding is messaging settings holding credentials in place of their own.
@@ -291,12 +369,37 @@ type stored struct {
 // which every directory reads, as every directory reads the keychain. A
 // login's naming holds locks, as config.SaveLayers does.
 func KeychainStore(item keychain.Item, locks config.SaveLocks, files config.Files) Store {
+	probe := item.Under(probeService)
+
 	return Store{
 		where: "the macOS keychain (" + KeychainService + ")",
 		load:  func(ctx context.Context) (Credentials, error) { return loadKeychain(ctx, item) },
 		save:  func(ctx context.Context, credentials Credentials) error { return saveKeychain(ctx, item, credentials) },
 		login: keychainLogin(item, locks, files),
+		prove: func(ctx context.Context) error { return proveKeychain(ctx, probe) },
+		proveLogin: func(ctx context.Context) error {
+			err := proveFile(files, secretsFile(files))
+			if err != nil {
+				return err
+			}
+
+			return proveKeychain(ctx, probe)
+		},
 	}
+}
+
+// proveKeychain proves the keychain would keep a pair by storing a fresh
+// value in probe, which reads it back as every store does, then deleting it.
+// A keychain is locked or unlocked as a whole, so the probe meets what a
+// keep would, whether or not a pair is held; and a fresh value cannot pass
+// the read back on a probe an earlier run left.
+func proveKeychain(ctx context.Context, probe keychain.Item) error {
+	err := probe.Store(ctx, rand.Text())
+	if err != nil {
+		return err
+	}
+
+	return probe.Delete(ctx)
 }
 
 // keychainLogin is a login that names its app in the one of files the secrets

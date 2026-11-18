@@ -33,6 +33,10 @@ var ErrNoAccount = errors.New("no account name to store the secret under: neithe
 // ErrNotKept reports a keychain that did not keep the secret it was handed.
 var ErrNotKept = errors.New("the keychain did not keep the secret")
 
+// ErrNotDeleted reports a keychain that did not delete the secret it was
+// asked to.
+var ErrNotDeleted = errors.New("the keychain did not delete the secret")
+
 // ErrNotRead reports a keychain that could not be read for a reason other
 // than holding no such secret.
 var ErrNotRead = errors.New("the keychain could not be read")
@@ -131,6 +135,34 @@ func (i Item) Read(ctx context.Context) (string, error) {
 	}
 
 	return strings.TrimRight(string(output), "\n"), nil
+}
+
+// Under is the item for service, run as i is, for the same user.
+func (i Item) Under(service string) Item {
+	i.service = service
+
+	return i
+}
+
+// Delete removes the secret the item holds; an item that holds none is
+// deleted already. Any other failure is ErrNotDeleted, told by security's
+// exit status alone, as failed tells a store's.
+func (i Item) Delete(ctx context.Context) error {
+	account, err := accountName(i.currentUser, i.getenv)
+	if err != nil {
+		return err
+	}
+
+	_, err = i.security(ctx, []string{"delete-generic-password", "-a", account, "-s", i.service}, nil)
+	if code, _, exited := proc.Failure(err); exited && code == itemNotFound {
+		return nil
+	}
+
+	if err != nil {
+		return failed(ErrNotDeleted, err)
+	}
+
+	return nil
 }
 
 // find runs security to find the secret the item holds for account.

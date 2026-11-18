@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
@@ -386,6 +387,13 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		"an answer too large":    {httpx.ErrAnswerTooLarge, unreachable, "more than workflow reads"},
 		"an answer too slow":     {httpx.ErrTimedOut, unreachable, "took too long to answer"},
 		"a failure of no kind":   {webtest.ErrSeam, http.StatusInternalServerError, webtest.TryAgain},
+		"a token store that would not take a write": {
+			slackauth.ErrKeepRefused, http.StatusInternalServerError, "would not take a write, so nothing was spent",
+		},
+		"a token store whose file does not parse": {
+			fmt.Errorf("%w (in the configuration file): %w", slackauth.ErrKeepRefused, config.ErrInvalid),
+			unprocessable, "the configuration file on disk is not valid; workflow doctor says what is wrong with it",
+		},
 	}
 
 	for name, tt := range cases {

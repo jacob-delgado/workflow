@@ -114,14 +114,10 @@ func indented(value any) []byte {
 // writePrivate replaces the file at path with one only its owner can reach,
 // holding contents. The new file is written in full beside the old one and
 // renamed over it, so a save that fails part way leaves the previous file as it
-// was rather than empty or cut short. An empty path names no file and is
-// refused before anything is written, as a read takes it for no file.
+// was rather than empty or cut short. An empty path is refused before
+// anything is written, as writtenAt refuses it.
 func writePrivate(path string, contents []byte) error {
-	if path == "" {
-		return &fs.PathError{Op: "open", Path: path, Err: fs.ErrNotExist}
-	}
-
-	target, err := followLinks(path)
+	target, err := writtenAt(path)
 	if err != nil {
 		return err
 	}
@@ -137,6 +133,36 @@ func writePrivate(path string, contents []byte) error {
 	}
 
 	return nil
+}
+
+// ProveWritable makes and removes an empty file beside the one at path,
+// following its links as a save does, so a caller about to spend what it
+// cannot get back on a save learns first whether the save would be refused
+// for want of permission. It writes nothing to the file itself.
+func ProveWritable(path string) error {
+	target, err := writtenAt(path)
+	if err != nil {
+		return err
+	}
+
+	probe, err := writeBeside(target, nil)
+	if err != nil {
+		return err
+	}
+
+	// os.Remove's error names the probe and the removal already; Join hands
+	// it on, nil as nil, past wrapcheck without an arm no test can reach.
+	return errors.Join(os.Remove(probe))
+}
+
+// writtenAt is the file a save to path writes, once its links are followed.
+// An empty path names no file and is refused, as a read takes it for no file.
+func writtenAt(path string) (string, error) {
+	if path == "" {
+		return "", &fs.PathError{Op: "open", Path: path, Err: fs.ErrNotExist}
+	}
+
+	return followLinks(path)
 }
 
 // createPrivate makes the file at path, which must not exist — not even as a

@@ -56,7 +56,13 @@ func (m *memory) store() slackauth.Store {
 			m.held, m.saves = credentials, m.saves+1
 
 			return nil
-		})
+		},
+		takesAWrite)
+}
+
+// takesAWrite is the prove of a store that would take a write.
+func takesAWrite(context.Context) error {
+	return nil
 }
 
 // errSaveFailed is a store that could not keep what it was given.

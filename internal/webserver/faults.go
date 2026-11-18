@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/report"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 	"github.com/jacob-delgado/workflow/internal/webserver/tasks"
 )
@@ -75,11 +76,12 @@ func faultProblem(err error) (api.Problem, bool) {
 func faultClasses() []report.Class {
 	shared := report.SharedFaults()
 
-	return slices.Concat(endedFaults(), announceFaults(), saveLockFaults(), repositoryFaults(), shared.Git,
+	return slices.Concat(endedFaults(), announceFaults(), saveLockFaults(), repositoryFaults(),
+		shared.Git,
 		branchFaults(),
 		shared.Transport,
 		shared.Jira, shared.Forge, shared.Messaging, taskWriteFaults(), shared.Taskwarrior, shared.Directory,
-		switchFaults(), localDataFaults(), peopleFaults())
+		switchFaults(), localDataFaults(), peopleFaults(), slackStoreFaults())
 }
 
 // endedFaults are a request whose context ended before it was answered: its
@@ -117,6 +119,30 @@ func saveLockFaults() []report.Class {
 		{
 			Causes: []error{config.ErrSaveLocked}, Code: api.ProblemCodeInternal,
 			Detail: "another workflow is saving the configuration, so nothing was saved; save again in a moment",
+		},
+	}
+}
+
+// slackStoreFaults are a post whose Slack token was due a refresh where the
+// place it is kept would not take a write, found before the refresh spent
+// anything, the token held still working. They come last: a file that does
+// not parse is any configuration error's to tell, a switch's among them, and
+// only a refusal no other class tells is one of these. One whose file does
+// not parse is unprocessable, as the command line's exit 3 is: fixing the
+// file answers it, as workflow doctor says. Any other is a keychain to unlock
+// or a directory to make writable, which the page has no way to do, so it
+// keeps the internal code, as the command line's exit 1 does. Neither names
+// the file, which the error itself carries.
+func slackStoreFaults() []report.Class {
+	return []report.Class{
+		{
+			Causes: []error{config.ErrInvalid}, Code: api.ProblemCodeUnprocessable,
+			Detail: "the configuration file on disk is not valid; workflow doctor says what is wrong with it",
+		},
+		{
+			Causes: []error{slackauth.ErrKeepRefused}, Code: api.ProblemCodeInternal,
+			Detail: "the place the Slack token is kept would not take a write, so nothing was spent; " +
+				"unlock the keychain or make the configuration file's directory writable, then try again",
 		},
 	}
 }
