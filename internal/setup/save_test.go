@@ -58,7 +58,7 @@ func TestSaveRefusesARepositoryFileThatIsALink(t *testing.T) {
 	target := linkedTo(t, where, setup.Repository)
 
 	// Act
-	err := where.Save(setup.Repository, where.Layers(setup.Repository), config.Default(), config.Revision{})
+	_, err := where.Save(setup.Repository, where.Layers(setup.Repository), config.Default(), config.Revision{})
 
 	// Assert
 	if !errors.Is(err, config.ErrLinkedFile) || contentsOf(t, target) != outsideContents {
@@ -77,7 +77,7 @@ func TestSaveFollowsAHomeFileThatIsALink(t *testing.T) {
 	cfg.Jira.BaseURL = jiraAddress
 
 	// Act
-	err := where.Save(setup.Home, where.Layers(setup.Home), cfg, config.Revision{})
+	_, err := where.Save(setup.Home, where.Layers(setup.Home), cfg, config.Revision{})
 
 	// Assert
 	saved, _, loadErr := config.LoadLayersAt(config.Files{Home: target})
@@ -100,7 +100,7 @@ func TestSaveRefusesAHomeFileMadeSinceTheLayersWereRead(t *testing.T) {
 	}
 
 	// Act
-	err = where.Save(setup.Repository, layers, config.Default(), config.Revision{})
+	_, err = where.Save(setup.Repository, layers, config.Default(), config.Revision{})
 
 	// Assert
 	_, statErr := os.Stat(where.Path(setup.Repository))

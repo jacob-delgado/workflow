@@ -52,8 +52,9 @@ type initOptions struct {
 
 // write writes cfg to path over opts' layers: replacing what --force names,
 // and otherwise only as a new file, so a file or link that appears after the
-// refusal was checked is still never written through.
-func (opts initOptions) write(path string, cfg config.Config, over config.Revision) error {
+// refusal was checked is still never written through. Its Undo gives back
+// what the file held before, or removes the file it made.
+func (opts initOptions) write(path string, cfg config.Config, over config.Revision) (setup.Undo, error) {
 	if opts.force {
 		return opts.where.Save(opts.place, opts.layers, cfg, over)
 	}
@@ -226,7 +227,7 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 		return previewConfig(cmd, path, config.Template())
 	}
 
-	err = opts.write(path, config.Template(), config.Revision{})
+	_, err = opts.write(path, config.Template(), config.Revision{})
 	if err != nil {
 		return err
 	}
@@ -253,7 +254,7 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 		return previewConfig(cmd, path, beneath)
 	}
 
-	err = opts.write(path, beneath, over)
+	_, err = opts.write(path, beneath, over)
 	if err != nil {
 		return err
 	}
@@ -341,9 +342,10 @@ func guidedPrompt(prompt cmdkit.Prompt, dryRun bool) cmdkit.Prompt {
 // writeGuided writes the file the guided setup made at path, then keeps the
 // token in the keychain when that was chosen, so a setup refused before the
 // file is written leaves the keychain as it was, and one the keychain refuses
-// leaves no file reading a token it does not hold. It says what to do next.
+// leaves the file as it was before the setup, or none where there was none.
+// It says what to do next.
 func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guidedFile) error {
-	err := opts.write(path, guided.cfg, guided.over)
+	undo, err := opts.write(path, guided.cfg, guided.over)
 	if err != nil {
 		return err
 	}
@@ -351,7 +353,7 @@ func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guide
 	notes := cmdkit.NotesOf(cmd)
 
 	if guided.asked.keychain {
-		err = setup.KeepFor(cmd.Context(), guided.store, path, guided.asked.answers.Jira)
+		err = setup.KeepFor(cmd.Context(), guided.store, undo, guided.asked.answers.Jira)
 		if err != nil {
 			return err
 		}

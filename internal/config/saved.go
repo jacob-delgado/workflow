@@ -6,12 +6,14 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
 
 // Saved is a write a save made, with what its file held before, so the write
-// can be taken back: by a Settings save whose keychain or Slack then refuses.
+// can be taken back: by a Settings save whose keychain or Slack then refuses,
+// and by a first run whose keychain refuses the token the file reads.
 type Saved struct {
 	files  Files
 	before layer
@@ -58,4 +60,50 @@ func (s Saved) TakeBack(locks SaveLocks) error {
 	made, err := filepath.EvalSymlinks(s.files.Target())
 
 	return errors.Join(err, os.Remove(made))
+}
+
+// ReplaceFile writes cfg to a file of its own at path, replacing whatever is
+// there, or the file a link there points at, and returns the write with what
+// that file held before, so the write can be taken back. It holds the file's
+// save lock from its read through the rename, so a save another workflow
+// makes meanwhile is waited for, as every save is.
+func ReplaceFile(locks SaveLocks, path string, cfg Config) (Saved, error) {
+	files := Files{Home: path}
+
+	unlock, err := locks.Hold(files)
+	if err != nil {
+		return Saved{}, err
+	}
+	defer unlock()
+
+	before, err := readAsFound(path)
+	if err != nil {
+		return Saved{}, err
+	}
+
+	err = writePrivate(path, indented(cfg))
+	if err != nil {
+		return Saved{}, fmt.Errorf("writing %s: %w", path, err)
+	}
+
+	at, err := RevisionOfLayers(files)
+
+	return Saved{files: files, before: before, at: at}, err
+}
+
+// readAsFound is the file at path as it is, through its links, whoever could
+// have written it, since a file replaced is given back as it was; a file not
+// there is a layer that does not exist.
+func readAsFound(path string) (layer, error) {
+	//nolint:gosec // the path is the user's own config file, by design
+	contents, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return layer{path: path}, nil
+	}
+
+	if err != nil {
+		return layer{}, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	return layer{path: path, contents: contents, exists: true}, nil
 }
