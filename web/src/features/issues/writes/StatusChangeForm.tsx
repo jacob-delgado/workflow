@@ -4,7 +4,7 @@ import type { FieldEntry, StatusChange, StatusChangeField } from '@/api/generate
 import { Input, Select } from '@/lib/Field.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useIssueWrites, useStatusChanges } from './issueWritesApi.ts'
 import { LabeledInput, WriteForm } from '@/lib/WriteForm.tsx'
 
@@ -49,7 +49,7 @@ export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusCh
       label={`Change the status of ${shown}`}
       act={chosen === null ? 'Change status' : `Change to ${chosen.to_status}`}
       busy={change.state === 'running' ? 'Changing…' : null}
-      error={change.state === 'error' ? change.error : ''}
+      error={refusalOf(change)}
       disabled={chosen === null || blocked !== undefined}
       onSend={() => {
         if (chosen === null) {

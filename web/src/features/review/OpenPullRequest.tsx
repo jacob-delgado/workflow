@@ -18,7 +18,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Input, Select, TextArea } from '@/lib/Field.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { Failure } from '@/lib/Status.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { splitList } from '@/lib/utils.ts'
 import { openPr, previewPullRequest } from './openPrApi.ts'
 import { proposedBy, useRedraft, type PullRequestFields } from './useRedraft.ts'
@@ -55,12 +55,12 @@ export function OpenPullRequest({
   // A failed open keeps the form up with its reason, so the edits are not lost;
   // a failed compose has no draft to edit, so it falls through to the retry
   // button below.
-  if (compose.state === 'done' && compose.result !== undefined) {
+  if (compose.state === 'done') {
     return (
       <PullRequestForm
         draft={compose.result}
         opening={open.state === 'running'}
-        error={open.state === 'error' ? open.error : ''}
+        error={refusalOf(open)}
         onCancel={() => {
           handBack()
           open.reset()

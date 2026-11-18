@@ -1,7 +1,7 @@
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine } from '@/lib/Outcome.tsx'
 import { Failure } from '@/lib/Status.tsx'
-import type { AsyncState } from '@/lib/useAsyncAction.ts'
+import type { Attempt } from '@/lib/useAsyncAction.ts'
 
 // changedPaths are the paths of the settings the form's dirty fields mark
 // changed: each field, and each list once, however many of its rows changed.
@@ -51,9 +51,7 @@ function standing({
 }
 
 // ReloadAction is the one-shot read Reload runs.
-interface ReloadAction {
-  state: AsyncState
-  error: string
+type ReloadAction = Attempt<unknown> & {
   run: () => Promise<void>
 }
 

@@ -13,7 +13,7 @@ import type { Config, RefusedSetting, SetupResult } from '@/api/generated/types.
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { resultGround, useOutcome } from '@/lib/Outcome.tsx'
 import { Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
 import { sectionHeadingId } from '@/shell/sections.ts'
 import {
@@ -217,7 +217,7 @@ function ConfigForm({ read, takesFocus, checking }: ConfigFormProps) {
                 writing={file.writing}
                 checking={checking}
                 said={outcome.said}
-                error={save.state === 'error' && !save.marked ? save.error : ''}
+                error={save.marked ? '' : refusalOf(save)}
                 reload={file.changed ? reload : null}
                 onShow={() => {
                   view.show(refused[0] ?? 'jira.base_url')

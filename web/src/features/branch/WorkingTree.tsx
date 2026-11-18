@@ -133,15 +133,12 @@ function ChangeRow({ change, head, discards }: { change: Change; head: string; d
   const busy = stage ? 'Staging…' : 'Unstaging…'
   const outcome = useOutcome()
   const staging = useChangedByStream(stagedTag(change).word)
-  const { state, error, run } = useAsyncAction(
-    () => (stage ? stageFile(change.path) : unstageFile(change.path)),
-    {
-      fallback: `${change.path} was not ${stage ? 'staged' : 'unstaged'}. Try again, or ${verb.toLowerCase()} it from a terminal to see why.`,
-      done: () => `${stage ? 'Staged' : 'Unstaged'} ${change.path}.`,
-      onStart: outcome.clear,
-      onDone: outcome.say,
-    },
-  )
+  const move = useAsyncAction(() => (stage ? stageFile(change.path) : unstageFile(change.path)), {
+    fallback: `${change.path} was not ${stage ? 'staged' : 'unstaged'}. Try again, or ${verb.toLowerCase()} it from a terminal to see why.`,
+    done: () => `${stage ? 'Staged' : 'Unstaged'} ${change.path}.`,
+    onStart: outcome.clear,
+    onDone: outcome.say,
+  })
 
   return (
     <li
@@ -155,13 +152,13 @@ function ChangeRow({ change, head, discards }: { change: Change; head: string; d
         <Button
           variant="secondary"
           size="sm"
-          aria-label={`${state === 'running' ? busy : verb} ${change.path}`}
-          held={state === 'running'}
+          aria-label={`${move.state === 'running' ? busy : verb} ${change.path}`}
+          held={move.state === 'running'}
           onClick={() => {
-            void run()
+            void move.run()
           }}
         >
-          {state === 'running' ? busy : verb}
+          {move.state === 'running' ? busy : verb}
         </Button>
         <Button
           variant="secondary"
@@ -189,7 +186,7 @@ function ChangeRow({ change, head, discards }: { change: Change; head: string; d
         />
       ) : null}
       <OutcomeLine said={outcome.said} />
-      {state === 'error' ? <Failure>{error}</Failure> : null}
+      {move.state === 'error' ? <Failure>{move.error}</Failure> : null}
       <ChangeDiff change={change} head={head} />
     </li>
   )
@@ -236,25 +233,25 @@ function StagedTag({ change }: { change: Change }) {
 // moves, and the diff it replaces stays on screen while it reads.
 function ChangeDiff({ change, head }: { change: Change; head: string }) {
   const { path } = change
-  const [shown, setShown] = useState(false)
+  const [diff, setDiff] = useState<FileDiff>()
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const read = useAsyncAction(readDiff, {
     fallback: `The diff of ${path} could not be read. Try again, or run git diff from a terminal.`,
-    onDone: () => {
-      setShown(true)
+    onDone: (_, answered) => {
+      setDiff(answered)
     },
   })
   const standing = diffStanding(change, head)
   const readAt = useRef(standing)
 
   useEffect(() => {
-    if (shown && readAt.current !== standing) {
+    if (diff !== undefined && readAt.current !== standing) {
       readAt.current = standing
       void read.run(path)
     }
-  }, [shown, standing, path, read])
+  }, [diff, standing, path, read])
 
-  if (shown && read.result !== undefined) {
+  if (diff !== undefined) {
     return (
       <div className="flex flex-col gap-tight">
         <Button
@@ -264,13 +261,13 @@ function ChangeDiff({ change, head }: { change: Change; head: string }) {
           onClick={() => {
             handBack()
             read.reset()
-            setShown(false)
+            setDiff(undefined)
           }}
           className="self-start"
         >
           Hide diff
         </Button>
-        <DiffText diff={read.result} />
+        <DiffText diff={diff} />
         {read.state === 'error' ? <Failure>{read.error}</Failure> : null}
       </div>
     )

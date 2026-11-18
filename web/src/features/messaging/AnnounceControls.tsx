@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import type { AnnounceMentions } from '@/api/generated/types.gen.ts'
+import type { Announcement, AnnounceMentions } from '@/api/generated/types.gen.ts'
 import { problemCode } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { Failure } from '@/lib/Status.tsx'
-import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { type AsyncState, type Attempt, refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { announce, announceWhenCIPasses, type Held, previewAnnouncement } from './announceApi.ts'
 import { AnnouncePreview } from './AnnouncePreview.tsx'
 import { mentionsOf, pickFrom, type TagPick } from './tagPick.ts'
@@ -84,11 +84,18 @@ export function AnnounceControls({
   const refused = refusedSend(post, hold)
   if (draft.preview.state === 'done' && !refused) {
     return (
-      <PreviewStep draft={draft} post={post} hold={hold} pullName={pullName} onBack={handBack} />
+      <PreviewStep
+        draft={draft}
+        composed={draft.preview.result}
+        post={post}
+        hold={hold}
+        pullName={pullName}
+        onBack={handBack}
+      />
     )
   }
 
-  const failure = draft.preview.state === 'error' ? draft.preview.error : post.error || hold.error
+  const failure = draft.preview.state === 'error' ? draft.preview.error : refusalOf(post, hold)
 
   return (
     <div className="flex flex-col gap-tight">
@@ -184,24 +191,27 @@ interface Send {
   run: (previewed: string, mentions?: AnnounceMentions, edited?: string) => Promise<void>
 }
 
-// PreviewStep is the preview of the drafted announcement, wired to its sends:
-// each posts the text shown — the composed one, which the server checks — with
-// its edit and its mentions, when it has them.
+// PreviewStep is the preview of the drafted announcement, composed as the
+// server answered it, wired to its sends: each posts the text shown — the
+// composed one, which the server checks — with its edit and its mentions, when
+// it has them.
 function PreviewStep({
   draft,
+  composed,
   post,
   hold,
   pullName,
   onBack,
 }: {
   draft: Draft
+  composed: Announcement
   post: Send
   hold: Send
   pullName: string
   onBack: () => void
 }) {
-  const shown = draft.preview.result?.text ?? ''
-  const tagging = draft.preview.result?.tagging
+  const shown = composed.text
+  const tagging = composed.tagging
   const send = (via: Send) => {
     const mentions = tagging?.available === true ? mentionsOf(draft.pick) : undefined
     void via.run(shown, mentions, editOf(shown, draft.edited))
@@ -217,8 +227,8 @@ function PreviewStep({
       pick={draft.pick}
       sending={sendingOf(post.state, hold.state)}
       linking={draft.linking}
-      canWait={draft.preview.result?.can_wait_for_ci === true}
-      ciFailedOn={draft.preview.result?.ci === 'failed' ? pullName : undefined}
+      canWait={composed.can_wait_for_ci === true}
+      ciFailedOn={composed.ci === 'failed' ? pullName : undefined}
       onEdit={draft.setEdited}
       onChannel={draft.setChannel}
       onPick={draft.setPick}
@@ -240,10 +250,7 @@ function PreviewStep({
 // refusedSend reports a send the server refused, which goes back to the button
 // with why — but for a post refused because a check failed, which is previewed
 // again to offer the wait.
-function refusedSend(
-  post: { state: AsyncState; code: string },
-  hold: { state: AsyncState },
-): boolean {
+function refusedSend(post: Attempt<unknown>, hold: Attempt<unknown>): boolean {
   return (post.state === 'error' && post.code !== 'ci_failed') || hold.state === 'error'
 }
 

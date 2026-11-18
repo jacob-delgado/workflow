@@ -12,7 +12,7 @@ import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
 import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
-import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { type AsyncState, refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { LabeledInput } from '@/lib/WriteForm.tsx'
 import { useSetUp, useSetupOffer } from './setupApi.ts'
 
@@ -125,7 +125,7 @@ function SetupForm({
           places={offer.places}
           control={control}
           state={write.state}
-          error={outdated ? '' : write.error}
+          error={outdated ? '' : refusalOf(write)}
           anyway={anyway !== null}
           onKeepAnyway={() => {
             if (anyway !== null) {
@@ -258,7 +258,7 @@ function SetupWrite({ places, control, state, error, anyway, onKeepAnyway }: Set
     <WriteControls
       act={`Write ${chosen?.shown ?? '.workflow.json'}`}
       busy={busyWords(state, address.trim() !== '')}
-      error={state === 'error' ? error : ''}
+      error={error}
       offersAnyway={anyway}
       onKeepAnyway={onKeepAnyway}
     />

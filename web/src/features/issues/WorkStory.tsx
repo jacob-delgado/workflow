@@ -425,21 +425,21 @@ function StoryStage({ stage, current, last, onOpen }: StoryStageProps) {
 // shown inline for the user to act on. It is held while any switch the page
 // sent runs, the issue rows' included.
 function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }) {
-  const { state, error, run, held } = useBranchSwitch(branch, outcome)
+  const checkout = useBranchSwitch(branch, outcome)
 
   return (
     <div className="flex flex-col gap-tight">
       <Button
         variant="secondary"
-        held={held}
+        held={checkout.held}
         onClick={() => {
-          void run()
+          void checkout.run()
         }}
         className="self-start"
       >
-        {state === 'running' ? 'Switching…' : 'Switch branch'}
+        {checkout.state === 'running' ? 'Switching…' : 'Switch branch'}
       </Button>
-      {state === 'error' ? <Failure>{error}</Failure> : null}
+      {checkout.state === 'error' ? <Failure>{checkout.error}</Failure> : null}
     </div>
   )
 }

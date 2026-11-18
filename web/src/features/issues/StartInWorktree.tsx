@@ -5,7 +5,7 @@ import { useSwitchTo } from '@/features/repositories/repositoriesApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
-import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { type Attempt, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { startWorkInWorktree } from './startWorkApi.ts'
 import { Failure } from '@/lib/Status.tsx'
 
@@ -56,10 +56,7 @@ export function StartInWorktreeButton({ start, held }: StartButtonProps) {
   )
 }
 
-export interface StartAttempt {
-  state: AsyncState
-  error: string
-  code: string
+export type StartAttempt = Attempt<unknown> & {
   run: (fetch: boolean) => Promise<void>
 }
 

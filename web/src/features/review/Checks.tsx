@@ -91,7 +91,7 @@ function CheckRow({ check }: { check: Check }) {
 function CheckLog({ id, name }: { id: string; name: string }) {
   const read = useAsyncAction(readCheckLog, { fallback: 'The log could not be read. Try again.' })
 
-  if (read.state === 'done' && read.result) {
+  if (read.state === 'done') {
     return <LogText name={name} log={read.result} />
   }
 
