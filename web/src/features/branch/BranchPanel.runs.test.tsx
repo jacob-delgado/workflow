@@ -194,6 +194,27 @@ test('says why a run was refused, beside its output', async () => {
   )
 })
 
+test('an event carrying neither a line nor a run changes nothing of the run', async () => {
+  // Arrange
+  mockStartRun.mockImplementationOnce((request, onEvent) => {
+    onEvent({ run: { ...ended(request, 'in_progress', '', []), lines: [] } })
+    onEvent({ line: 'lint ok' })
+    onEvent({})
+
+    return new Promise(() => {})
+  })
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await runPreCommit(user)
+
+  // Assert
+  expect(screen.getByRole('region', { name: 'Output of pre-commit' }).textContent).toBe('lint ok')
+  expect(screen.getByRole('button', { name: 'Stop pre-commit' })).toBeTruthy()
+})
+
 test('stops the run going, from the stream, when asked', async () => {
   // Arrange
   foldable({

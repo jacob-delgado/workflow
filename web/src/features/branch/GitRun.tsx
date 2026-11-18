@@ -33,6 +33,16 @@ export interface GitRunner {
   close: () => void
 }
 
+// OwnRun is where the run this page started stands: none, or put away;
+// unrun, refused before it began or cut off after, with the words saying so;
+// going; or ended, with the write that numbered its end when an end event
+// carried one.
+type OwnRun =
+  | { at: 'none' }
+  | { at: 'unrun'; words: string }
+  | { at: 'going'; run: Run }
+  | { at: 'ended'; run: Run; write: number | undefined }
+
 // useGitRun starts git runs and follows the one this page started as it
 // streams: each line as it is written, then how it ended, which stays until it
 // is put away. A run some other page started, which the stream carries while
@@ -44,16 +54,12 @@ export interface GitRunner {
 // shown: the refusal is that run's, this page's or a streamed one, and goes
 // with it.
 export function useGitRun(streamed: Run | undefined, writes: number): GitRunner {
-  const [run, setRun] = useState<Run | null>(null)
-  const [endWrite, setEndWrite] = useState<number>()
-  const [refusal, setRefusal] = useState('')
+  const [own, setOwn] = useState<OwnRun>({ at: 'none' })
   const stopping = useAsyncAction(stopRun, {
     fallback: 'The run could not be stopped. Try again.',
   })
   const putAway = () => {
-    setRun(null)
-    setEndWrite(undefined)
-    setRefusal('')
+    setOwn({ at: 'none' })
     stopping.reset()
   }
 
@@ -62,10 +68,11 @@ export function useGitRun(streamed: Run | undefined, writes: number): GitRunner 
   // as Close does. A frame read before the end, which a stale or closed
   // stream keeps, may still carry this page's own run going, and puts nothing
   // away. Set while rendering, so the frame that carries it draws it.
-  if (endedBefore(run, endWrite, writes) && streamed !== undefined) {
+  if (endedBefore(own, writes) && streamed !== undefined) {
     putAway()
   }
-  const shown = run ?? streamed ?? null
+  const mine = standing(own)
+  const shown = mine.run ?? streamed ?? null
   // A stop refused as its run ends, or answered once it was put away, would
   // otherwise say why alone, beside no run. Reset while rendering, as above;
   // only in error, when no stop is in flight for the reset to drop.
@@ -73,43 +80,64 @@ export function useGitRun(streamed: Run | undefined, writes: number): GitRunner 
     stopping.reset()
   }
 
-  const follow = (event: RunEvent) => {
-    if (event.write !== undefined) {
-      setEndWrite(event.write)
-    }
-    setRun((previous) => followed(previous, event))
-  }
-
+  // No round guards a start's answer: every opener is held while a run goes,
+  // Close is offered only once the end is handed on, and the answer settles
+  // in that same tick or before, so no later start or Close can come between.
   const start = (request: RunRequest) => {
-    setRefusal('')
     stopping.reset()
-    setEndWrite(undefined)
-    setRun({
-      kind: request.kind,
-      title: runTitle(request),
-      state: 'in_progress',
-      outcome: '',
-      lines: [],
-    })
+    setOwn(started(request))
     let begun: Run | null = null
-    const followBegun = (event: RunEvent) => {
+    const follow = (event: RunEvent) => {
       begun = event.run ?? begun
-      follow(event)
+      setOwn((previous) => followed(previous, event))
     }
-    startRun(request, followBegun).then(setRun, (caught: unknown) => {
-      setRun(null)
-      setRefusal(begun === null ? notRun(request, caught) : cutOff(begun))
-    })
+    startRun(request, follow).then(
+      (last) => {
+        setOwn((previous) => answered(previous, last))
+      },
+      (caught: unknown) => {
+        const words = begun === null ? notRun(request, caught) : cutOff(begun)
+        setOwn({ at: 'unrun', words })
+      },
+    )
   }
 
   return {
     run: shown,
     going: shown?.state === 'in_progress',
     // A start resets the stop, so a stop's refusal is always the newer.
-    refusal: refusalOf(stopping) || refusal,
+    refusal: refusalOf(stopping) || mine.words,
     start,
     stop: () => void stopping.run(),
     close: putAway,
+  }
+}
+
+// standing is what this page's own run shows: the run, or why none ran.
+function standing(own: OwnRun): { run: Run | null; words: string } {
+  switch (own.at) {
+    case 'none':
+      return { run: null, words: '' }
+    case 'unrun':
+      return { run: null, words: own.words }
+    case 'going':
+    case 'ended':
+      return { run: own.run, words: '' }
+  }
+}
+
+// started is a run just asked for, titled as the terminal titles it until the
+// server's own word lands.
+function started(request: RunRequest): OwnRun {
+  return {
+    at: 'going',
+    run: {
+      kind: request.kind,
+      title: runTitle(request),
+      state: 'in_progress',
+      outcome: '',
+      lines: [],
+    },
   }
 }
 
@@ -127,27 +155,42 @@ function cutOff(begun: Run): string {
   return `${begun.title} stopped answering before it said how it ended. It may have run in part, or still be running; the branch shows where it stands.`
 }
 
-// endedBefore reports this page's run ended in a write numbered endWrite that
-// a frame counting writes was read after.
-function endedBefore(run: Run | null, endWrite: number | undefined, writes: number): boolean {
-  return run !== null && run.state !== 'in_progress' && endWrite !== undefined && writes >= endWrite
+// endedBefore reports this page's run ended in a numbered write that a frame
+// counting writes was read after.
+function endedBefore(own: OwnRun, writes: number): boolean {
+  return own.at === 'ended' && own.write !== undefined && writes >= own.write
 }
 
-// followed is the run after one more of its events: a line added to it, or
-// the run as the server says it stands, keeping the lines already shown while
-// it is still going.
-function followed(previous: Run | null, event: RunEvent): Run | null {
-  if (event.line !== undefined && previous !== null) {
-    return { ...previous, lines: [...previous.lines, event.line] }
+// followed is this page's run after one more of its events: a line added to
+// it, or the run as the server says it stands, keeping the lines already
+// shown while it is still going, and the write numbering its end once it
+// ends. Only a going run hears events; any other stage is kept as it is.
+function followed(own: OwnRun, event: RunEvent): OwnRun {
+  if (own.at !== 'going') {
+    return own
+  }
+
+  if (event.line !== undefined) {
+    return { at: 'going', run: { ...own.run, lines: [...own.run.lines, event.line] } }
   }
 
   if (event.run === undefined) {
-    return previous
+    return own
   }
 
   return event.run.state === 'in_progress'
-    ? { ...event.run, lines: previous?.lines ?? [] }
-    : event.run
+    ? { at: 'going', run: { ...event.run, lines: own.run.lines } }
+    : { at: 'ended', run: event.run, write: event.write }
+}
+
+// answered is this page's run once its start answers with the last run the
+// stream carried, keeping the write an end event already numbered.
+function answered(own: OwnRun, last: Run): OwnRun {
+  if (last.state === 'in_progress') {
+    return { at: 'going', run: last }
+  }
+
+  return { at: 'ended', run: last, write: own.at === 'ended' ? own.write : undefined }
 }
 
 // RunOutput is a git run: what it writes, as it writes it, kept scrolled to
