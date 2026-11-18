@@ -37,8 +37,20 @@ const (
 
 // TaskFake is Taskwarrior as the server sees it: the install, the pending list
 // and the linked tasks it answers, what undo and sync say, and each call made
-// of it, in order. A call whose verb Fail names answers that error instead. The
-// stream calls it from the connection's goroutine, so it is locked.
+// of it, in order. A call whose verb Fail names answers that error instead,
+// and a refused write changes nothing. A write whose effect needs none of
+// Taskwarrior's grammar changes the tasks as Taskwarrior would, at writtenAt:
+// an add appends the pending task AddedUUID, its description the line as
+// given, and each add answers that one UUID, so a test adds once per fake; a
+// start starts the task it names and a stop stops it; a done completes it,
+// out of the pending list and, where it is linked, still in the linked
+// tasks; an annotation adds its note. A modify, an undo and a sync
+// leave the tasks as they are, since their effect is Taskwarrior's own grammar
+// or history, which the fake does not reimplement; and the fake declines no
+// write on its own, only those Fail names. The stream calls it from the
+// connection's goroutine, so it is locked, and a call is recorded under the
+// same lock as the read or change it makes: a read recorded after a write
+// sees it.
 type TaskFake struct {
 	mu      sync.Mutex
 	Install taskwarrior.Install
@@ -66,17 +78,28 @@ func FakeTaskwarrior() *TaskFake {
 // Seams hands the fake to the server as its Taskwarrior.
 func (f *TaskFake) Seams() seams.Tasks {
 	return seams.Tasks{
-		Install:  func(context.Context) (taskwarrior.Install, error) { return f.Install, f.called("install") },
-		Pending:  func(context.Context) (taskwarrior.List, error) { return f.Pending, f.called("pending") },
-		Linked:   func(context.Context) ([]taskwarrior.Task, error) { return f.Linked, f.called("linked") },
-		Add:      func(_ context.Context, line string) (string, error) { return AddedUUID, f.called("add " + line) },
-		Start:    func(_ context.Context, uuid string) error { return f.called("start " + uuid) },
-		Stop:     func(_ context.Context, uuid string) error { return f.called("stop " + uuid) },
-		Done:     func(_ context.Context, uuid string) error { return f.called("done " + uuid) },
-		Annotate: func(_ context.Context, uuid, text string) error { return f.called("annotate " + uuid + " " + text) },
-		Modify:   func(_ context.Context, uuid, line string) error { return f.called("modify " + uuid + " " + line) },
-		Undo:     func(context.Context) (string, error) { return f.Said, f.called("undo") },
-		Sync:     func(context.Context) (string, error) { return f.Said, f.called("sync") },
+		Install: func(context.Context) (taskwarrior.Install, error) { return f.Install, f.called("install") },
+		Pending: f.pending,
+		Linked:  f.linked,
+		Add: func(_ context.Context, line string) (string, error) {
+			return AddedUUID, f.wrote("add "+line, func() { f.Pending.Tasks = append(f.Pending.Tasks, f.added(line)) })
+		},
+		Start: func(_ context.Context, uuid string) error {
+			return f.wrote("start "+uuid, f.changing(uuid, func(task *taskwarrior.Task) { task.Start = writtenAt() }))
+		},
+		Stop: func(_ context.Context, uuid string) error {
+			return f.wrote("stop "+uuid, f.changing(uuid, func(task *taskwarrior.Task) { task.Start = time.Time{} }))
+		},
+		Done: func(_ context.Context, uuid string) error { return f.wrote("done "+uuid, f.completing(uuid)) },
+		Annotate: func(_ context.Context, uuid, text string) error {
+			return f.wrote("annotate "+uuid+" "+text, f.changing(uuid, func(task *taskwarrior.Task) {
+				task.Annotations = append(slices.Clone(task.Annotations),
+					taskwarrior.Annotation{Entry: writtenAt(), Description: text})
+			}))
+		},
+		Modify: func(_ context.Context, uuid, line string) error { return f.called("modify " + uuid + " " + line) },
+		Undo:   func(context.Context) (string, error) { return f.Said, f.called("undo") },
+		Sync:   func(context.Context) (string, error) { return f.Said, f.called("sync") },
 	}
 }
 
@@ -106,11 +129,100 @@ func (f *TaskFake) ReadAfter(call string) bool {
 	return made >= 0 && slices.Contains(calls[made+1:], "pending")
 }
 
+// pending is the pending list as the fake holds it now, a copy no later write
+// changes.
+func (f *TaskFake) pending(context.Context) (taskwarrior.List, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	err := f.record("pending")
+
+	return taskwarrior.List{Tasks: slices.Clone(f.Pending.Tasks), Context: f.Pending.Context}, err
+}
+
+// linked is the linked tasks as the fake holds them now, a copy no later
+// write changes.
+func (f *TaskFake) linked(context.Context) ([]taskwarrior.Task, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	err := f.record("linked")
+
+	return slices.Clone(f.Linked), err
+}
+
+// wrote records call and, unless Fail names its verb, makes change, both
+// under one hold of the lock, answering the error Fail names.
+func (f *TaskFake) wrote(call string, change func()) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	err := f.record(call)
+	if err != nil {
+		return err
+	}
+
+	change()
+
+	return nil
+}
+
+// added is the pending task an add of line makes, numbered after every
+// pending task. The lock is held.
+func (f *TaskFake) added(line string) taskwarrior.Task {
+	highest := 0
+	for _, task := range f.Pending.Tasks {
+		highest = max(highest, task.ID)
+	}
+
+	return taskwarrior.Task{
+		UUID: AddedUUID, ID: highest + 1, Description: line, Status: taskwarrior.Pending,
+		Entry: writtenAt(), Modified: writtenAt(),
+	}
+}
+
+// changing is the change of the task uuid names, in the pending list and in
+// the linked tasks, wherever it is held, as modified at writtenAt. The lock
+// is held when it runs.
+func (f *TaskFake) changing(uuid string, change func(task *taskwarrior.Task)) func() {
+	return func() {
+		for _, tasks := range [][]taskwarrior.Task{f.Pending.Tasks, f.Linked} {
+			for index := range tasks {
+				if tasks[index].UUID == uuid {
+					change(&tasks[index])
+					tasks[index].Modified = writtenAt()
+				}
+			}
+		}
+	}
+}
+
+// completing is the done of the task uuid names: stopped, completed at
+// writtenAt and out of the working set, so out of the pending list. The
+// lock is held when it runs.
+func (f *TaskFake) completing(uuid string) func() {
+	completed := f.changing(uuid, func(task *taskwarrior.Task) {
+		task.ID, task.Status, task.Start, task.End = 0, taskwarrior.Completed, time.Time{}, writtenAt()
+	})
+
+	return func() {
+		completed()
+
+		f.Pending.Tasks = slices.DeleteFunc(f.Pending.Tasks, func(task taskwarrior.Task) bool { return task.UUID == uuid })
+	}
+}
+
 // called records call and answers the error Fail names for its verb.
 func (f *TaskFake) called(call string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	return f.record(call)
+}
+
+// record records call and answers the error Fail names for its verb. The lock
+// is held.
+func (f *TaskFake) record(call string) error {
 	f.calls = append(f.calls, call)
 	verb, _, _ := strings.Cut(call, " ")
 
@@ -120,6 +232,12 @@ func (f *TaskFake) called(call string) error {
 // TaskDay is when the fake's tasks were made.
 func TaskDay() time.Time {
 	return time.Date(2026, time.September, 21, 9, 30, 0, 0, time.UTC)
+}
+
+// writtenAt is when the fake makes a write, by its own clock: after every
+// date its tasks were made with but their due one.
+func writtenAt() time.Time {
+	return TaskDay().Add(4 * time.Hour)
 }
 
 // StartedTask is a pending task for TestKey, started, with a due date and a note.

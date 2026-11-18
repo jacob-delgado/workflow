@@ -8,11 +8,9 @@ import (
 	"net/http"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
@@ -23,21 +21,13 @@ import (
 // errLinkedUnread is a read of the linked tasks that failed.
 var errLinkedUnread = errors.New("taskwarrior did not answer in time")
 
-// finishedTask is the started task as Taskwarrior holds it once it is done:
-// stopped, completed and out of the working set.
-func finishedTask() taskwarrior.Task {
-	task := webtest.StartedTask()
-	task.ID, task.Status, task.Start, task.End = 0, taskwarrior.Completed, time.Time{}, webtest.TaskDay().Add(3*time.Hour)
-
-	return task
-}
-
 func TestDoneAnswersTheTaskAsTheLinkedTasksDescribeItAfterTheWrite(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// The fake holds the started task, done, as Taskwarrior does: stopped,
+	// completed and out of the working set.
 	fake := webtest.FakeTaskwarrior()
-	fake.Linked = []taskwarrior.Task{finishedTask(), webtest.DoneTask()}
 
 	// Act
 	recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()), http.MethodPost,
