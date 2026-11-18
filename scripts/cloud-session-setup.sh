@@ -45,7 +45,8 @@
 # runs commands in does not read ~/.bashrc. Every run copies
 # scripts/gate-as-dev.sh into the prefix beside the tools, with the library it
 # reads pins with, so the gate on PATH is root's own and outlives the checkout
-# that ran the setup. One setup runs at a time.
+# that ran the setup; a run going, or waiting for its lock, keeps the copy it
+# started with. One setup runs at a time.
 #
 # The environment is the seam: CLOUD_SETUP_PREFIX (/opt/workflow-tools) is
 # where the tools go, CLOUD_SETUP_BIN (~/.local/bin) where they are linked,

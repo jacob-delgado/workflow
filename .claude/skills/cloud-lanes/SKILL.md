@@ -176,23 +176,20 @@ Say which host and why, and carry on with what does not need it.
   `task check:docs` when the worktree changes the docs alone since
   `origin/main` (`scripts/docs-only.sh`; `GATE_BASE` names another base,
   which it hands dev's run for `task cover:branch` to judge changed lines
-  by). A copy installed before it handed `GATE_BASE` on leaves dev's run to
-  judge them by dev's clone's own `origin/main`, as old as that clone, so a
-  line main changed since counts as the change's and can fail it, never pass
-  it: until the setup runs again from a checkout that has it, run the
-  worktree's own `bash scripts/gate-as-dev.sh <worktree>`. It checks the disk
-  before the run and between steps, and one run goes at a time: a second
-  waits for the first, and so does a setup with a tool to install, since a
-  run uses the toolchain from start to end. There is one
-  toolchain, set up from whichever checkout ran the setup last, so the gate
-  refuses, with "run setup for this worktree", a commit whose pins are not
-  the ones it was set up from (a version in `mise.toml` of a tool the setup
-  installs, or a linter's pin file under `build/`): run that worktree's
-  `bash scripts/cloud-session-setup.sh`, then the gate. Every other lane on
-  the old pins must then do the same before its own gate run. dev gets a
-  temporary directory of its own under `~/.cache`, since root's tools keep
-  fixed names in `/tmp`: a root golangci-lint's lock there would fail dev's
-  `lint:go` with "parallel golangci-lint is running".
+  by). It checks the disk before the run and between steps, and one run goes
+  at a time: a second waits for the first, and so does a setup with a tool to
+  install, since a run uses the toolchain from start to end; a run hands the
+  gate user the gate-as-dev it started with, so a setup run meanwhile changes
+  only the next run. There is one toolchain, set up from whichever checkout
+  ran the setup last, so the gate refuses, with "run setup for this
+  worktree", a commit whose pins are not the ones it was set up from (a
+  version in `mise.toml` of a tool the setup installs, or a linter's pin file
+  under `build/`): run that worktree's `bash scripts/cloud-session-setup.sh`,
+  then the gate. Every other lane on the old pins must then do the same
+  before its own gate run. dev gets a temporary directory of its own under
+  `~/.cache`, since root's tools keep fixed names in `/tmp`: a root
+  golangci-lint's lock there would fail dev's `lint:go` with "parallel
+  golangci-lint is running".
 - **A worktree is not a clone.** A lane's worktree has a `.git` file; dev's
   gate checkout and CI's checkout have a `.git` directory, of objects and
   git's own sample hooks. So a check that walks hidden files can pass in a
