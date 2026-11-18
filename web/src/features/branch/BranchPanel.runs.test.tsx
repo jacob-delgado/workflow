@@ -264,6 +264,26 @@ test('says why a stop was refused', async () => {
   expect((await screen.findByRole('alert')).textContent).toContain('no run is going')
 })
 
+test('a stop refused as another page’s run ends goes with that run', async () => {
+  // Arrange
+  mockStopRun.mockRejectedValueOnce({ code: 'not_found', detail: 'no run is going' })
+  foldable({
+    run: { kind: 'rebase', title: 'git rebase', state: 'in_progress', outcome: '', lines: [] },
+  })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Stop git rebase' }))
+  await screen.findByRole('alert')
+
+  // Act
+  act(() => {
+    foldable()
+  })
+
+  // Assert
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
 test('puts an ended run away on Close', async () => {
   // Arrange
   foldable()
@@ -344,6 +364,91 @@ test('puts a refused stop away with the run it was for on Close', async () => {
   await user.click(await screen.findByRole('button', { name: 'Close' }))
 
   // Assert
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+test('a stop refused once its run was put away says nothing', async () => {
+  // Arrange
+  const end = holdRun()
+  let refuse: (refusal: unknown) => void = () => {
+    throw new Error('the stop was not sent')
+  }
+  mockStopRun.mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        refuse = reject
+      }),
+  )
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await runPreCommit(user)
+  await user.click(await screen.findByRole('button', { name: 'Stop pre-commit' }))
+  await act(async () => {
+    end()
+    await Promise.resolve()
+  })
+  await user.click(await screen.findByRole('button', { name: 'Close' }))
+
+  // Act
+  await act(async () => {
+    refuse({ code: 'internal', detail: 'the stop could not be sent' })
+    await Promise.resolve()
+  })
+
+  // Assert
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+test('a start drops a stop refused for the run before it', async () => {
+  // Arrange
+  const end = holdRun()
+  mockStopRun.mockRejectedValueOnce({ code: 'not_found', detail: 'no run is going' })
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await runPreCommit(user)
+  await user.click(await screen.findByRole('button', { name: 'Stop pre-commit' }))
+  await screen.findByRole('alert')
+  await act(async () => {
+    end()
+    await Promise.resolve()
+  })
+
+  // Act
+  await runPreCommit(user)
+
+  // Assert
+  expect(mockStartRun).toHaveBeenCalledTimes(2)
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
+test('a refused stop goes on Close though a stale frame still shows its run', async () => {
+  // Arrange
+  const end = holdRun(1)
+  mockStopRun.mockRejectedValueOnce({ code: 'not_found', detail: 'no run is going' })
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await runPreCommit(user)
+  act(() => {
+    foldable({
+      run: { kind: 'hook', title: 'pre-commit', state: 'in_progress', outcome: '', lines: [] },
+    })
+    useSnapshotStore.setState({ status: 'stale' })
+  })
+  await user.click(await screen.findByRole('button', { name: 'Stop pre-commit' }))
+  await screen.findByRole('alert')
+  await act(async () => {
+    end()
+    await Promise.resolve()
+  })
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Close' }))
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Stop pre-commit' })).toBeTruthy()
   expect(screen.queryByRole('alert')).toBeNull()
 })
 
