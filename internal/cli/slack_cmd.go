@@ -238,7 +238,8 @@ func refreshAndKeep(ctx context.Context, conn cmdkit.Connection, answers loginAn
 }
 
 // sayWhoseToken asks Slack whose the token cfg keeps is, and says so, and
-// where it is kept.
+// where it is kept. The token is kept by then, so when Slack will not say
+// whose it is, the failure says where the token was kept.
 func sayWhoseToken(
 	ctx context.Context, notes console.Notes, process wiring.Environment, cfg config.Config, transport httpx.Doer,
 ) error {
@@ -248,7 +249,7 @@ func sayWhoseToken(
 	identity, err := messaging.New(toSlack, base, cfg.Messaging).
 		WithToken(process.SlackToken(cfg, transport)).AuthTest(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("kept the token in %s, but could not ask Slack whose it is: %w", where, err)
 	}
 
 	notes.Note(fmt.Sprintf("Logged in to Slack as %s in %s. The token is kept in %s and refreshed before it expires.",

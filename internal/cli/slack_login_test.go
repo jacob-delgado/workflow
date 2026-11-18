@@ -442,10 +442,16 @@ func TestSlackLoginWhoseTokenSlackThenRefusesSaysSoHavingKeptIt(t *testing.T) {
 		t.Errorf("slack login = %v, said %q; want Slack's refusal, not a login", err, printed.Stderr)
 	}
 
+	if kept := "kept the token in the configuration file " + path; err == nil || !strings.Contains(err.Error(), kept) {
+		t.Errorf("slack login = %v, want it to say it %s", err, kept)
+	}
+
 	held, readErr := os.ReadFile(path)
 	if readErr != nil || !strings.Contains(string(held), "xoxe-1-next") {
 		t.Errorf("%s holds %q (%v), want the pair Slack gave back kept", path, held, readErr)
 	}
+
+	wantExit(t, err, 3)
 }
 
 // slackRefresh is the path of Slack's oauth.v2.access, which a user token is
