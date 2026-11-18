@@ -94,7 +94,12 @@ func revisionOfContents(contents []byte) Revision {
 // there, or the file a link there points at. The new file is made in the
 // directory of the file it replaces, so that directory must be writable too.
 func Save(path string, cfg Config) error {
-	return write(path, cfg)
+	err := writePrivate(path, indented(cfg))
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+
+	return nil
 }
 
 // Create writes the configuration to a new file at path, at FileMode, and
@@ -103,16 +108,6 @@ func Save(path string, cfg Config) error {
 // refusal wraps fs.ErrExist.
 func Create(path string, cfg Config) error {
 	return createPrivate(path, indented(cfg))
-}
-
-// write encodes the configuration into path.
-func write(path string, cfg Config) error {
-	err := writePrivate(path, indented(cfg))
-	if err != nil {
-		return fmt.Errorf("writing %s: %w", path, err)
-	}
-
-	return nil
 }
 
 // indented is value, a Config or plain JSON values, as JSON a person can
