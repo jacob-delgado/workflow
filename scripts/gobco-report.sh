@@ -26,14 +26,13 @@
 #
 #   - AN ARM NO TEST REACHED. A condition never evaluated, and an error check
 #     whose error arm was never seen, are named by file, line and function,
-#     and fail unless a line of scripts/gobco-allowlist.txt keeps that arm for
-#     a kept trade-off in TECH_DEBT.md.
+#     and fail unless a line of scripts/gobco-allowlist.txt keeps that arm.
 #   - A CONDITION SEEN ONE WAY ON A LINE THE CHANGE TOUCHED. One on a line the
 #     working tree adds or modifies since its merge base with GATE_BASE
 #     (origin/main when unset) fails the same way, since a defect once
-#     shipped behind one the report listed (TRADE-19). Any other condition
-#     seen one way is only listed: that is the worklist. GATE_BASE set empty,
-#     as CI sets it on a push to main, names no base, and the run says so and
+#     shipped behind one the report listed. Any other condition seen one way
+#     is only listed: that is the worklist. GATE_BASE set empty, as CI sets
+#     it on a push to main, names no base, and the run says so and
 #     skips this check alone; so does a clone that holds no origin/main, or
 #     no merge base with it, as a shallow one may, while GATE_BASE is unset.
 #     A base GATE_BASE names that the clone does not hold, or shares no
@@ -280,11 +279,10 @@ for package in ${packages}; do
   files="$(twin_files "${rel}")"
 
   # gobco's per-condition output is the worklist — print it, since a percentage
-  # alone tells nobody which test to write next. Trade-off TRADE-19: a
-  # condition it lists as seen one way stays the worklist here, not an entry
-  # in TECH_DEBT.md, unless it is an error check whose error arm went unseen
-  # or it lies on a line this change touched; those, and a condition never
-  # evaluated, fail below.
+  # alone tells nobody which test to write next. A condition it lists as seen
+  # one way stays the worklist here, unless it is an error check whose error
+  # arm went unseen or it lies on a line this change touched; those, and a
+  # condition never evaluated, fail below.
   if [[ -z "${files}" ]]; then
     gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1 || unexpected="${unexpected} ${rel}"
     continue
@@ -435,10 +433,11 @@ changed_lines() {
 }
 
 # The lines this change touched, judged from its merge base with the base, so
-# a line the base changed after the fork is none of them. Trade-off TRADE-19:
-# a condition seen one way fails on such a line alone; elsewhere it stays the
-# worklist above. Where no base can be found, that check alone is skipped, and
-# the run says so rather than pass a change it could not judge; where the base
+# a line the base changed after the fork is none of them. A condition seen one
+# way fails on such a line alone; elsewhere it stays the worklist above, so
+# the worklist of those already there shrinks as changes reach their lines.
+# Where no base can be found, that check alone is skipped, and the run says
+# so rather than pass a change it could not judge; where the base
 # GATE_BASE names cannot be found, the run fails, since a pull request's run
 # that lost its base would otherwise pass every change unjudged.
 skipped="no condition seen one way fails for its line; the floors and the arms no test reached hold as ever."
@@ -470,9 +469,9 @@ else
 fi
 
 # An arm no test reached fails, and so does a condition seen one way on a line
-# this change touched, unless a line of the allowlist keeps it for a
-# trade-off: scripts/lib/gobco-arms.awk says which arms those are, and how a
-# line keeps one. Columns count bytes, as Go's do, so it reads in the C locale.
+# this change touched, unless a line of the allowlist keeps it:
+# scripts/lib/gobco-arms.awk says which arms those are, and how a line keeps
+# one. Columns count bytes, as Go's do, so it reads in the C locale.
 LC_ALL=C awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="$(go env GOOS)" \
   -v root="${changes_root}" -v changed="${changed}" -v since="${since}" \
   -f "${repo_root}/scripts/lib/gobco-arms.awk" <<<"${conditions}" || failed=1

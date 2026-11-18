@@ -192,10 +192,10 @@ own:
   default; CI names a pull request's base branch, and on a push to main names
   none, so the report says it skips that check, while a base `GATE_BASE`
   names that the clone cannot find fails the run), each unless
-  `scripts/gobco-allowlist.txt` keeps that arm for a trade-off `TECH_DEBT.md`
-  records. An error check is a name ending in `err` or `Err`, perhaps with a
-  capitalized or numbered rest (`err`, `readErr`, `closeErr`, `err2`,
-  `errParse`, but not `errorHandler`), or a call of a method so named
+  `scripts/gobco-allowlist.txt` keeps that arm, under a comment saying why no
+  test can reach it. An error check is a name ending in `err` or `Err`,
+  perhaps with a capitalized or numbered rest (`err`, `readErr`, `closeErr`,
+  `err2`, `errParse`, but not `errorHandler`), or a call of a method so named
   (`ctx.Err()`), reached through fields and calls, compared with `nil`; and an
   `errors.Is` or `!errors.Is` of such a name right after `<name> != nil &&`,
   which only an error reaches, is one whose error arm is its true one. gobco

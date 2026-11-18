@@ -1,80 +1,87 @@
-# The condition arms no test reaches that a kept trade-off keeps. The gate is
-# scripts/gobco-report.sh (task cover:branch), which fails on any condition
-# never evaluated, on any error check whose error arm was never seen, and on
-# any condition seen one way on a line the change touched, unless a line here
-# keeps it; the format and the matching are in scripts/lib/gobco-arms.awk's
-# header.
+# The condition arms no test can reach. The gate is scripts/gobco-report.sh
+# (task cover:branch), which fails on any condition never evaluated, on any
+# error check whose error arm was never seen, and on any condition seen one
+# way on a line the change touched, unless a line here keeps it; the format
+# and the matching are in scripts/lib/gobco-arms.awk's header.
 #
-# ONE LINE PER ARM:
+# ONE LINE PER ARM, under a comment that says why no test can reach it:
 #
-#     <file> <function> <TRADE-n> <systems> <number> <condition>
+#     <file> <function> <systems> <number> <condition>
 #
-# <function> is as the gate prints it, Type.Method for a method. <TRADE-n> is
-# the entry in TECH_DEBT.md's trade-off register that keeps the arm, and
-# scripts/check-tradeoffs.sh fails a line naming one the register does not
-# hold. <systems> is "any", or the GOOS values on which the arm goes unseen,
-# joined by commas. <number> is the arm's place among the conditions of its
-# function that read the same, counted from the top, as the gate prints it,
-# and <condition> is the code gobco prints for it.
+# <function> is as the gate prints it, Type.Method for a method. <systems> is
+# "any", or the GOOS values on which the arm goes unseen, joined by commas.
+# <number> is the arm's place among the conditions of its function that read
+# the same, counted from the top, as the gate prints it, and <condition> is
+# the code gobco prints for it.
 #
 # Every other arm the gate names is a test to write, not a line to add. A line
 # keeps any arm of its condition, since one only another system sees both
 # ways may be kept on a line a change touches, so a line fails the gate until
 # it is removed once a test sees its condition both ways, and this list
 # shrinks as tests arrive; one kept for an arm a test comes to reach stays
-# while the other arm goes unseen, a limit TRADE-19 keeps. Source lines are
-# not named here: they drift, and the gate matches on file, function, number
-# and condition.
+# while the other arm goes unseen, since a line does not name its arm. Source
+# lines are not named here: they drift, and the gate matches on file,
+# function, number and condition.
 # The number keeps a kept arm that a test comes to reach from being traded for
 # a new one no test reaches that reads the same, added below it. A condition
 # that reads the same added above a kept arm moves its number on, and the gate
 # fails until the line follows it, but for one case: when a test comes to
 # reach the kept arm in the same change, the new arm takes its number and the
-# line keeps it, unseen. TRADE-19 keeps that limit.
+# line keeps it, unseen, since without source lines the two read alike.
 
-# TRADE-13: encoding the program's own types is taken not to fail, nor
-# decoding JSON the program just encoded or decoded; and, in the web server, a
-# caller that only passes such a failure on.
-internal/config/layers.go encodeValue TRADE-13 any 1 err != nil
-internal/config/layers.go decodeBuilt TRADE-13 any 1 err != nil
-internal/config/save.go indented TRADE-13 any 1 err != nil
-internal/forge/client.go Client.newRequest TRADE-13 any 1 err != nil
-internal/jira/jira.go Client.newJSONRequest TRADE-13 any 1 err != nil
-internal/messaging/post.go Client.postJSON TRADE-13 any 1 err != nil
-internal/slackauth/store.go saveKeychain TRADE-13 any 1 err != nil
-internal/tui/settingsremove.go settingsForm.readWithout TRADE-13 any 1 err != nil
-internal/tui/settingsvalues.go settingsForm.edited TRADE-13 any 1 err != nil
-internal/tui/settingsvalues.go seed TRADE-13 any 1 err == nil
-internal/tui/settingsvalues.go seed TRADE-13 any 2 err != nil
-internal/webserver/config.go server.GetConfig TRADE-13 any 2 err != nil
-internal/webserver/config.go server.writeOver TRADE-13 any 4 err != nil
-internal/webserver/config.go configDTO TRADE-13 any 1 err != nil
-internal/webserver/config.go configDTO TRADE-13 any 2 err != nil
-internal/webserver/config.go fromDTO TRADE-13 any 1 err != nil
-internal/webserver/stream.go sendEvent TRADE-13 any 1 err != nil
+# Encoding the program's own types is taken not to fail, nor decoding JSON the
+# program just encoded or decoded; and, in the web server, a caller that only
+# passes such a failure on. The values hold only strings, integers, booleans,
+# finite floats, slices and maps of the same, or values just decoded from
+# JSON, and a config.Config's JSON always fits api.Config, so no test can make
+# one fail; each arm stays so a failure is reported, or, in config's own
+# encoders, panics, rather than being read past. A type encoded here that
+# gains a float that can be NaN or infinite, a func, a channel, an interface
+# field or a MarshalJSON of its own puts its arm in play, and needs a test.
+internal/config/layers.go encodeValue any 1 err != nil
+internal/config/layers.go decodeBuilt any 1 err != nil
+internal/config/save.go indented any 1 err != nil
+internal/forge/client.go Client.newRequest any 1 err != nil
+internal/jira/jira.go Client.newJSONRequest any 1 err != nil
+internal/messaging/post.go Client.postJSON any 1 err != nil
+internal/slackauth/store.go saveKeychain any 1 err != nil
+internal/tui/settingsremove.go settingsForm.readWithout any 1 err != nil
+internal/tui/settingsvalues.go settingsForm.edited any 1 err != nil
+internal/tui/settingsvalues.go seed any 1 err == nil
+internal/tui/settingsvalues.go seed any 2 err != nil
+internal/webserver/config.go server.GetConfig any 2 err != nil
+internal/webserver/config.go server.writeOver any 4 err != nil
+internal/webserver/config.go configDTO any 1 err != nil
+internal/webserver/config.go configDTO any 2 err != nil
+internal/webserver/config.go fromDTO any 1 err != nil
+internal/webserver/stream.go sendEvent any 1 err != nil
 
-# TRADE-14: what the binary embeds, the OpenAPI contract and the web app, is
-# taken to load.
-internal/web/embed.go Assets TRADE-14 any 1 err != nil
-internal/webserver/edge/edge.go Handler TRADE-14 any 1 err != nil
-internal/webserver/edge/validator.go loadSpec TRADE-14 any 1 err != nil
-internal/webserver/edge/validator.go loadSpec TRADE-14 any 2 err != nil
-internal/webserver/edge/validator.go loadContract TRADE-14 any 1 err != nil
-internal/webserver/edge/validator.go loadContract TRADE-14 any 2 err != nil
+# What the binary embeds, the OpenAPI contract and the web app, is taken to
+# load: both are compiled in, so only a build-time defect trips these arms,
+# and that defect fails every web server test first.
+internal/web/embed.go Assets any 1 err != nil
+internal/webserver/edge/edge.go Handler any 1 err != nil
+internal/webserver/edge/validator.go loadSpec any 1 err != nil
+internal/webserver/edge/validator.go loadSpec any 2 err != nil
+internal/webserver/edge/validator.go loadContract any 1 err != nil
+internal/webserver/edge/validator.go loadContract any 2 err != nil
 
-# TRADE-16: opening the store at this build's schema version, removeDatabase
-# and stamp each follow a call that just read or made the same file, so fail
-# only when the file changes between the two; and the callers that pass that
-# failure on. removeDatabase's arm is a removal that fails for any reason but
-# the file being gone, which gobco reports as its errors.Is never false.
-internal/store/store.go openCurrent TRADE-16 any 2 err != nil
-internal/store/store.go openCurrent TRADE-16 any 3 err != nil
-internal/store/store.go remakeDatabase TRADE-16 any 1 err != nil
-internal/store/store.go removeDatabase TRADE-16 any 1 errors.Is(err, fs.ErrNotExist)
-internal/store/store.go stamp TRADE-16 any 1 err != nil
+# Opening the store at this build's schema version, removeDatabase and stamp
+# each follow a call that just read or made the same file, so fail only when
+# the file changes between the two, a race no test can hold open without a
+# seam; and the callers that pass that failure on. removeDatabase's arm is a
+# removal that fails for any reason but the file being gone, which gobco
+# reports as its errors.Is never false.
+internal/store/store.go openCurrent any 2 err != nil
+internal/store/store.go openCurrent any 3 err != nil
+internal/store/store.go remakeDatabase any 1 err != nil
+internal/store/store.go removeDatabase any 1 errors.Is(err, fs.ErrNotExist)
+internal/store/store.go stamp any 1 err != nil
 # A context's kill that fails because the program exited and was reaped
-# after os/exec asked for it.
-internal/proc/proc.go recordStop TRADE-16 any 1 err == nil
+# after os/exec asked for it, the same kind of race.
+internal/proc/proc.go recordStop any 1 err == nil
 
-# TRADE-36: the stat of a configuration file just opened is taken not to fail.
-internal/config/layers.go readTrusted TRADE-36 any 1 err == nil
+# The stat of a configuration file just opened is taken not to fail: an fstat
+# of a descriptor the process holds fails only for a fault no test can cause
+# without a seam to fake the file.
+internal/config/layers.go readTrusted any 1 err == nil

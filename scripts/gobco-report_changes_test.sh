@@ -108,10 +108,10 @@ GOBCO_CHANGES_ROOT="${edited}" GATE_BASE=origin/base expect pass "a condition se
 
 # An arm the allowlist keeps passes on a changed line too, and an arm no test
 # reached fails there as anywhere.
-flushed="$(allowlist flushed "${fixture} sender.send TRADE-1 any 1 err != nil")"
+flushed="$(allowlist flushed "${fixture} sender.send any 1 err != nil")"
 GOBCO_ALLOWLIST="${flushed}" expect pass "an error arm the allowlist keeps, on a changed line" \
   "[$(condition 74:23 'err != nil' 0 2)]" "" "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
-sent="$(allowlist sent "${fixture} sender.send TRADE-1 any 1 err != nil" "${fixture} sender.send TRADE-2 any 1 s.closed")"
+sent="$(allowlist sent "${fixture} sender.send any 1 err != nil" "${fixture} sender.send any 1 s.closed")"
 GOBCO_ALLOWLIST="${sent}" expect pass "a condition seen one way the allowlist keeps, on a changed line" \
   "[$(condition 70:5 's.closed' 0 3),$(condition 74:23 'err != nil' 0 2)]" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50

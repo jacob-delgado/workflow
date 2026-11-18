@@ -157,10 +157,10 @@ as its status, so a gate that fails for the wrong reason fails the test.
   above it, and `check-package-size.sh` fails one without. A change to a
   number, a ratchet as much as a bump, appends a row to
   `package-size-budget-history.md`; an earlier row is never rewritten.
-- `gobco-allowlist.txt`: each line keeps one arm for the `TRADE-n` it names,
-  which `check-tradeoffs.sh` holds to the register; a line whose condition a
-  test comes to see both ways fails until it goes, and one kept for an arm a
-  test comes to reach stays while the other arm goes unseen (TRADE-19).
+- `gobco-allowlist.txt`: each line keeps one arm no test can reach, under a
+  comment saying why; a line whose condition a test comes to see both ways
+  fails until it goes, and one kept for an arm a test comes to reach stays
+  while the other arm goes unseen, since a line does not name its arm.
   `gobco-floors.txt` holds a package to a condition floor of its own, raised
   only once the coverage is there, to floor(measured) − 2, and lowered only as
   the root `CLAUDE.md`'s *Testing* allows.
