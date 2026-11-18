@@ -386,7 +386,10 @@ opened — declined, refused or failed — prints nothing.
 
 `workflow doctor --json` prints the report as an object: `version`; `repository`
 (`inside_work_tree`, `root`, `branch`, `detached`, `remote`, `forge` — the
-base remote's forge — and, in a fork's clone only, `base_remote` and `base`, its
+base remote's forge — and, while a git operation is stopped part way,
+`operation`, the git command that continues or aborts it (`rebase`, `merge`,
+`cherry-pick` or `revert`), and, for a rebase of a branch, `rebasing`, the
+branch it replays; and, in a fork's clone only, `base_remote` and `base`, its
 name and address; or, outside a work tree, `problem`: that git is not on `PATH`, that the directory is in no
 work tree, or that the working directory cannot be read);
 `tooling`, one entry per program (`name`, `found`, `required`, `effect`, and

@@ -9,6 +9,7 @@
 package doctor
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -194,7 +195,12 @@ type repositoryFacts struct {
 	Root           string `json:"root,omitempty"`
 	Branch         string `json:"branch,omitempty"`
 	Detached       bool   `json:"detached"`
-	Remote         string `json:"remote,omitempty"`
+	// Operation is the git command that continues or aborts the operation
+	// stopped part way in the work tree, as git names it, and Rebasing the
+	// branch a stopped rebase replays; each is left out when there is none.
+	Operation string `json:"operation,omitempty"`
+	Rebasing  string `json:"rebasing,omitempty"`
+	Remote    string `json:"remote,omitempty"`
 	// BaseRemote and Base name the base remote and its masked address when it
 	// is not origin, as in a fork's clone, and are left out otherwise.
 	BaseRemote string `json:"base_remote,omitempty"`
@@ -220,6 +226,7 @@ func repositoryFactsFor(ctx context.Context, run doctorRun) (repositoryFacts, st
 
 	facts := repositoryFacts{
 		InsideWorkTree: true, Root: repo.Root, Branch: repo.Branch, Detached: repo.Detached,
+		Operation: repo.Operation.Command(), Rebasing: repo.Rebasing,
 		Remote: config.DisplayURL(repo.Origin), Forge: forgeLabel(repo.Base.URL),
 	}
 
@@ -282,8 +289,19 @@ func forgeLabel(remote string) string {
 	return fmt.Sprintf("%s %s at %s", repo.Kind, repo.Path, base)
 }
 
-// branchLabel names the checked-out branch, or says why there isn't one.
+// branchLabel names the checked-out branch, or says why there isn't one, and
+// how to end a git operation stopped part way: a rebase by the branch it
+// replays, which its detached HEAD hides, any other beside the branch.
 func branchLabel(facts repositoryFacts) string {
+	if facts.Operation == gitrepo.OperationRebase.Command() {
+		return "(rebasing " + cmp.Or(facts.Rebasing, "a detached HEAD") + " — run git rebase --continue or --abort first)"
+	}
+
+	if facts.Operation != "" {
+		return cmp.Or(facts.Branch, "detached HEAD") + " (" + facts.Operation + " stopped — run git " +
+			facts.Operation + " --continue or --abort first)"
+	}
+
 	if facts.Detached {
 		return "(detached HEAD — check out a branch before starting work)"
 	}
