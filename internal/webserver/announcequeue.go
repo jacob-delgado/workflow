@@ -209,6 +209,13 @@ func (s *server) deliverSeams() loop.DeliverSeams {
 // under ctx, and steps the hold on what it heard.
 func (s *server) readHeld(ctx context.Context) armed.Next {
 	ask, seams := s.askHeld()
+
+	return s.readAsked(ctx, ask, seams)
+}
+
+// readAsked makes the read asked as ask, of the held pull request and its CI
+// through seams under ctx, and steps the hold on what it heard.
+func (s *server) readAsked(ctx context.Context, ask armed.Ask, seams armed.Seams) armed.Next {
 	reading, failure := seams.Read(ctx, ask, s.now)
 
 	return s.stepHeld(func(held armed.Hold) (armed.Hold, armed.Next) { return held.Hear(reading, failure) })
@@ -220,6 +227,28 @@ func (s *server) askHeld() (armed.Ask, armed.Seams) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
+	return s.askedOfHeld()
+}
+
+// askHeldIn asks the hold for a read as askHeld does, but only while it still
+// waits in its round heldIn, checked under the same lock as the ask, so no
+// arm can begin another round between the two; one stopped, replaced or
+// posted meanwhile is asked nothing, and ok is false.
+func (s *server) askHeldIn(heldIn int) (armed.Ask, armed.Seams, bool) {
+	s.held.mu.Lock()
+	defer s.held.mu.Unlock()
+
+	if s.held.hold.Round() != heldIn || !s.held.hold.Stage().Waiting() {
+		return armed.Ask{}, armed.Seams{}, false
+	}
+
+	ask, seams := s.askedOfHeld()
+
+	return ask, seams, true
+}
+
+// askedOfHeld is askHeld's ask, its caller holding the slot's lock.
+func (s *server) askedOfHeld() (armed.Ask, armed.Seams) {
 	var ask armed.Ask
 
 	s.held.hold, ask = s.held.hold.Asked()
@@ -294,13 +323,15 @@ func (s *server) readHeldLater() armed.Next {
 }
 
 // readHeldIn reads the hold the timer was set for in the hold's round heldIn,
-// while it still waits in that round: one stopped, replaced or posted
-// meanwhile is read no more.
+// while it still waits in that round (askHeldIn): one stopped, replaced or
+// posted meanwhile is read no more.
 func (s *server) readHeldIn(heldIn int) {
-	hold, _ := s.heldNow()
-	if hold.Round() == heldIn && hold.Stage().Waiting() {
-		s.advance(s.worlds.lifetime, armed.NextRead)
+	ask, seams, ok := s.askHeldIn(heldIn)
+	if !ok {
+		return
 	}
+
+	s.advance(s.worlds.lifetime, s.readAsked(s.worlds.lifetime, ask, seams))
 }
 
 // supersede settles a waiting hold of made as announced, a post of it asked
