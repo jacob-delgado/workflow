@@ -1981,3 +1981,28 @@ never shows a wrong answer for longer than that search.
 **Reopen when.** A search for Taskwarrior comes to cost enough that one more
 matters, or a user reports the Tasks section going back and forth between
 found and not found.
+
+### TRADE-77 A settings change can land between a task write's check and its write
+
+**Decided.** 2026-11-17 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: a task write of `--web`
+checks that the taskwarrior settings in effect are still the ones its seams
+were bound with as workflow started in or switched to the directory, then
+makes the write (`taskWrite`, `internal/webserver/tasks/taskwrite.go`, and
+`taskCommand`, `internal/webserver/tasks/taskcommands.go`). A save in
+Settings that changes `taskwarrior.program` or `taskwarrior.disabled` and
+lands between the two is not refused by the server. Closing the gap would
+have a save of the configuration wait for every task write in flight, and
+each task write hold the settings across Taskwarrior's own write: a lock
+between Settings and the Tasks section for a window of one call.
+
+**Cost.** A write asked just as such a save lands is made through the
+Taskwarrior the old settings found, which is the one whose tasks the page
+showed when the write was asked, rather than refused. The list it answers,
+and every read after it, says the settings changed and that the change
+applies at the next start or directory switch.
+
+**Reopen when.** The taskwarrior settings come to name where Taskwarrior
+keeps its data, so a write through the old settings could reach other
+tasks than the ones the page showed, or a user reports a write made as the
+settings changed.
