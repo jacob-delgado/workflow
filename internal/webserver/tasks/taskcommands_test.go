@@ -264,8 +264,8 @@ func TestTrackIssueWhoseAnnotationFailsStillAnswersTheList(t *testing.T) {
 	// Assert
 	list := webtest.Decode[api.TaskList](t, recorder)
 	if want := "created but not annotated: Taskwarrior did not answer in time"; recorder.Code != http.StatusOK ||
-		list.Said != want || len(list.Tasks) != 2 {
-		t.Errorf("answer = %d %+v, want 200 with the list and said %q", recorder.Code, list, want)
+		list.Said != want || len(list.Tasks) != 3 {
+		t.Errorf("answer = %d %+v, want 200 with the list, the task added in it, and said %q", recorder.Code, list, want)
 	}
 
 	if list.Added == nil || *list.Added != webtest.AddedUUID {

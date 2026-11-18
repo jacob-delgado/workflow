@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -56,7 +57,10 @@ func taskWrites() map[string]taskWrite {
 func TestStartStopAndDoneAnswerTheListAfterTheWrite(t *testing.T) {
 	t.Parallel()
 
-	for _, write := range []string{startVerb, stopVerb, doneVerb} {
+	// A done takes the task out of the pending list.
+	pendingAfter := map[string]int{startVerb: 2, stopVerb: 2, doneVerb: 1}
+
+	for write, wantPending := range pendingAfter {
 		t.Run(write, func(t *testing.T) {
 			t.Parallel()
 
@@ -69,14 +73,38 @@ func TestStartStopAndDoneAnswerTheListAfterTheWrite(t *testing.T) {
 
 			// Assert
 			list := webtest.Decode[api.TaskList](t, recorder)
-			if recorder.Code != http.StatusOK || !list.Available || len(list.Tasks) != 2 || list.Added != nil {
-				t.Errorf("answer = %d %+v, want 200 with the pending list and nothing added", recorder.Code, list)
+			if recorder.Code != http.StatusOK || !list.Available || len(list.Tasks) != wantPending || list.Added != nil {
+				t.Errorf("answer = %d %+v, want 200 with the %d pending tasks and nothing added",
+					recorder.Code, list, wantPending)
 			}
 
 			if call := write + " " + webtest.PlainUUID; !fake.ReadAfter(call) {
 				t.Errorf("calls = %q, want %q and then the pending list read", fake.Asked(), call)
 			}
 		})
+	}
+}
+
+func TestAStartedTaskShowsStartedInTheListAfter(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := webtest.FakeTaskwarrior()
+	handler := webtest.Serve(t, tasksDeps(fake), config.Default())
+
+	// Act
+	recorder := webtest.Send(t, handler, http.MethodPost, taskPath(webtest.PlainUUID, startVerb), "")
+
+	// Assert
+	list := webtest.Decode[api.TaskList](t, recorder)
+
+	plain := slices.IndexFunc(list.Tasks, func(task api.Task) bool { return task.UUID == webtest.PlainUUID })
+	if plain < 0 {
+		t.Fatalf("answer = %d %+v, want the plain task in the list after its start", recorder.Code, list)
+	}
+
+	if state := list.Tasks[plain].State; state != api.TaskStateStarted {
+		t.Errorf("plain task = %s in the list after its start, want started", state)
 	}
 }
 
