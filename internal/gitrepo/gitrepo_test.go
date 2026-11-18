@@ -97,6 +97,7 @@ func onABranch() map[string]reply {
 		showCurrentBranch:                    {out: []byte("feat/token-redaction\n")},
 		"git -C /work remote get-url origin": {out: []byte(originURL + "\n")},
 		readRemotes:                          {err: errNoRef},
+		readStopped:                          nothingStopped(),
 	}
 }
 

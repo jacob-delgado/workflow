@@ -12,9 +12,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // ErrNotARepository reports a directory outside any git work tree.
@@ -57,6 +60,37 @@ type Repo struct {
 	// Base is the base remote: where pull requests merge into, as BaseRemote
 	// reads it — origin itself outside a fork's clone.
 	Base Remote
+	// Operation is the git operation stopped part way in the work tree, if any.
+	Operation Operation
+	// Rebasing is the branch a stopped rebase replays: empty when it replays a
+	// detached HEAD, and for any other operation.
+	Rebasing string
+}
+
+// Operation is a git operation stopped part way in the work tree, which git
+// finishes with --continue or ends with --abort.
+type Operation int
+
+// The operations git can leave stopped part way; OperationNone when none is.
+const (
+	OperationNone Operation = iota
+	OperationRebase
+	OperationMerge
+	OperationCherryPick
+	OperationRevert
+)
+
+// Command is the git command that continues or aborts the operation:
+// "rebase", "merge", "cherry-pick" or "revert"; OperationNone has none, "".
+// A map, not a switch, so there is no last arm gobco can never see false.
+func (o Operation) Command() string {
+	return map[Operation]string{
+		OperationNone:       "",
+		OperationRebase:     "rebase",
+		OperationMerge:      "merge",
+		OperationCherryPick: "cherry-pick",
+		OperationRevert:     "revert",
+	}[o]
 }
 
 // Remote is a git remote by name and URL; the URL is empty when git holds
@@ -153,12 +187,16 @@ func (r Repository) Describe(ctx context.Context) (Repo, error) {
 		baseURL = remoteURL(ctx, r.run, r.dir, base)
 	}
 
+	operation, rebasing := r.stopped(ctx)
+
 	return Repo{
-		Root:     text(root),
-		Branch:   name,
-		Detached: name == "",
-		Origin:   origin,
-		Base:     Remote{Name: base, URL: baseURL},
+		Root:      text(root),
+		Branch:    name,
+		Detached:  name == "",
+		Origin:    origin,
+		Base:      Remote{Name: base, URL: baseURL},
+		Operation: operation,
+		Rebasing:  rebasing,
 	}, nil
 }
 
@@ -177,6 +215,72 @@ func (r Repository) SharedDir(ctx context.Context) (string, error) {
 // has no such remote.
 func (r Repository) RemoteURL(ctx context.Context, name string) string {
 	return remoteURL(ctx, r.run, r.dir, name)
+}
+
+// stopMarker is a file git leaves while an operation is stopped part way.
+type stopMarker struct {
+	path      string
+	operation Operation
+}
+
+// stopMarkers are the files that say an operation is stopped, in the order
+// they decide it: a rebase's head-name under either backend, then a merge's,
+// a cherry-pick's and a revert's head. `git am` uses rebase-apply too but
+// writes no head-name there, so a stopped am reads as none.
+func stopMarkers() []stopMarker {
+	return []stopMarker{
+		{path: "rebase-merge/head-name", operation: OperationRebase},
+		{path: "rebase-apply/head-name", operation: OperationRebase},
+		{path: "MERGE_HEAD", operation: OperationMerge},
+		{path: "CHERRY_PICK_HEAD", operation: OperationCherryPick},
+		{path: "REVERT_HEAD", operation: OperationRevert},
+	}
+}
+
+// stopped reads which operation is stopped part way and, for a rebase, the
+// branch it replays. git is asked where its markers are, since a linked
+// worktree keeps its own apart from the shared directory, and the first that
+// exists decides. A read that fails reads as none, as every optional read
+// here does: the branch still reads, only without the warning.
+func (r Repository) stopped(ctx context.Context) (Operation, string) {
+	markers := stopMarkers()
+
+	args := []string{"-C", r.dir, "rev-parse", "--path-format=absolute"}
+	for _, marker := range markers {
+		args = slices.Concat(args, []string{"--git-path", marker.path})
+	}
+
+	paths := strings.Split(optional(ctx, r.run, args...), "\n")
+	if len(paths) != len(markers) {
+		return OperationNone, ""
+	}
+
+	for index, marker := range markers {
+		content, err := os.ReadFile(paths[index])
+		if err != nil {
+			continue
+		}
+
+		if marker.operation != OperationRebase {
+			return marker.operation, ""
+		}
+
+		return OperationRebase, rebasedBranch(content)
+	}
+
+	return OperationNone, ""
+}
+
+// rebasedBranch is the branch a rebase's head-name names. git writes
+// "detached HEAD" there for a rebase of no branch, which names none. The name
+// is only ever shown, never handed to git, so it is cleaned, not refused.
+func rebasedBranch(headName []byte) string {
+	name, onBranch := strings.CutPrefix(text(headName), "refs/heads/")
+	if !onBranch {
+		return ""
+	}
+
+	return sanitize.Line(name)
 }
 
 // remoteURL reads the URL of the remote named name. A repository without that
