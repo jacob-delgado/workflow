@@ -59,16 +59,13 @@ func (s *server) configMadeSince(
 // server works, as a switch does under ctx, and answers the server switched
 // to, and whether it serves a file. One take-up runs at a time, as one setup
 // does: a read that arrives during another's waits for it, then answers by the
-// server it put in place rather than wiring the directory again.
+// server it put in place rather than wiring the directory again, as one that
+// a switch landed before answers by the server switched to.
 func (s *server) takeUpMade(ctx context.Context) (*server, bool) {
 	s.worlds.setups.Lock()
 	defer s.worlds.setups.Unlock()
 
-	if current, _ := s.worlds.served(); current != s {
-		return current, !current.setupNeeded()
-	}
-
-	next, err := s.worlds.switchTo(ctx, s.deps.Repositories.Here.Dir)
+	next, err := s.worlds.takeUp(ctx, s)
 	s.noteTakeUp(err)
 
 	return next, err == nil && !next.setupNeeded()

@@ -336,12 +336,32 @@ func showsAnother(request *http.Request, here string) bool {
 // switchTo wires dir as the first directory was wired, under ctx, and serves
 // it from now on, refusing while a write is in flight.
 func (w *worlds) switchTo(ctx context.Context, dir string) (*server, error) {
+	return w.gated(func() (*server, error) { return w.switchHeld(ctx, dir) })
+}
+
+// takeUp serves from's directory from now on, as switchTo does under ctx,
+// only while from is still the server served, and otherwise answers the one
+// served. It checks under the gate, so no switch lands between the check and
+// the take-up for it to undo.
+func (w *worlds) takeUp(ctx context.Context, from *server) (*server, error) {
+	return w.gated(func() (*server, error) {
+		if current, _ := w.served(); current != from {
+			return current, nil
+		}
+
+		return w.switchHeld(ctx, from.deps.Repositories.Here.Dir)
+	})
+}
+
+// gated runs change holding the gate alone, refusing while a write is in
+// flight.
+func (w *worlds) gated(change func() (*server, error)) (*server, error) {
 	if !w.gate.TryLock() {
 		return nil, errWriteInFlight
 	}
 	defer w.gate.Unlock()
 
-	return w.switchHeld(ctx, dir)
+	return change()
 }
 
 // switchHeld is switchTo by a caller already holding the gate alone.
