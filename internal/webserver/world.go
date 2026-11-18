@@ -239,8 +239,7 @@ func (l *landingWriter) landOnce() {
 // leaves and ends when the server stops, and the function that releases it
 // once the write is answered.
 func (w *worlds) outlivingItsPage(request *http.Request) (*http.Request, context.CancelFunc) {
-	// Trade-off TRADE-37: a write outlasts its page, and ends only with the
-	// server.
+	// A write outlasts its page, and ends only with the server.
 	ctx, release := w.outliving(request.Context())
 
 	return request.WithContext(ctx), release

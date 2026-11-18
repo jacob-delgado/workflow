@@ -29,7 +29,8 @@ import (
 // model has what it acts on.
 //
 // The groups every surface shares are declared in package seams. Editor, Forms,
-// After and Copy speak Bubble Tea, so the bundle is declared here (TRADE-11).
+// After and Copy speak Bubble Tea, so the bundle is declared here: moving it
+// to seams would rewrite the terminal's tests to fix a name.
 type Deps struct {
 	Jira      seams.Jira
 	Git       seams.Git
@@ -76,9 +77,6 @@ type Deps struct {
 
 // EditorDeps hands text and files to the user's editor, which takes the
 // terminal while it is open.
-//
-// Trade-off TRADE-11: it stays in this package, not in package seams, because
-// its functions take and return Bubble Tea's messages and commands.
 type EditorDeps struct {
 	Edit func(text, help string, done func(string, error) tea.Msg) tea.Cmd
 	Open func(file string, line int, done func(error) tea.Msg) tea.Cmd
@@ -159,8 +157,8 @@ func (d Deps) after(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
 // it changes nothing workflow or a forge holds, and nothing waits for it. A
 // nil seam, one unavailable here, stays nil.
 func outlasting(outlive, open lifetime.Outliving, deps Deps, noun string) Deps {
-	// Trade-off TRADE-38: the session's end stops reads alone; a write goes on,
-	// past a quit, until the program's lifetime ends.
+	// The session's end stops reads alone; a write goes on, past a quit, until
+	// the program's lifetime ends.
 	deps.Jira = outlastingJira(outlive, deps.Jira, noun)
 	deps.Git = outlastingGit(outlive, deps.Git)
 	deps.Forge = outlastingForge(outlive, deps.Forge, noun)

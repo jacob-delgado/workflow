@@ -168,10 +168,10 @@ func recordStop(command *exec.Cmd) *atomic.Bool {
 	kill := command.Cancel
 	command.Cancel = func() error {
 		err := kill()
-		// Trade-off TRADE-16: exec asks for the kill only before it has reaped
-		// the program, so the kill fails only when the program exits and is
-		// reaped in between, a race no test can hold open; the run then reports
-		// how the program ended, as one that exited first does.
+		// os/exec asks for the kill only before it has reaped the program, so the
+		// kill fails only when the program exits and is reaped in between, a
+		// race no test can hold open; the run then reports how the program
+		// ended, as one that exited first does.
 		stopped.Store(err == nil)
 
 		return err

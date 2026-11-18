@@ -25,7 +25,6 @@ import (
 // so no other page can frame the app. It fails when the embedded spec cannot
 // be loaded or routed, which is a build defect.
 func Handler(dryRun bool, session Session, assets fs.FS, serve OperationServer) (http.Handler, error) {
-	// Trade-off TRADE-14: the embedded spec loads in every build a test runs.
 	spec, err := routedContract()
 	if err != nil {
 		return nil, err

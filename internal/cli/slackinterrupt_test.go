@@ -153,8 +153,7 @@ func TestACtrlCStopsASlackLoginsRefresh(t *testing.T) {
 	// Arrange
 	// A login's refresh and keep end with the command, as every renewal's
 	// do: a Ctrl+C once Slack has taken the refresh token typed can lose the
-	// pair it gives, which TRADE-38's Cost names, rather than leave a hung
-	// Slack holding the Ctrl+C.
+	// pair it gives, rather than leave a hung Slack holding the Ctrl+C.
 	command, interrupt := context.WithCancel(t.Context())
 	defer interrupt()
 

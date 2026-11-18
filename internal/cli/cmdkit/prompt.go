@@ -100,8 +100,8 @@ func artifactBeside(cmd *cobra.Command, prompt Prompt, live console.Wait) io.Wri
 		return cmd.OutOrStdout()
 	}
 
-	// Trade-off TRADE-43: with both streams on the terminal, the artifact
-	// prints above the live line, on stderr, rather than under its feet.
+	// With both streams on the terminal, the artifact prints above the live
+	// line, on stderr, rather than under its feet.
 	return live.Above()
 }
 

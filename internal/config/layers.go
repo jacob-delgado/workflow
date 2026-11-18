@@ -257,8 +257,7 @@ func readLayer(path string) (layer, error) {
 // readTrusted reads file to its end, and closes it, once the file it opened
 // is one only the user could have written.
 func readTrusted(file *os.File) ([]byte, error) {
-	// Trade-off TRADE-36: the file was opened a moment ago, and its stat is
-	// taken not to fail.
+	// The file was opened a moment ago, and its stat is taken not to fail.
 	info, err := file.Stat()
 	if err == nil {
 		err = refuseUntrusted(info)
@@ -341,7 +340,6 @@ func decodeLayer(file layer) (decodedLayer, error) {
 // fail to encode, so a failure is a defect, which panics, as
 // regexp.MustCompile does for a pattern that cannot compile.
 func encodeValue(value any) []byte {
-	// Trade-off TRADE-13: plain JSON values and a Config always encode.
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		panic("encoding configuration: " + err.Error())
@@ -457,7 +455,6 @@ func decodeBuilt(contents []byte, target any) {
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.UseNumber()
 
-	// Trade-off TRADE-13: JSON this package encoded or decoded decodes again.
 	err := decoder.Decode(target)
 	if err != nil {
 		panic("reading configuration: " + err.Error())

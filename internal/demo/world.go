@@ -8,8 +8,8 @@
 // story the web's mock tells (web/src/dev/mock*.ts): Ana Lopez, in acme's api
 // repository, on PROJ-412, announcing to #dev-workflow.
 //
-// Trade-off TRADE-57: this world and internal/tui's test world are two fakes
-// of one world, kept apart because they answer to different readers.
+// This world and internal/tui's test world are two fakes of one world, kept
+// apart because they answer to different readers.
 package demo
 
 import (

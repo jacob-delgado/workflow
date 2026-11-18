@@ -334,9 +334,8 @@ func deliver(
 		return DeliveredFailed, ErrAnnounceUnavailable
 	}
 
-	// Trade-off TRADE-40: the gate reads the CI again as it posts, whatever a
-	// surface read before, so a reading an interval old cannot let a failed
-	// check through.
+	// The gate reads the CI again as it posts, whatever a surface read before,
+	// so a reading an interval old cannot let a failed check through.
 	reported, err := ClearToAnnounce(ctx, seams.CheckCI, delivery.Pull, delivery.Head)
 	if err != nil {
 		return gateRefused(reported, err)

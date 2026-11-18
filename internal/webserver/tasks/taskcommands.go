@@ -154,8 +154,8 @@ func (h *Handlers) taskCommand(
 	ctx context.Context, run func(context.Context) (taskChange, error),
 	fault func(ctx context.Context, err error) api.Problem,
 ) (api.TaskList, *api.Problem) {
-	// Trade-off TRADE-77: a settings change that lands after this check is
-	// not refused, as taskWrite's is not.
+	// A settings change that lands after this check is not refused, as
+	// taskWrite's is not.
 	if prob := h.settingsChangedRefusal(); prob != nil {
 		return api.TaskList{}, prob
 	}

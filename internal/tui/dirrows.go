@@ -46,7 +46,7 @@ type dirRow struct {
 
 // rowsShownMost is the most rows the picker draws; past them it says how
 // many more match. testdata/twins/directory_rows.json holds the same number,
-// which the web's dialog answers to as well (TRADE-49).
+// which the web's dialog answers to as well.
 const rowsShownMost = 200
 
 // pickerShortcuts are the repository's other worktrees, then the favorites,
@@ -242,8 +242,8 @@ func (p dirPicker) typedPath() string {
 func (p dirPicker) childrenMatching() ([]dirRow, int) {
 	read, _ := p.listing()
 	matches := workdirs.Matching(read.listing.Entries, p.nameTyped())
-	// Trade-off TRADE-49: past rowsShownMost directories the rest are
-	// counted, not drawn or reached.
+	// Past rowsShownMost directories the rest are counted, not drawn or
+	// reached.
 	shown := matches[:min(len(matches), rowsShownMost)]
 	children := make([]dirRow, 0, len(shown))
 

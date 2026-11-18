@@ -102,7 +102,6 @@ func Create(path string, cfg Config) error {
 // edit, one setting to a line. Neither can fail to encode, so a failure is a
 // defect, which panics, as encodeValue's does.
 func indented(value any) []byte {
-	// Trade-off TRADE-13: a Config, and plain JSON values, always encode.
 	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		panic("encoding configuration: " + err.Error())
@@ -283,8 +282,7 @@ const othersMask os.FileMode = 0o077
 // can read or write, which a file holding credentials must not be.
 func SharedMode(path string) (os.FileMode, bool) {
 	// Windows keeps no such bits, and Go reports 0666 for every file there,
-	// which says nothing about who can read it. Trade-off TRADE-35: no CI job
-	// takes this branch.
+	// which says nothing about who can read it. No CI job takes this branch.
 	if runtime.GOOS == "windows" {
 		return 0, false
 	}

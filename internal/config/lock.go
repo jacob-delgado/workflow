@@ -50,9 +50,9 @@ func SaveLocksIn(dir string) SaveLocks {
 // Another holder, in this workflow or another, is waited on for no longer
 // than saveLockWait, then refused with ErrSaveLocked.
 func (l SaveLocks) Hold(files Files) (func(), error) {
-	// Trade-off TRADE-64: with no state directory there is nowhere outside
-	// the working tree to keep a lock, so the save takes none, and two
-	// workflows saving at once can each pass the revision check.
+	// With no state directory there is nowhere outside the working tree to keep
+	// a lock, so the save takes none, and two workflows saving at once can each
+	// pass the revision check.
 	if l.dir == "" {
 		return func() {}, nil
 	}
@@ -132,8 +132,8 @@ func takeSaveLock(path string) (*os.File, error) {
 // waitForSaveLock takes the lock on file, looking again every saveLockPoll
 // while another holds it, for no longer than saveLockWait.
 func waitForSaveLock(file *os.File) error {
-	// Trade-off TRADE-64: the wait takes no context, since SaveLayers is no
-	// seam and takes none, so a caller that leaves still waits it out.
+	// The wait takes no context, since SaveLayers is no seam and takes none, so
+	// a caller that leaves still waits it out.
 	deadline := time.Now().Add(saveLockWait)
 
 	for {

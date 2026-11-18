@@ -88,8 +88,8 @@ const addressPlaceholder = "<address>"
 // in it replaced and every line kept, so the reason between the lines naming
 // the remote survives.
 //
-// Trade-off TRADE-9: a bare host name git prints, with no scheme or user@, is
-// kept as git printed it.
+// A bare host name git prints, with no scheme or user@, is kept as git printed
+// it.
 func withoutAddresses(lines []string) []string {
 	kept := make([]string, 0, len(lines))
 	for _, line := range lines {

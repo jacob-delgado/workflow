@@ -37,9 +37,10 @@ const TTL = 10 * time.Minute
 // a surface reads tagging as unavailable until a token is set up, and then
 // reads the directory afresh.
 //
-// Trade-off TRADE-26: users.list is read whole, once a session, to label a
-// channel's members, rather than each member looked up on its own — unless
-// the workspace is too large to list, when each member is.
+// Slack's users.list is read whole, once a session, to label a channel's
+// members, rather than each member looked up on its own — unless the workspace
+// is too large to list, when each member is. Both reads earn their place
+// against Slack's rate tiers.
 type Slack struct {
 	client func() (messaging.Client, error)
 	now    func() time.Time

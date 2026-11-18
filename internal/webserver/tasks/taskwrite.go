@@ -143,8 +143,8 @@ const lineRequired = "a line is required"
 func (h *Handlers) taskWrite(
 	ctx context.Context, uuid string, act func(ctx context.Context, uuid string) error,
 ) (api.TaskList, *api.Problem) {
-	// Trade-off TRADE-77: a settings change that lands after this check is
-	// not refused; the write goes to the Taskwarrior the page showed.
+	// A settings change that lands after this check is not refused; the write
+	// goes to the Taskwarrior the page showed.
 	if prob := h.settingsChangedRefusal(); prob != nil {
 		return api.TaskList{}, prob
 	}

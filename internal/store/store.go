@@ -143,7 +143,7 @@ func (s Store) open(ctx context.Context) (*sql.DB, error) {
 
 	// The file is made, stamped and given its tables whatever becomes of the
 	// caller, so a stamp or a removal still fails only when the file changes
-	// underneath it, as TRADE-16 records, and never for a caller who left.
+	// underneath it, and never for a caller who left.
 	making := context.WithoutCancel(ctx)
 
 	database, err := openCurrent(making, path)
@@ -200,9 +200,6 @@ func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
 		return database, nil
 	}
 
-	// Trade-off TRADE-69: a file at another version is remade, so two builds
-	// at different versions used side by side remake each other's at every
-	// switch, each forgetting what the other kept.
 	if state.holdsTables {
 		_ = database.Close()
 
@@ -326,8 +323,8 @@ func remakeDatabase(path string) (*sql.DB, error) {
 // placeholder, so the one statement built from a string holds only this
 // package's own constant.
 func stamp(ctx context.Context, database *sql.DB) error {
-	// Trade-off TRADE-16: the open that just made or read this file holds it,
-	// so the stamp fails only when the file changes between the two calls.
+	// The open that just made or read this file holds it, so the stamp fails
+	// only when the file changes between the two calls.
 	_, err := database.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(schemaVersion))
 	if err != nil {
 		return fmt.Errorf("stamping the store schema version: %w", err)
@@ -340,9 +337,8 @@ func stamp(ctx context.Context, database *sql.DB) error {
 // files SQLite may have left beside it; one already gone is no error.
 func removeDatabase(path string) error {
 	for _, each := range companionsOf(path) {
-		// Trade-off TRADE-16: the open that just read the version held these
-		// files, so a removal fails only when one changes underneath between
-		// the two calls.
+		// The open that just read the version held these files, so a removal
+		// fails only when one changes underneath between the two calls.
 		err := os.Remove(each)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("discarding the store at another schema version: %w", err)
@@ -376,9 +372,6 @@ func createSchema(ctx context.Context, database *sql.DB) error {
 		// generation the claim held now began at, the only one that may be
 		// given up; released is 1 once it was, its post surely not gone; and
 		// posted_at is NULL until the post is confirmed.
-		//
-		// Trade-off TRADE-60: the claim lives in this discardable file, so a
-		// db-clean or another build's schema forgets it.
 		`CREATE TABLE IF NOT EXISTS announces (
 			repo       TEXT NOT NULL,
 			pull       INTEGER NOT NULL,

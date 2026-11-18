@@ -350,8 +350,8 @@ const pastePrefix = "\x00paste:"
 
 // pasted is a step of typing that pastes text whole, as a terminal hands over
 // a bracketed paste. A Huh field pays a real blink wait for each change it
-// draws (TRADE-46), so a test types a field's text this way, once, rather
-// than a key at a time.
+// draws, so a test types a field's text this way, once, rather than a key at
+// a time.
 func pasted(text string) string {
 	return pastePrefix + text
 }

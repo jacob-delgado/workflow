@@ -29,9 +29,9 @@ const forgeIssuesLabel = "the forge's issues"
 // tracker its shape names, so a forge number never reaches Jira, which would
 // read it as the id of an unrelated issue.
 //
-// Trade-off TRADE-24: the first view's JQL and whether the forge joins in are
-// read here, once; a Settings save that changes either applies after a restart
-// or a directory switch.
+// The first view's JQL and whether the forge joins in are read here, once; a
+// Settings save that changes either applies after a restart or a directory
+// switch.
 func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams.Jira {
 	first := jira.Views(settings.Views)[0].JQL
 	listed := &forgeRows{}
@@ -130,10 +130,10 @@ func jiraOnly[T any](issueKey jira.Key, ask func() (T, error)) (T, error) {
 // the cursor carrying Jira's own offset (SearchAfter); the terminal's Issues
 // list and the key check's walk (loop.AssignedKeys) still page by offset.
 //
-// Trade-off TRADE-24: the count is that of the first page asked last that
-// answered, whoever asked it, and zero after such a page whose forge read
-// failed; in the terminal, the first view's first page is read by its list
-// alone, so the count is that list's.
+// The count is that of the first page asked last that answered, whoever asked
+// it, and zero after such a page whose forge read failed; in the terminal, the
+// first view's first page is read by its list alone, so the count is that
+// list's.
 type forgeRows struct {
 	lock sync.Mutex
 	rows rowCount

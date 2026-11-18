@@ -93,8 +93,8 @@ func (d detection) landed(began int, err error, now time.Time) detection {
 // forgotten is d let go of: nothing held, in a new round, so a search under
 // way as the list found Taskwarrior is not held when it lands.
 //
-// Trade-off TRADE-76: the list lets go whenever its search began, so one
-// begun before a failed search, and landing after it, erases that failure.
+// The list lets go whenever its search began, so one begun before a failed
+// search, and landing after it, erases that failure.
 func (d detection) forgotten() detection {
 	return detection{stage: detectUnsearched, failed: nil, readAt: time.Time{}, round: d.round + 1}
 }

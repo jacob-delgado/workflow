@@ -42,7 +42,6 @@ var _ tea.ExecCommand = promptedForm{}
 
 // Run asks the form's questions one at a time.
 func (p promptedForm) Run() error {
-	// Trade-off TRADE-47: the form takes the whole terminal while it asks.
 	return p.form.WithAccessible(true).Run() //nolint:wrapcheck // Huh's own words for a prompt it could not ask
 }
 

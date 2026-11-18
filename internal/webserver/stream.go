@@ -175,7 +175,6 @@ type streamPayload interface {
 // reached the client; a failed write means the connection is gone and the
 // stream should stop.
 func sendEvent[P streamPayload](out *eventStream, event streamEvent, payload P) bool {
-	// Trade-off TRADE-13: a stream's message always encodes.
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return false
@@ -303,8 +302,6 @@ func (s *server) announceWork(
 	switch {
 	case announced == api.ReviewAnnouncedPosted:
 		return progress.AnnounceMade
-	// Trade-off TRADE-78: review.announced still says unconfirmed while this
-	// post is out, and the terminal reads its claim as made.
 	case s.posts.posting(loop.Announced{Pull: read.pull.Number, Moment: loop.AnnounceMoment(read.pull)}):
 		return progress.AnnounceUnderWay
 	case announced == api.ReviewAnnouncedUnconfirmed:

@@ -35,9 +35,9 @@ func gitHookNames() []string {
 // on, so only git can run these. Every other hook, and a hook git does not
 // know, a run by hand stands in for.
 //
-// Trade-off TRADE-39: pre-push is left out, so it is run by hand without the
-// remote and the refs git hands it; lefthook reads what a push would carry
-// from @{push} itself.
+// pre-push is left out, so it is run by hand without the remote and the refs
+// git hands it, since inventing them would set off Git LFS; lefthook reads
+// what a push would carry from @{push} itself.
 func handedByGit() map[string]string {
 	return map[string]string{
 		"applypatch-msg":        "the file holding the proposed commit message",

@@ -197,8 +197,9 @@ func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, e
 // still takes keys from the person at it, and an editor the interface hands
 // off to gets that terminal rather than the pipe.
 func keysFrom(input io.Reader) []tea.ProgramOption {
-	// Trade-off TRADE-18: only a child process with no terminal reaches a file
-	// that is none.
+	// Only a child process with no terminal reaches a file that is none, and
+	// gobco counts no child process, so its report lists this check as never
+	// false though a test fails when either arm breaks.
 	file, isFile := input.(*os.File)
 	if isFile && !term.IsTerminal(int(file.Fd())) {
 		return nil

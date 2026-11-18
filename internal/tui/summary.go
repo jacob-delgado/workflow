@@ -26,9 +26,6 @@ const summaryRest = 300 * time.Millisecond
 // summaryIndent sets an hour's items in under it.
 const summaryIndent = "  "
 
-// Trade-off TRADE-32: what was done is read back from each source every time
-// the pane shows a period, never kept.
-
 // summaryState is the Summary pane: the period shown and how far it is
 // read, what each source has answered for it and which are still to, and
 // the item the cursor is on.

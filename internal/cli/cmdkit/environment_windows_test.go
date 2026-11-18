@@ -14,7 +14,7 @@ import (
 // would name a place that is not the one asked for. So a request log named
 // either way is opened as named, with no working directory to read.
 //
-// Trade-off TRADE-35: only a Windows go test runs this, and no CI job is one.
+// Only a Windows go test runs this, and no CI job is one.
 func TestARequestLogWindowsReadsFromElsewhereNeedsNoWorkingDirectory(t *testing.T) {
 	t.Parallel()
 

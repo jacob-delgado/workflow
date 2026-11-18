@@ -243,8 +243,8 @@ func (c *forgeCache) land(key forgeKey, began round, now time.Time, read forgeRe
 	underWay := c.reading[key]
 	delete(c.reading, key)
 
-	// Trade-off TRADE-4: a read begun after a seed, for an older head of its
-	// branch, replaces it, as any later read does.
+	// A read begun after a seed, for an older head of its branch, replaces it,
+	// as any later read does.
 	shown, failed := c.hold(key, began, now, read, err)
 	if began != c.round && c.last == changeDrop {
 		underWay.end()

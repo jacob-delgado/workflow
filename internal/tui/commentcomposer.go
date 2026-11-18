@@ -17,8 +17,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// Trade-off TRADE-30: a comment is written here, in a box drawn inside the
-// interface, rather than only in $EDITOR as every other long text is.
+// A comment is written here, in a box drawn inside the interface, rather than
+// only in $EDITOR as every other long text is.
 
 // writingMode is the comment composer's mode, as vim has them: in normal mode
 // keys are commands, and in insert mode every key types.
@@ -80,8 +80,8 @@ func (d commentDrafts) keeping(issueKey jira.Key, text string) commentDrafts {
 // o start typing and enter shows the comment for a last look; in insert mode
 // every key types, and esc goes back to normal mode.
 //
-// Trade-off TRADE-30: it is the one multi-line text written in the interface
-// rather than handed to $EDITOR, which ctrl+o still reaches.
+// It is the one multi-line text written in the interface rather than handed to
+// $EDITOR, which ctrl+o still reaches.
 type commentComposer struct {
 	issue  jira.Issue
 	text   textarea.Model

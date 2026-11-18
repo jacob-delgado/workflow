@@ -21,8 +21,7 @@ var ErrHeld = errors.New("another open file holds the lock")
 // TryLock takes an exclusive lock on file's first byte without waiting, and
 // fails with ErrHeld while another open file holds one.
 //
-// Trade-off TRADE-35: no CI job runs this; the Cross-compile job only builds
-// it.
+// No CI job runs this; the Cross-compile job only builds it.
 func TryLock(file *os.File) error {
 	var whole windows.Overlapped
 

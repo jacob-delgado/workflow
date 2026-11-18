@@ -12,6 +12,5 @@ import "os/exec"
 // cancel, which kills the child, stands. The job object is FEAT-73 in
 // FEATURES.md, to be built and watched on a real Windows runner.
 //
-// Trade-off TRADE-35: no CI job runs this; the Cross-compile job only builds
-// it, for Windows.
+// No CI job runs this; the Cross-compile job only builds it, for Windows.
 func Isolate(_ *exec.Cmd) {}

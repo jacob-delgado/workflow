@@ -142,8 +142,9 @@ SECURITY
 // it, as part of that write; it does not wait for an open a read of the store
 // begins (the announcements, the cached issue list, the last scope), as it
 // waits for no read. A signal exits at once under all of it, and ends a post's
-// record there as it ends every write the interface sends (TRADE-38 says what
-// that can cost).
+// record there as it ends every write the interface sends, so a signal that
+// lands while Slack has taken a refresh token and before its new pair is kept
+// can lose the only pair that works.
 //
 // The editor the interface hands the terminal to runs under no context:
 // it is yours until you leave it, and a signal while it is open ends workflow
@@ -173,9 +174,6 @@ type invocation struct {
 // execute runs root as run asks under ctx, its help, usage and version said
 // through fang, and says the error it ended with, if any, once. A run that
 // succeeded but whose output went nowhere ends with that.
-//
-// Trade-off TRADE-44: fang capitalizes its titles and each flag's first word,
-// and links mango and roff though the man page is off.
 func execute(ctx context.Context, root *cobra.Command, run invocation) error {
 	checked := prepare(root, run)
 
@@ -348,8 +346,8 @@ func inputFor(cmd *cobra.Command, conn cmdkit.Connection, dryRun bool) interface
 // that stopped an announcement waiting for CI says so once the terminal is
 // back.
 //
-// Trade-off TRADE-34: a switch ends one program and starts the next, wired
-// afresh, rather than rewiring the one running.
+// A switch ends one program and starts the next, wired afresh, rather than
+// rewiring the one running.
 func runInterfaces(cmd *cobra.Command, run RunInterface, conn cmdkit.Connection, dryRun bool) error {
 	program, closed := whileOpen(cmd.Context())
 	defer closed()
@@ -388,8 +386,8 @@ func runInterfaces(cmd *cobra.Command, run RunInterface, conn cmdkit.Connection,
 // and its writes, as it stops every command; Execute's own end, once that
 // wait is over, cancels ctx too, and must not cut a write it gave up on.
 func whileOpen(ctx context.Context) (context.Context, func() bool) {
-	// Trade-off TRADE-38: a write the last interface left running goes on past
-	// its quit, and workflow waits for it, up to timing.request_timeout.
+	// A write the last interface left running goes on past its quit, and
+	// workflow waits for it, up to timing.request_timeout.
 	lifetime, end := context.WithCancelCause(context.WithoutCancel(ctx))
 
 	return lifetime, context.AfterFunc(ctx, func() { end(context.Cause(ctx)) })

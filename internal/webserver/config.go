@@ -30,8 +30,8 @@ func (s *server) GetConfig(
 		return s.configMadeSince(ctx, request)
 	}
 
-	// Trade-off TRADE-75: this read and GetKeys' alone take up a hand edit;
-	// every other read and write keeps the configuration in effect.
+	// This read and GetKeys' alone take up a hand edit; every other read and
+	// write keeps the configuration in effect.
 	cfg, read, err := s.reread()
 	if errors.Is(err, config.ErrInvalid) {
 		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
@@ -43,7 +43,6 @@ func (s *server) GetConfig(
 		return problem.Answer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(cfg)
 	if err != nil {
 		return problem.Answer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
@@ -145,7 +144,7 @@ var errSlackRefused = errors.New("slack refused the typed user token")
 // a save holds the save locks from its check through its write
 // (config.SaveLayers), so one another workflow makes meanwhile is waited for
 // and then refused; a hand edit landing on disk between the two, or any
-// change where there is no state directory to keep the locks in (TRADE-64),
+// change where there is no state directory to keep the locks in,
 // is still written over. A save another workflow keeps waiting longer than a
 // save waits is refused with 500, in words that say so. A stored secret is
 // kept when its field comes back masked or empty. It returns the result with
@@ -205,7 +204,6 @@ func (s *server) writeOver(ctx context.Context, posted api.Config, over basis) a
 		return problem.Answer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 
-	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(saved)
 	if err != nil {
 		return problem.Answer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
@@ -463,8 +461,8 @@ func basisIn(ifMatch string) (basis, error) {
 // configDTO maps a configuration onto its wire shape, masked, through the shared
 // JSON form the two representations were designed to agree on.
 //
-// Trade-off TRADE-13: neither step fails, since both types hold only what
-// encoding/json always encodes, and the one's JSON always fits the other.
+// Neither step fails, since both types hold only what encoding/json always
+// encodes, and the one's JSON always fits the other.
 func configDTO(cfg config.Config) (api.Config, error) {
 	data, err := json.Marshal(cfg.Redacted())
 	if err != nil {
@@ -541,7 +539,6 @@ func removedIn(posted api.Config) []config.Credential {
 // fromDTO decodes a configuration written over the API through Parse, so it is
 // held to exactly the standard a file on disk is.
 func fromDTO(in api.Config) (config.Config, error) {
-	// Trade-off TRADE-13: an api.Config always encodes.
 	data, err := json.Marshal(in)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("encoding the posted configuration: %w", err)
