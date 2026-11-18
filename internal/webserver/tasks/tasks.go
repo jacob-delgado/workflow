@@ -34,15 +34,66 @@ var errTurnedOff = errors.New("turned off by taskwarrior.disabled")
 var errSettingsChanged = errors.New(
 	"the taskwarrior settings changed since workflow started in or switched to this directory")
 
-// detectionCache is the event stream's last search for Taskwarrior when it
-// found none, held for taskwarriorHold so a frame does not search again,
-// unless the list finds Taskwarrior meanwhile; a search that finds Taskwarrior
-// holds nothing. Its lock is held across the search, so streams that find one
-// due together make one.
+// detectionCache is the event stream's last search for Taskwarrior, held
+// while it found none. search is held across a search, so streams that find
+// one due together make one; mu is held around the detection alone, so the
+// list letting go of it never waits on a search.
 type detectionCache struct {
+	search sync.Mutex
 	mu     sync.Mutex
+	held   detection
+}
+
+// detectStage is where the stream's search for Taskwarrior stands. It has two
+// values, so it is compared, never switched on.
+type detectStage int
+
+const (
+	// detectUnsearched holds no search: none made yet, one that found
+	// Taskwarrior, or one the list let go of.
+	detectUnsearched detectStage = iota
+	// detectNoneFound holds a search that found none, which serves the
+	// stream for taskwarriorHold.
+	detectNoneFound
+)
+
+// detection is the stream's search for Taskwarrior as it stands: its stage,
+// why it found none and when, and the round it is in, which each time the
+// list lets go of it begins anew, so a search begun in an earlier round lands
+// too late to be held.
+type detection struct {
+	stage  detectStage
 	failed error
 	readAt time.Time
+	round  int
+}
+
+// serves reports whether d answers a frame at now in place of a search: a
+// search that found none, within taskwarriorHold.
+func (d detection) serves(now time.Time) bool {
+	return d.stage == detectNoneFound && now.Sub(d.readAt) < taskwarriorHold
+}
+
+// landed is d once a search begun in round began answers err at now: one
+// that found none is held, and one that found Taskwarrior holds nothing, but
+// only while the round it began in stands; one the list let go of meanwhile
+// leaves d as it is.
+func (d detection) landed(began int, err error, now time.Time) detection {
+	if began != d.round {
+		return d
+	}
+
+	if err == nil {
+		return detection{stage: detectUnsearched, failed: nil, readAt: time.Time{}, round: d.round}
+	}
+
+	return detection{stage: detectNoneFound, failed: err, readAt: now, round: d.round}
+}
+
+// forgotten is d let go of: nothing held, in a new round, so a search under
+// way as the list found Taskwarrior is not held when it lands.
+func (d detection) forgotten() detection {
+	return detection{stage: detectUnsearched, failed: nil, readAt: time.Time{}, round: d.round + 1}
 }
 
 // ListTasks answers your pending tasks, or why no Taskwarrior can be asked —
@@ -214,12 +265,28 @@ func (h *Handlers) listDetection(ctx context.Context) (taskwarrior.Install, erro
 }
 
 // forget lets go of a search that found none, so the next frame searches
-// again.
+// again, and of one under way, so it is not held when it lands.
 func (c *detectionCache) forget() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.failed = nil
+	c.held = c.held.forgotten()
+}
+
+// current is the detection as it stands.
+func (c *detectionCache) current() detection {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.held
+}
+
+// land takes in a search begun in round began that answered err at now.
+func (c *detectionCache) land(began int, err error, now time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.held = c.held.landed(began, err, now)
 }
 
 // heldDetection is which Taskwarrior answers, for the stream: a search that
@@ -228,19 +295,19 @@ func (c *detectionCache) forget() {
 // leaves; a search canceled then would be held as none for every page. It ends
 // when the server stops.
 func (h *Handlers) heldDetection(ctx context.Context) (taskwarrior.Install, error) {
-	h.detection.mu.Lock()
-	defer h.detection.mu.Unlock()
+	h.detection.search.Lock()
+	defer h.detection.search.Unlock()
 
-	now := h.kit.Now()
-	if h.detection.failed != nil && now.Sub(h.detection.readAt) < taskwarriorHold {
-		return taskwarrior.Install{}, h.detection.failed
+	now, held := h.kit.Now(), h.detection.current()
+	if held.serves(now) {
+		return taskwarrior.Install{}, held.failed
 	}
 
 	shared, release := h.kit.Outliving(ctx)
 	defer release()
 
 	install, err := h.installed(shared)
-	h.detection.failed, h.detection.readAt = err, now
+	h.detection.land(held.round, err, now)
 
 	return install, err
 }
