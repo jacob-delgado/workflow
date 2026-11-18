@@ -68,7 +68,8 @@ type Handlers struct {
 	bound config.Taskwarrior
 	kit   Kit
 
-	// detection is the stream's last search for Taskwarrior, when it found none.
+	// detection is the stream's search for Taskwarrior as it stands: one that
+	// found none, held for the stream, and the round the list's find moves on.
 	detection detectionCache
 }
 
