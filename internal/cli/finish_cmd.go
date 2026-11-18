@@ -61,12 +61,14 @@ func newFinishCmd(prompt cmdkit.Prompt) *cobra.Command {
 			"git commands the interface's F runs. They are printed and confirmed before any\n" +
 			"runs, and a step git refuses stops the rest, keeping the branch. Once confirmed,\n" +
 			"the branch is read again, and refused if it changed meanwhile.\n\n" +
-			"A branch that cannot be finished is refused with the reason, and exits 4: its\n" +
-			"pull or merge request has not merged, it is the base itself or a detached\n" +
-			"HEAD, there is no base to return to, it holds commits that neither merged nor\n" +
-			"are on its upstream, which deleting it would lose, or it has commits made after\n" +
-			"the commit that merged, pushed or not: the refusal names the newest five the\n" +
-			"base remote's branch lacks, and counts the rest. The delete is a\n" +
+			"A branch that cannot be finished is refused with the reason, and exits 4: a\n" +
+			"rebase, merge, cherry-pick or revert is stopped part way, named with the git\n" +
+			"command that continues or aborts it, its pull or merge request has not merged,\n" +
+			"it is the base itself or a detached HEAD, there is no base to return to, it\n" +
+			"holds commits that neither merged nor are on its upstream, which deleting it\n" +
+			"would lose, or it has commits made after the commit that merged, pushed or not:\n" +
+			"the refusal names the newest five the base remote's branch lacks, and counts\n" +
+			"the rest. The delete is a\n" +
 			"force delete, so it goes ahead only for a branch at the very commit that\n" +
 			"merged, or one whose upstream holds every commit on it, and only while the\n" +
 			"branch is that commit or behind it. A commit that merged which this clone lacks\n" +
@@ -177,7 +179,8 @@ func planFinish(ctx context.Context, seams finishSeams) (finishPlan, error) {
 	}
 
 	if refused != nil {
-		return finishPlan{}, fmt.Errorf("cannot finish %s: %w", cmp.Or(branch.Name, "a detached HEAD"), refused)
+		return finishPlan{}, fmt.Errorf("cannot finish %s: %w",
+			cmp.Or(branch.Name, branch.Rebasing, "a detached HEAD"), refused)
 	}
 
 	return finishPlan{finishing: branch.Finishing(), pull: pull}, nil

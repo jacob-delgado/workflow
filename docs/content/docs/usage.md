@@ -589,7 +589,10 @@ the commit that merged, or its upstream holds every commit on it — and the pan
 says why not otherwise. A branch with commits made after the commit that
 merged is not finished either, even with them pushed — its name reused, or work
 gone on past the merge — and the pane names the newest five the base remote's
-branch lacks, counting the rest. A commit the forge merged
+branch lacks, counting the rest. Nor is a branch finished while a rebase,
+merge, cherry-pick or revert is stopped part way in it: the refusal names the
+`git rebase --continue` or `--abort` (or the merge's, cherry-pick's or
+revert's) that ends it. A commit the forge merged
 that this clone lacks, pushed from elsewhere, is fetched first from the forge's
 own ref for the pull request (`refs/pull/N/head`, or
 `refs/merge-requests/N/head` on GitLab), and a fetch that fails leaves `F` out

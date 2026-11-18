@@ -90,8 +90,40 @@ func CurrentBranch(t *testing.T, dir string) string {
 func Commit(t *testing.T, dir, message string) {
 	t.Helper()
 
-	Git(t, dir, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
-		"commit", "--allow-empty", "-m", message)
+	Git(t, dir, asTester("commit", "--allow-empty", "-m", message)...)
+}
+
+// asTester is a git command's arguments, run as the fixed identity a commit
+// needs.
+func asTester(args ...string) []string {
+	return append([]string{"-c", "user.email=t@example.com", "-c", "user.name=Tester"}, args...)
+}
+
+// RebaseStopped leaves a rebase of the checked-out branch stopped part way at
+// its first commit past base, as an edit stops one: HEAD is detached there,
+// and only the rebase names the branch.
+func RebaseStopped(t *testing.T, repo, base string) {
+	t.Helper()
+
+	// The suffix is attached to -i because BSD sed, macOS's, reads the word
+	// after a bare -i as the suffix, and GNU sed reads only an attached one.
+	Git(t, repo, asTester("-c", "sequence.editor=sed -i.orig s/^pick/edit/",
+		"rebase", "--quiet", "--interactive", base)...)
+}
+
+// MergeStopped leaves a merge into the checked-out branch stopped part way,
+// the branch still at the commit it was at: a side branch adding a file is
+// merged without its commit, so MERGE_HEAD waits as a conflict leaves it.
+func MergeStopped(t *testing.T, repo string) {
+	t.Helper()
+
+	branch := CurrentBranch(t, repo)
+	Git(t, repo, "switch", "--quiet", "--create", "side")
+	WriteRepoFile(t, repo, "side.txt", "side\n")
+	Git(t, repo, "add", "side.txt")
+	Commit(t, repo, "side")
+	Git(t, repo, "switch", "--quiet", branch)
+	Git(t, repo, asTester("merge", "--quiet", "--no-ff", "--no-commit", "side")...)
 }
 
 // PRRepo is a repository on branch, one commit ahead of main — a branch a pull

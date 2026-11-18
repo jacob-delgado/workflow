@@ -103,7 +103,32 @@ var (
 	// its name reused, or work gone on past the merge. A MadeAfterMergeError
 	// names them.
 	ErrMadeAfterMerge = errors.New("it has commits made after it merged")
+	// ErrOperationStopped refuses finishing while a rebase, merge,
+	// cherry-pick or revert is stopped part way, which the switch to the base
+	// would fail on or carry along. An OperationStoppedError names it.
+	ErrOperationStopped = errors.New("a git operation is stopped part way")
 )
+
+// OperationStoppedError is ErrOperationStopped, naming the operation and the
+// git command that continues or aborts it.
+type OperationStoppedError struct {
+	Operation gitrepo.Operation
+}
+
+var _ error = OperationStoppedError{}
+
+// Error says which operation is stopped and how to end it.
+func (e OperationStoppedError) Error() string {
+	command := e.Operation.Command()
+
+	return "a " + command + " is stopped part way; run git " + command + " --continue or git " + command +
+		" --abort first"
+}
+
+// Unwrap lets errors.Is match ErrOperationStopped.
+func (OperationStoppedError) Unwrap() error {
+	return ErrOperationStopped
+}
 
 // MadeAfterMergeError is ErrMadeAfterMerge, naming the commits made after the
 // merge.
@@ -145,13 +170,16 @@ func (MadeAfterMergeError) Unwrap() error {
 	return ErrMadeAfterMerge
 }
 
-// RefuseFinish says why a branch cannot be finished, or nil when it can: it is
-// checked out as a branch of its own, its pull request — found says whether
+// RefuseFinish says why a branch cannot be finished, or nil when it can: no
+// git operation is stopped part way in the work tree, it is checked out as a
+// branch of its own, its pull request — found says whether
 // there is one — has merged, it has a base to return to, and the force delete
 // would lose nothing (see keptElsewhere). What git alone can tell, the commits
 // made after the merge, RefuseMadeAfter says.
 func RefuseFinish(pull forge.PullRequest, found bool, branch gitrepo.Branch) error {
 	switch {
+	case branch.Operation != gitrepo.OperationNone:
+		return OperationStoppedError{Operation: branch.Operation}
 	case !OnFeatureBranch(branch):
 		return ErrNotOnFeatureBranch
 	case !found || pull.State != forge.StateMerged:
