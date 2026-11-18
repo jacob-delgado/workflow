@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { Button } from './Button.tsx'
 import { Failure } from './Status.tsx'
-import type { AsyncState } from './useAsyncAction.ts'
+import type { Attempt } from './useAsyncAction.ts'
 import { cn } from './utils.ts'
 
 // How many questions drawn now hold the page's keys: a last look, a preview
@@ -36,10 +36,7 @@ type Named = { question: ReactNode; label?: never } | { label: string; question?
 
 // Written is a write the last look makes in place, as useAsyncAction tracks
 // it: running holds both buttons, and a refusal is shown above them.
-interface Written {
-  state: AsyncState
-  error: string
-}
+type Written = Attempt<unknown>
 
 type LastLookProps = Named & {
   // cost is what the act costs, in the muted line under the question.

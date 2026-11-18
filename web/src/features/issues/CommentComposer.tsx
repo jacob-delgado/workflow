@@ -8,7 +8,7 @@ import { Button } from '@/lib/Button.tsx'
 import { FieldFrame } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure, Reading } from '@/lib/Status.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, plural } from '@/lib/utils.ts'
 import { usePostComment } from './commentApi.ts'
 import { shownKey } from './issuePlaces.ts'
@@ -127,7 +127,7 @@ function Composer({
           onSend={send}
         />
       </FieldFrame>
-      <ComposerRefusal blank={blank} error={post.state === 'error' ? post.error : ''} />
+      <ComposerRefusal blank={blank} error={refusalOf(post)} />
       <OutcomeLine said={outcome.said} />
     </div>
   )

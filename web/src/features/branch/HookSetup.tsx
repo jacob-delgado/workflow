@@ -30,7 +30,7 @@ function SetupOffer({ outcome }: { outcome: Teller }) {
     fallback: 'The hooks could not be read. Try again, or set lefthook up with g in the terminal.',
   })
 
-  if (read.state === 'done' && read.result?.offered === true) {
+  if (read.state === 'done' && read.result.offered) {
     return (
       <SetupLook
         offer={read.result}

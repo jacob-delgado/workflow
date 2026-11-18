@@ -117,7 +117,7 @@ function offerWords(offer: FollowUp, pull: string, noun: string): OfferWords {
 function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; noun: string }) {
   const words = offerWords(offer, pull, noun)
   const outcome = useOutcome()
-  const { state, error, run } = useAsyncAction(words.act, {
+  const follow = useAsyncAction(words.act, {
     fallback: words.fallback,
     done: () => words.done,
     onStart: outcome.clear,
@@ -126,20 +126,20 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
 
   return (
     <div className="flex flex-col gap-tight">
-      {state === 'done' ? null : (
+      {follow.state === 'done' ? null : (
         <Button
           variant="secondary"
-          held={state === 'running'}
+          held={follow.state === 'running'}
           onClick={() => {
-            void run()
+            void follow.run()
           }}
           className="self-start"
         >
-          {state === 'running' ? words.busy : words.label}
+          {follow.state === 'running' ? words.busy : words.label}
         </Button>
       )}
       <OutcomeLine said={outcome.said} />
-      {state === 'error' ? <Failure>{error}</Failure> : null}
+      {follow.state === 'error' ? <Failure>{follow.error}</Failure> : null}
     </div>
   )
 }

@@ -219,7 +219,7 @@ interface RowCheckoutProps {
 // offers it is as wide as one that does not and the list keeps one right edge.
 // It is held while any switch the page sent runs.
 function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
-  const { state, error, run, held } = useBranchSwitch(branch, outcome)
+  const checkout = useBranchSwitch(branch, outcome)
 
   return (
     <div className="flex flex-col items-start gap-tight px-3 pb-2">
@@ -227,18 +227,18 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
         variant="secondary"
         size="sm"
         aria-label={
-          state === 'running'
+          checkout.state === 'running'
             ? `Switching branch for ${issueKey}…`
             : `Switch branch for ${issueKey}`
         }
-        held={held}
+        held={checkout.held}
         onClick={() => {
-          void run()
+          void checkout.run()
         }}
       >
-        {state === 'running' ? 'Switching…' : 'Switch branch'}
+        {checkout.state === 'running' ? 'Switching…' : 'Switch branch'}
       </Button>
-      {state === 'error' ? <Failure className="text-xs">{error}</Failure> : null}
+      {checkout.state === 'error' ? <Failure className="text-xs">{checkout.error}</Failure> : null}
     </div>
   )
 }

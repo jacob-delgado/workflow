@@ -5,7 +5,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Input, TextArea } from '@/lib/Field.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { shownKey } from '../issuePlaces.ts'
 import { useIssueWrites } from './issueWritesApi.ts'
 import { StatusChangeForm } from './StatusChangeForm.tsx'
@@ -119,7 +119,7 @@ function AssignForm({ issueKey, shown, teller, onCancel }: WriteFormProps) {
       label={`Assign ${shown}`}
       act="Assign"
       busy={assign.state === 'running' ? 'Assigning…' : null}
-      error={assign.state === 'error' ? assign.error : ''}
+      error={refusalOf(assign)}
       onSend={() => void assign.run(assignee)}
       onCancel={onCancel}
     >
@@ -158,7 +158,7 @@ function WorklogForm({ issueKey, shown, teller, onCancel }: WriteFormProps) {
       label={`Log work on ${shown}`}
       act="Log work"
       busy={log.state === 'running' ? 'Logging…' : null}
-      error={log.state === 'error' ? log.error : ''}
+      error={refusalOf(log)}
       onSend={() => void log.run(spent, note)}
       onCancel={onCancel}
     >

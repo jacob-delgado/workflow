@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { vi } from 'vitest'
 import { held } from '@/test/fakeApi.ts'
-import { useAsyncAction } from './useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from './useAsyncAction.ts'
 
 // writing renders the hook over a write whose answer the test gives when it
 // chooses, telling onDone what it says once done.
@@ -30,9 +30,7 @@ test('a run that answers is done, with what it answered and what that means', as
   })
 
   // Assert
-  expect(view.result.current.state).toBe('done')
-  expect(view.result.current.result).toBe('PROJ-1')
-  expect(view.result.current.message).toBe('Wrote PROJ-1.')
+  expect(view.result.current).toMatchObject({ state: 'done', result: 'PROJ-1' })
   expect(onDone).toHaveBeenCalledWith('Wrote PROJ-1.', 'PROJ-1')
 })
 
@@ -48,9 +46,11 @@ test('a refused run holds why, and the refusal’s code', async () => {
   })
 
   // Assert
-  expect(view.result.current.state).toBe('error')
-  expect(view.result.current.error).toBe('already there')
-  expect(view.result.current.code).toBe('conflict')
+  expect(view.result.current).toMatchObject({
+    state: 'error',
+    error: 'already there',
+    code: 'conflict',
+  })
 })
 
 test('a run reset while it goes is not heard when it settles', async () => {
@@ -70,8 +70,7 @@ test('a run reset while it goes is not heard when it settles', async () => {
 
   // Assert
   expect(view.result.current.state).toBe('idle')
-  expect(view.result.current.result).toBeUndefined()
-  expect(view.result.current.message).toBe('')
+  expect(view.result.current).not.toHaveProperty('result')
   expect(onDone).not.toHaveBeenCalled()
 })
 
@@ -91,6 +90,28 @@ test('a reset after a run lets go of what it answered', async () => {
 
   // Assert
   expect(view.result.current.state).toBe('idle')
-  expect(view.result.current.result).toBeUndefined()
-  expect(view.result.current.message).toBe('')
+  expect(view.result.current).not.toHaveProperty('result')
+})
+
+test('refusalOf says the first refusal among the attempts', () => {
+  // Arrange
+  const attempts = [
+    { state: 'done', result: 'PROJ-1' },
+    { state: 'error', error: 'the link was refused', code: '' },
+    { state: 'error', error: 'the preview was refused', code: '' },
+  ] as const
+
+  // Act
+  const refusal = refusalOf(...attempts)
+
+  // Assert
+  expect(refusal).toBe('the link was refused')
+})
+
+test('refusalOf is empty when no attempt was refused', () => {
+  // Act
+  const refusal = refusalOf({ state: 'idle' }, { state: 'running' })
+
+  // Assert
+  expect(refusal).toBe('')
 })

@@ -35,7 +35,7 @@ test('while its write runs, both buttons are held and the act says so', async ()
       question="Forget dan?"
       act="Forget"
       acting="Forgetting…"
-      write={{ state: 'running', error: '' }}
+      write={{ state: 'running' }}
       onAct={onAct}
       onCancel={onCancel}
     />,
@@ -59,7 +59,7 @@ test('a refused write is said beside the buttons, which answer again', async () 
       question="Forget dan?"
       cost="They are asked about again."
       act="Forget"
-      write={{ state: 'error', error: 'dan was not forgotten.' }}
+      write={{ state: 'error', error: 'dan was not forgotten.', code: '' }}
       onAct={onAct}
       onCancel={vi.fn()}
     />,

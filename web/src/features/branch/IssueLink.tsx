@@ -7,7 +7,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { linkIssue, previewLink, unlinkIssue } from './branchIssueApi.ts'
 import { Failure } from '@/lib/Status.tsx'
 
@@ -266,9 +266,4 @@ function Refusal({ message }: { message: string }) {
   }
 
   return <Failure>{message}</Failure>
-}
-
-// refusalOf is why the preview or the link was refused, when either was.
-function refusalOf(...steps: { state: string; error: string }[]): string {
-  return steps.find((step) => step.state === 'error')?.error ?? ''
 }

@@ -4,7 +4,7 @@ import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { Failure } from '@/lib/Status.tsx'
 
 interface TaskLineFormProps {
@@ -53,7 +53,7 @@ export function TaskLineForm({
     },
     { fallback, done, onStart: teller.clear, onDone: teller.say },
   )
-  const refusal = refusalOf(empty, command, write.state === 'error' ? write.error : '')
+  const refusal = lineRefusal(empty, command, refusalOf(write))
 
   return (
     <form
@@ -94,8 +94,8 @@ export function TaskLineForm({
   )
 }
 
-// refusalOf is why the line was not sent, or was refused: empty, before it
+// lineRefusal is why the line was not sent, or was refused: empty, before it
 // left, or Taskwarrior's reason — '' when neither stands.
-function refusalOf(empty: boolean, command: string, refused: string): string {
+function lineRefusal(empty: boolean, command: string, refused: string): string {
   return empty ? `Type a line for ${command} first.` : refused
 }

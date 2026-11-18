@@ -7,7 +7,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Input, TextArea } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Failure, Reading } from '@/lib/Status.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { LabeledInput, WriteForm } from '@/lib/WriteForm.tsx'
 import {
   editPull,
@@ -312,7 +312,7 @@ function EditFields({
       label={`Edit ${name}`}
       act="Save"
       busy={save.state === 'running' ? 'Saving…' : null}
-      error={save.state === 'error' ? save.error : ''}
+      error={refusalOf(save)}
       held={held}
       onSend={() => void save.run(title, body)}
       onCancel={onCancel}
@@ -384,7 +384,7 @@ function MergeForm({ name, noCI, teller, held, onCancel }: FormProps & { noCI: b
       label={`Merge ${name}`}
       act="Merge"
       busy={merge.state === 'running' ? 'Merging…' : null}
-      error={merge.state === 'error' ? merge.error : ''}
+      error={refusalOf(merge)}
       held={held}
       onSend={() => void merge.run(method)}
       onCancel={onCancel}
@@ -442,7 +442,7 @@ function FinishForm({
       label={`Finish ${branch.name}`}
       act="Finish"
       busy={finish.state === 'running' ? 'Finishing…' : null}
-      error={finish.state === 'error' ? finish.error : ''}
+      error={refusalOf(finish)}
       held={held}
       onSend={() => void finish.run()}
       onCancel={onCancel}
@@ -475,7 +475,7 @@ function RerunForm({ name, title, teller, held, onCancel }: FormProps & { title:
       label={`Re-run the failed checks on ${name}`}
       act="Re-run"
       busy={rerun.state === 'running' ? 'Re-running…' : null}
-      error={rerun.state === 'error' ? rerun.error : ''}
+      error={refusalOf(rerun)}
       held={held}
       onSend={() => void rerun.run()}
       onCancel={onCancel}

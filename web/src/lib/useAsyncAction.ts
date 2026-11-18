@@ -1,9 +1,25 @@
 import { useRef, useState } from 'react'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 
-// AsyncState is where a one-shot write stands: not yet run (or backed out of),
-// in flight, answered, or refused.
-export type AsyncState = 'idle' | 'running' | 'done' | 'error'
+// Attempt is where a one-shot write stands, each state carrying only what it
+// means: not yet run (or backed out of), in flight, answered with what the
+// server said, or refused with a message safe to show and the refusal's
+// machine code, for a control that offers a way out of one kind of refusal
+// (empty when the refusal names none).
+export type Attempt<T> =
+  | { state: 'idle' }
+  | { state: 'running' }
+  | { state: 'done'; result: T }
+  | { state: 'error'; error: string; code: string }
+
+export type AsyncState = Attempt<unknown>['state']
+
+// refusalOf is why the first refused of attempts was refused, or '' when none
+// was: the words a write's control shows under it, and, for a control drawn
+// from more than one write, one refusal at a time.
+export function refusalOf(...attempts: Attempt<unknown>[]): string {
+  return attempts.find((attempt) => attempt.state === 'error')?.error ?? ''
+}
 
 // ActionWords are what a write says: its fallback when a refusal gives no
 // reason of its own, and — for a write that says what it did — the message it
@@ -22,9 +38,7 @@ interface ActionWords<A extends unknown[], T> {
 }
 
 // useAsyncAction runs a one-shot write — or a read a step waits on, such as a
-// preview — and tracks it for the control that starts it: running while the
-// promise is pending, done with what it answered and what that means once it
-// resolves, and holding the failure's message, safe to show, when it rejects.
+// preview — and tracks it for the control that starts it as an Attempt.
 // reset puts it back to idle, for a step the user backs out of, and lets go of
 // a run still going: what that run answers is not heard, by the hook or by
 // onDone, since only the latest run's answer is the control's. It lives here,
@@ -34,50 +48,38 @@ export function useAsyncAction<A extends unknown[], T>(
   action: (...args: A) => Promise<T>,
   words: ActionWords<A, T>,
 ) {
-  const [state, setState] = useState<AsyncState>('idle')
-  const [result, setResult] = useState<T>()
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [code, setCode] = useState('')
+  const [attempt, setAttempt] = useState<Attempt<T>>({ state: 'idle' })
   const latest = useRef(0)
 
   const run = async (...args: A): Promise<void> => {
     latest.current += 1
     const thisRun = latest.current
     words.onStart?.()
-    setState('running')
+    setAttempt({ state: 'running' })
     try {
       const answered = await action(...args)
       if (thisRun !== latest.current) {
         return
       }
       const said = words.done?.(answered, ...args) ?? ''
-      setResult(() => answered)
-      setMessage(said)
-      setError('')
-      setCode('')
-      setState('done')
+      setAttempt({ state: 'done', result: answered })
       words.onDone?.(said, answered)
     } catch (caught) {
       if (thisRun !== latest.current) {
         return
       }
-      setError(apiErrorMessage(caught, words.fallback))
-      setCode(problemCode(caught))
-      setState('error')
+      setAttempt({
+        state: 'error',
+        error: apiErrorMessage(caught, words.fallback),
+        code: problemCode(caught),
+      })
     }
   }
 
   const reset = () => {
     latest.current += 1
-    setResult(undefined)
-    setMessage('')
-    setError('')
-    setCode('')
-    setState('idle')
+    setAttempt({ state: 'idle' })
   }
 
-  // code is the refusal's machine code, for a control that offers a way out
-  // of one kind of refusal; empty otherwise.
-  return { state, result, message, error, code, run, reset }
+  return { ...attempt, run, reset }
 }
