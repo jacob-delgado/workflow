@@ -222,13 +222,17 @@ func TestASecondReadWhileAFileMadeIsTakenUpReadsIt(t *testing.T) {
 	// Arrange
 	// Of two reads that find a file made, the second waits for the first's
 	// take-up and reads the file it took up, rather than being refused as if
-	// a write were in flight, or wiring the directory again.
+	// a write were in flight, or wiring the directory again. The counting
+	// reach rides on every world it wires, so a second wiring by the server
+	// the first take-up put in place is counted too.
 	held := webtest.NewHeld()
 
 	var wirings atomic.Int32
 
 	handler, _ := notTakenUp(t, seams.Store{}, func(deps webserver.Deps) reachFunc {
-		return failingOnceThen(func(ctx context.Context, dir string) (webserver.World, error) {
+		var counting reachFunc
+
+		counting = failingOnceThen(func(ctx context.Context, dir string) (webserver.World, error) {
 			if wirings.Add(1) == 1 {
 				err := held.Wait(ctx)
 				if err != nil {
@@ -236,8 +240,13 @@ func TestASecondReadWhileAFileMadeIsTakenUpReadsIt(t *testing.T) {
 				}
 			}
 
-			return deps.Reach(ctx, dir)
+			world, err := deps.Reach(ctx, dir)
+			world.Deps.Reach = counting
+
+			return world, err
 		})
+
+		return counting
 	})
 
 	var first sync.WaitGroup
