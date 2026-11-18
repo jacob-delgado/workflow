@@ -53,7 +53,7 @@ func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	prompt := clitest.Scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken, ""})
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act

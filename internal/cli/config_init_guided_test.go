@@ -58,7 +58,7 @@ func TestGuidedInitSkipsAServiceThatFailsItsCheckWhenDeclined(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
-	prompt := clitest.Scripted([]string{badJira, "n"}, []string{"bad-token"})
+	prompt := clitest.Scripted([]string{badJira, "n"}, []string{"bad-token", ""})
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
@@ -83,7 +83,7 @@ func TestGuidedInitKeepsAFailedServiceWhenInsisted(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
-	prompt := clitest.Scripted([]string{badJira, "y"}, []string{"insisted-token"})
+	prompt := clitest.Scripted([]string{badJira, "y"}, []string{"insisted-token", ""})
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
@@ -171,7 +171,7 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 
 	var stored atomic.Value
 
-	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken, ""})
 	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		stored.Store(service + " holds " + secret)
 
@@ -209,7 +209,7 @@ func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testi
 
 	var stored atomic.Value
 
-	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken, ""})
 	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		stored.Store(service + " holds " + secret)
 
@@ -236,7 +236,7 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 	dir := t.TempDir()
 	jiraURL := clitest.WorkingJira(t)
 
-	prompt := clitest.Scripted([]string{jiraURL, "n"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "n"}, []string{guidedToken, ""})
 	prompt.StoreSecret = func(context.Context, string, string) error {
 		t.Error("stored the token though the offer was declined")
 
@@ -267,7 +267,7 @@ func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
 	dir := t.TempDir()
 	jiraURL := clitest.WorkingJira(t)
 
-	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken, ""})
 	prompt.StoreSecret = func(context.Context, string, string) error { return errPromptBroke }
 
 	// Act
