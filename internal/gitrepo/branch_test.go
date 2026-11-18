@@ -42,6 +42,7 @@ func featureBranch() map[string]reply {
 		},
 		baseAge + originMain: {out: []byte(baseUpdatedISO + "\n")},
 		featureLink:          {err: errNoRef},
+		readStopped:          nothingStopped(),
 	}
 }
 
@@ -360,6 +361,7 @@ func emptyRepository() map[string]reply {
 		"git -C /work config --get branch.main.workflow-issue": {err: errNoRef},
 		"git -C /work config --get branch.main.pushRemote":     {err: errNoRef},
 		"git -C /work config --get branch.main.remote":         {err: errNoRef},
+		readStopped: nothingStopped(),
 	}
 }
 

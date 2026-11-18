@@ -81,6 +81,12 @@ type Branch struct {
 	// IssueLink is the issue the branch was linked to by hand, for work begun
 	// on a branch whose name names none; empty when it was never linked.
 	IssueLink string
+	// Operation is the git operation stopped part way in the work tree, if
+	// any: a stopped rebase is why Detached is set while a branch is worked on.
+	Operation Operation
+	// Rebasing is the branch a stopped rebase replays: empty when it replays a
+	// detached HEAD, and for any other operation.
+	Rebasing string
 }
 
 // Finishing is what finishing the branch acts on: the branch, the base it
@@ -174,6 +180,8 @@ func (r Repository) readBranch(
 		branch.Behind, branch.Ahead, counted = counts(git("rev-list", "--left-right", "--count", "@{upstream}...HEAD"))
 		branch.Uncounted = !counted
 	}
+
+	branch.Operation, branch.Rebasing = r.stopped(ctx)
 
 	return withCommits(git, branch), nil
 }
