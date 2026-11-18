@@ -141,6 +141,13 @@ func uncounted(branch gitrepo.Branch) gitrepo.Branch {
 	return branch
 }
 
+// stopped is branch with operation stopped part way on it.
+func stopped(branch gitrepo.Branch, operation gitrepo.Operation) gitrepo.Branch {
+	branch.Operation = operation
+
+	return branch
+}
+
 func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 	t.Parallel()
 
@@ -177,6 +184,21 @@ func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 		"detached": {
 			branch: gitrepo.Branch{Detached: true},
 			want:   []string{"detached HEAD", "press b to start one"},
+		},
+		// A stopped rebase leaves HEAD detached; only the rebase names the branch.
+		"a rebase stopped": {
+			branch: gitrepo.Branch{Detached: true, Operation: gitrepo.OperationRebase, Rebasing: featureName},
+			want: []string{
+				"rebasing " + featureName, "A rebase of " + featureName + " is stopped part way.",
+				"git rebase --continue", "git rebase --abort",
+			},
+		},
+		"a merge stopped": {
+			branch: stopped(pushedTo(gitrepo.DefaultRemote, 0, 0), gitrepo.OperationMerge),
+			want: []string{
+				featureName + " · merge stopped", "A merge is stopped part way.",
+				"run git merge", "--continue, or git merge --abort to go back.",
+			},
 		},
 	}
 

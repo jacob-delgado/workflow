@@ -459,7 +459,11 @@ The Branch pane shows the branch, its base, its upstream and its commits. When
 a push of it goes somewhere other than the base remote — a fork's clone pushes
 to origin while its base is upstream's — a `push to` line names that remote,
 and `workflow pr` names it in its question too, as in
-`Push fix/PROJ-7-login to origin and open the pull request?`.
+`Push fix/PROJ-7-login to origin and open the pull request?`. While a rebase,
+merge, cherry-pick or revert is stopped part way, the pane says so —
+`rebasing fix/PROJ-7-login`, the branch the rebase replays, which its detached
+HEAD hides, or `fix/PROJ-7-login · merge stopped` — and says to resolve what
+it stopped on, then run its `--continue`, or `--abort` to go back.
 
 ### Stage and commit
 
