@@ -211,7 +211,10 @@ func keepFirstToken(ctx context.Context, notes console.Notes, conn cmdkit.Connec
 // refreshAndKeep refreshes the starting credentials through transport and
 // keeps what Slack gives back with the app named, under the refresh lock a
 // post's refresh takes, so a post refreshing the pair this replaces never
-// keeps its own over this one.
+// keeps its own over this one. Slack spends the refresh token typed as it
+// answers, so where the pair and the app would be kept is proved to take a
+// write first: one that would not is slackauth.ErrKeepRefused, with the
+// token typed still unspent.
 func refreshAndKeep(ctx context.Context, conn cmdkit.Connection, answers loginAnswers, transport httpx.Doer) error {
 	unlock, err := conn.Process.SlackRefreshLock(conn.Config.Path)(ctx)
 	if err != nil {
@@ -219,12 +222,19 @@ func refreshAndKeep(ctx context.Context, conn cmdkit.Connection, answers loginAn
 	}
 	defer unlock()
 
+	store := conn.Process.SlackStore(conn.Config)
+
+	err = store.ProveLogin(ctx)
+	if err != nil {
+		return err
+	}
+
 	renewed, err := conn.Process.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)
 	if err != nil {
 		return err
 	}
 
-	return conn.Process.SlackStore(conn.Config).KeepLogin(ctx, answers.clientID, renewed)
+	return store.KeepLogin(ctx, answers.clientID, renewed)
 }
 
 // sayWhoseToken asks Slack whose the token cfg keeps is, and says so, and

@@ -444,8 +444,12 @@ for you before it runs out, and keeps each new pair.
    ```
 
    It asks for the client ID, then the client secret and refresh token without
-   echoing them, refreshes the token once to prove them, keeps the token with
-   `messaging.client_id` beside it, and says whose token it is.
+   echoing them, checks that where the token is kept takes a write, refreshes
+   the token once to prove them, keeps the token with `messaging.client_id`
+   beside it, and says whose token it is. A place that would not take a write
+   — a file that cannot be written or does not parse, a keychain that will
+   not store — is refused before the refresh, so the refresh token typed is
+   not spent.
 
 Where the token is kept:
 

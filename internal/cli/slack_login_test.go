@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
@@ -379,7 +380,7 @@ func TestSlackLoginThatCannotKeepThePairSaysSo(t *testing.T) {
 	}
 }
 
-func TestSlackLoginThatCannotWriteItsFileSaysSoAndKeepsNothing(t *testing.T) {
+func TestSlackLoginThatCannotWriteItsFileSpendsNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -393,7 +394,10 @@ func TestSlackLoginThatCannotWriteItsFileSaysSoAndKeepsNothing(t *testing.T) {
 	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir(), State: t.TempDir()}
 	home := clitest.WriteFile(t, where.Home, `{}`)
 	path := clitest.WriteFile(t, where.Dir, slackUserTokenFile)
-	slackRefreshing(t, func() {})
+
+	var refreshes atomic.Int32
+
+	slackRefreshing(t, func() { refreshes.Add(1) })
 
 	err := os.Chmod(where.Home, 0o500)
 	if err != nil {
@@ -406,10 +410,13 @@ func TestSlackLoginThatCannotWriteItsFileSaysSoAndKeepsNothing(t *testing.T) {
 	_, err = clitest.RunStreamsAt(t, where, loginTyped(), "slack", "login")
 
 	// Assert
-	if !errors.Is(err, slackauth.ErrNotKept) || !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), home) {
-		t.Errorf("slack login = %v, want the pair not kept, the write to %s refused", err, home)
+	if !errors.Is(err, slackauth.ErrKeepRefused) || !errors.Is(err, fs.ErrPermission) ||
+		!strings.Contains(err.Error(), home) || refreshes.Load() != 0 {
+		t.Errorf("slack login = %v after %d refreshes; want the write to %s refused before the typed refresh "+
+			"token is spent", err, refreshes.Load(), home)
 	}
 
+	wantExit(t, err, 1)
 	unchanged(t, home, `{}`)
 	unchanged(t, path, slackUserTokenFile)
 }
