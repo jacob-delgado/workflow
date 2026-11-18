@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -74,21 +75,49 @@ func TestRunKeepsTheDevelopersConfigurationOut(t *testing.T) {
 	}
 }
 
-func TestHookEnvironmentNamesTheGitDirectoryAndIndexOfTheRepository(t *testing.T) {
+// realPath is path with every symbolic link in it followed, as git names it.
+func realPath(t *testing.T, path string) string {
+	t.Helper()
+
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatalf("resolving %s: %v", path, err)
+	}
+
+	return resolved
+}
+
+func TestALinkedWorktreeHookNamesAGitDirInsideTheSharedRepository(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	repo := filepath.Join("repos", "api")
-
 	// Act
-	environment := gittest.HookEnvironment(repo)
+	hooked := gittest.LinkedWorktreeHook(t)
 
 	// Assert
-	want := []string{
-		"GIT_DIR=" + filepath.Join(repo, ".git"), "GIT_INDEX_FILE=" + filepath.Join(repo, ".git", "index"),
+	// What a hook in the linked worktree is handed names the worktree's own
+	// git directory, whose configuration is the shared repository's: a git
+	// init run under it would mark the shared repository bare.
+	shared := realPath(t, filepath.Join(hooked.Repo, ".git"))
+	worktrees := filepath.Join(shared, "worktrees") + string(filepath.Separator)
+	gitDir, found := strings.CutPrefix(hooked.Environment[0], "GIT_DIR=")
+
+	if !found || !strings.HasPrefix(realPath(t, gitDir), worktrees) {
+		t.Errorf("the hook's environment is %q, want GIT_DIR inside %s", hooked.Environment, worktrees)
 	}
-	if !slices.Equal(environment, want) {
-		t.Errorf("HookEnvironment = %q, want %q", environment, want)
+
+	want := "GIT_INDEX_FILE=" + filepath.Join(gitDir, "index")
+	if len(hooked.Environment) != 2 || hooked.Environment[1] != want {
+		t.Errorf("the hook's environment is %q, want %s after GIT_DIR", hooked.Environment, want)
+	}
+
+	common := exec.CommandContext(t.Context(), "git", "rev-parse", "--path-format=absolute", "--git-common-dir")
+	common.Dir = t.TempDir()
+
+	common.Env = append(os.Environ(), hooked.Environment...)
+
+	output, err := common.Output()
+	if err != nil || realPath(t, strings.TrimSpace(string(output))) != shared {
+		t.Errorf("git under the hook's environment shares %q (err %v), want %s", output, err, shared)
 	}
 }
 

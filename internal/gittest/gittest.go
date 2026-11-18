@@ -8,8 +8,9 @@
 // automatic maintenance off, in the git it runs and, through a TestMain, in
 // every git a process starts; and it gives the tests that prove a hook's
 // environment changes nothing, and that no git outlives its test, what they
-// compare. Only tests import it, and internal/cli/clitest, which only tests
-// import in turn.
+// compare, the environment a hook in a linked worktree is handed among it.
+// Only tests import it, and internal/cli/clitest, which only tests import in
+// turn.
 package gittest
 
 import (
@@ -122,12 +123,41 @@ func run(tb testing.TB, dir string, args []string) ([]byte, error) {
 	})
 }
 
-// HookEnvironment is what git exports to a hook in a linked worktree of repo:
-// the absolute path of its git directory, and of its index to a pre-commit.
-func HookEnvironment(repo string) []string {
-	gitDir := filepath.Join(repo, ".git")
+// Hooked is a repository with one linked worktree, and what git exports to a
+// hook run in that worktree (githooks(5)): GIT_DIR, the worktree's own git
+// directory inside the shared repository's, whose configuration is the shared
+// repository's, and GIT_INDEX_FILE, the index a pre-commit is handed.
+type Hooked struct {
+	// Repo is the shared repository's work tree; FilesUnder(Repo) reads its
+	// .git, the worktree's git directory among it.
+	Repo string
+	// Environment is GIT_DIR and GIT_INDEX_FILE, as git exports them.
+	Environment []string
+}
 
-	return []string{"GIT_DIR=" + gitDir, "GIT_INDEX_FILE=" + filepath.Join(gitDir, "index")}
+// LinkedWorktreeHook makes, with Run, a repository with a first commit and
+// one linked worktree, each in a TempDir of tb's, and returns it with what git
+// exports to a hook run in that worktree. A test that hands that environment
+// to its package's tests proves they leave the shared repository alone, a
+// git init among them included, which under a linked worktree's git directory
+// would mark the shared repository bare. Any step git refuses fails tb.
+func LinkedWorktreeHook(tb testing.TB) Hooked {
+	tb.Helper()
+
+	repo := tb.TempDir()
+	Run(tb, repo, "init", "--quiet")
+	Run(tb, repo, "-c", "user.name=Tester", "-c", "user.email=t@example.com",
+		"commit", "--quiet", "--allow-empty", "-m", "first")
+
+	worktree := tb.TempDir()
+	Run(tb, repo, "worktree", "add", "--quiet", "--detach", worktree)
+
+	gitDir := Run(tb, worktree, "rev-parse", "--absolute-git-dir")
+
+	return Hooked{
+		Repo:        repo,
+		Environment: []string{"GIT_DIR=" + gitDir, "GIT_INDEX_FILE=" + filepath.Join(gitDir, "index")},
+	}
 }
 
 // FilesUnder is every file below dir, keyed by its path within dir, holding

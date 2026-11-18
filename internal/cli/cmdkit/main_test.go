@@ -52,20 +52,18 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 	// the one that tells.
 	const fixture = "TestConnectFindsNoRepositoryWhereThereIsNone"
 
-	named := t.TempDir()
-	gittest.Run(t, named, "init", "--quiet")
-
-	before := gittest.FilesUnder(t, named)
+	hooked := gittest.LinkedWorktreeHook(t)
+	before := gittest.FilesUnder(t, hooked.Repo)
 
 	child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^"+fixture+"$", "-test.v")
 
-	child.Env = append(os.Environ(), gittest.HookEnvironment(named)...)
+	child.Env = append(os.Environ(), hooked.Environment...)
 
 	// Act
 	output, err := child.CombinedOutput()
 
 	// Assert
-	if changed := gittest.ChangedFiles(before, gittest.FilesUnder(t, named)); len(changed) != 0 {
+	if changed := gittest.ChangedFiles(before, gittest.FilesUnder(t, hooked.Repo)); len(changed) != 0 {
 		t.Errorf("the tests wrote into the repository git's environment names: %q", changed)
 	}
 
