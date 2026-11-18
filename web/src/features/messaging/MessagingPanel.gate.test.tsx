@@ -170,6 +170,22 @@ test('a post refused because a check failed keeps the edit for the wait', async 
   })
 })
 
+test('a hold made after a failed check says nothing of the refused post', async () => {
+  // Arrange
+  failingBeforePost()
+  withPull()
+  render(<MessagingPanel />)
+  await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Announce now' }))
+
+  // Act
+  await userEvent.click(await screen.findByRole('button', { name: 'Announce when CI passes' }))
+
+  // Assert
+  await screen.findByText('Will announce to #dev once CI passes.')
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+
 test('a held announcement waiting on a fix says so', () => {
   // Arrange
   previewing('failed')
