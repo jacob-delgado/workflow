@@ -29,12 +29,12 @@ type CachedIssue struct {
 // with no issues reports found with an empty slice, distinct from one never
 // cached. A disabled store, or one with no instance, reports nothing.
 func (s Store) CachedIssues(ctx context.Context, instance, view string) ([]CachedIssue, bool, error) {
-	if s.nothingToRead() || instance == "" {
+	if instance == "" {
 		return nil, false, nil
 	}
 
-	database, err := s.open(ctx)
-	if err != nil {
+	database, found, err := s.readFile(ctx, cacheFile())
+	if err != nil || !found {
 		return nil, false, err
 	}
 	defer func() { _ = database.Close() }()
@@ -102,7 +102,7 @@ func (s Store) CacheIssues(ctx context.Context, instance, view string, issues []
 		return nil
 	}
 
-	database, err := s.open(ctx)
+	database, err := s.openFile(ctx, cacheFile())
 	if err != nil {
 		return err
 	}

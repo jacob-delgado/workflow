@@ -1314,8 +1314,8 @@ and `--web` read nothing from the cache — Local data still counts what each
 file holds — and read `kept.db` read-only when it is already there, for whom
 an announcement would tag and your favorites; a command such as `announce` or
 `status` reads the file it needs the same way, and only when it is there. A
-dry run reads `workflow.db` as it is, whichever build made it, and a `kept.db`
-another build's schema made as empty. Such a read may leave SQLite's two
+dry run reads either file as empty when a build with another schema made it.
+Such a read may leave SQLite's two
 owner-only companion files beside the file it read — `kept.db-wal` and
 `kept.db-shm` after a read of `kept.db`, `workflow.db-wal` and
 `workflow.db-shm` after one of `workflow.db` — until a session without

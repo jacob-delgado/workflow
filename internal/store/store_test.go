@@ -4,6 +4,9 @@
 package store_test
 
 import (
+	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -117,6 +120,52 @@ func TestAnEmptyRepositoryKeyIsNoRepository(t *testing.T) {
 	// Assert
 	if err != nil || found || scope != "" {
 		t.Errorf("an empty repository key returned %q, %v, %v; want it to no-op", scope, found, err)
+	}
+}
+
+func TestAReadWithNoKeyOpensNoFile(t *testing.T) {
+	t.Parallel()
+
+	// A live store with no repository or Jira instance to key by reads
+	// nothing, and so makes no file to read it from.
+	cases := map[string]storeCall{
+		"the last scope": func(ctx context.Context, kept store.Store) (bool, error) {
+			scope, found, err := kept.LastScope(ctx, "")
+
+			return found || scope != "", err
+		},
+		"the announcements": func(ctx context.Context, kept store.Store) (bool, error) {
+			got, err := kept.Announces(ctx, "")
+
+			return len(got) > 0, err
+		},
+		"the cached issues": func(ctx context.Context, kept store.Store) (bool, error) {
+			got, found, err := kept.CachedIssues(ctx, "", view)
+
+			return found || len(got) > 0, err
+		},
+	}
+
+	for name, call := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			dir := t.TempDir()
+
+			// Act
+			readBack, err := call(t.Context(), store.New(dir, store.ModeWrites))
+
+			// Assert
+			if err != nil || readBack {
+				t.Errorf("reading %s with no key = %v, read back %v; want nothing, and no error", name, err, readBack)
+			}
+
+			_, statErr := os.Stat(filepath.Join(dir, "workflow.db"))
+			if !errors.Is(statErr, fs.ErrNotExist) {
+				t.Errorf("reading %s with no key made workflow.db (stat: %v), want no file", name, statErr)
+			}
+		})
 	}
 }
 

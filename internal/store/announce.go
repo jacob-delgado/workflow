@@ -78,7 +78,7 @@ func (s Store) ClaimAnnounce(ctx context.Context, repo string, announce Announce
 		return notKept(), nil
 	}
 
-	database, err := s.open(ctx)
+	database, err := s.openFile(ctx, cacheFile())
 	if err != nil {
 		return Claim{}, err
 	}
@@ -102,7 +102,7 @@ func (s Store) ReclaimAnnounce(
 		return notKept(), nil
 	}
 
-	database, err := s.open(ctx)
+	database, err := s.openFile(ctx, cacheFile())
 	if err != nil {
 		return Claim{}, err
 	}
@@ -164,12 +164,12 @@ func (s Store) ReleaseAnnounce(ctx context.Context, repo string, announce Announ
 // of the store writes — a generation below one, or a claim time that is not
 // one. A disabled store reports none.
 func (s Store) Announces(ctx context.Context, repo string) ([]AnnounceRecord, error) {
-	if s.nothingToRead() || repo == "" {
+	if repo == "" {
 		return nil, nil
 	}
 
-	database, err := s.open(ctx)
-	if err != nil {
+	database, found, err := s.readFile(ctx, cacheFile())
+	if err != nil || !found {
 		return nil, err
 	}
 	defer func() { _ = database.Close() }()
@@ -288,7 +288,7 @@ func parsedTime(stored string) time.Time {
 // announceWrite runs one statement on the announcements, saying what was
 // being done when it fails.
 func (s Store) announceWrite(ctx context.Context, doing, query string, args ...any) error {
-	database, err := s.open(ctx)
+	database, err := s.openFile(ctx, cacheFile())
 	if err != nil {
 		return err
 	}

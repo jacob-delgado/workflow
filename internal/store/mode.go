@@ -73,11 +73,6 @@ func (s Store) writesNothing() bool {
 	return s.mode != ModeWrites
 }
 
-// nothingToRead reports a store with nothing it may read from the cache.
-func (s Store) nothingToRead() bool {
-	return s.nothingToReadIn(dbName)
-}
-
 // nothingToReadIn reports a store with nothing it may read from the database
 // named: one that is off, or a read-only one with no such file on disk, which
 // it must not create by opening.
