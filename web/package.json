@@ -34,7 +34,7 @@
     "lucide-react": "^1.71.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-hook-form": "^7.91.0",
+    "react-hook-form": "^7.92.0",
     "tailwind-merge": "^3.7.0",
     "zod": "^4.6.7",
     "zustand": "^5.1.0"
@@ -67,7 +67,7 @@
     "globals": "^17.14.0",
     "jsdom": "^31.0.0",
     "knip": "^6.45.0",
-    "prettier": "^3.9.10",
+    "prettier": "^3.10.0",
     "tailwindcss": "^4.3.5",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.73.0",
