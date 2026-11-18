@@ -273,14 +273,17 @@ func (s *server) stepHeld(event func(armed.Hold) (armed.Hold, armed.Next)) armed
 }
 
 // readHeldLater sets the next read of the hold for once the CI interval has
-// passed, unless the server is retired. The read runs on the timer's own
-// goroutine, as the server's shutdown runs on context.AfterFunc's, under the
-// server's lifetime: no page asked for it.
+// passed, unless the server is retired, in place of the one set before: a
+// hold retold reads at once, and the reads that read sets go on alone. The
+// read runs on the timer's own goroutine, as the server's shutdown runs on
+// context.AfterFunc's, under the server's lifetime: no page asked for it.
 func (s *server) readHeldLater() armed.Next {
 	interval := s.forgeInterval()
 
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
+
+	s.held.stopTimer()
 
 	if !s.held.retired {
 		heldIn := s.held.hold.Round()

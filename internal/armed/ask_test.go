@@ -180,3 +180,26 @@ func TestAReadOutAsTheHeldAnnouncementIsRetoldIsHeard(t *testing.T) {
 			stageName(got.Stage()), nextName(next))
 	}
 }
+
+func TestAReadOutIsNotHeardOnceTheRetoldReadIsAsked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	hold, out := running(t).Asked()
+
+	retold, err := hold.Arm(after(3*time.Minute), arming())
+	if err != nil {
+		t.Fatalf("arming the held announcement again: %v", err)
+	}
+
+	asked, _ := retold.Hold.Asked()
+
+	// Act
+	got, next := passedRead(asked, out)
+
+	// Assert
+	if !reflect.DeepEqual(got, asked) || next != armed.NextNothing {
+		t.Errorf("stepped to %s, asking for %s; want the hold as it was, asking for nothing: "+
+			"the retold read was asked after it", stageName(got.Stage()), nextName(next))
+	}
+}

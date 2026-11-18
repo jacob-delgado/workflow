@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -480,5 +482,119 @@ func TestAWaitingPostWaitsPastAFindThatFails(t *testing.T) {
 	// Assert: it went, once
 	if calls := repo.asked("post "); len(calls) != 1 {
 		t.Errorf("post calls = %q, want one once the forge answered", calls)
+	}
+}
+
+func TestWaitingAgainOnTheHeldAnnouncementReadsItAtOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A post waits while CI runs; CI then passes, and the preview is opened
+	// again, as announce now instead.
+	repo, waiting := waitingOn(t, forge.CIRunning)
+	passesNow(repo)
+
+	preview := typing(t, waiting, "p")
+
+	// Act
+	typing(t, preview, "w")
+
+	// Assert
+	if calls := repo.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want one: the post asked to wait again reads its CI at once", calls)
+	}
+}
+
+// keptTicks types keys as typing does, keeping back each wait of every as
+// long, unfired, and returns those waits; every other wait runs on the
+// drain's clock.
+func keptTicks(t *testing.T, model tui.Model, every time.Duration, keys ...string) (tui.Model, []scheduled) {
+	t.Helper()
+
+	deadline := time.NewTimer(failsafe)
+	defer deadline.Stop()
+
+	var kept []scheduled
+
+	for _, key := range keys {
+		updated, cmd := model.Update(stepMsg(key))
+		model = settle(t, concrete(t, updated), cmd, driver{
+			run: func(next tea.Cmd) (tea.Msg, bool) {
+				msg := await(t, next, deadline.C)
+				if wait, isWait := msg.(scheduled); isWait && wait.after == every {
+					kept = append(kept, wait)
+
+					return nil, false
+				}
+
+				return msg, true
+			},
+			deliver: func(model tui.Model, msg tea.Msg) (tui.Model, tea.Cmd) {
+				next, follow := model.Update(msg)
+
+				return concrete(t, next), follow
+			},
+		})
+	}
+
+	return model, kept
+}
+
+func TestATickScheduledBeforeAHoldIsRetoldReadsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A post waits while CI runs, its next read scheduled; it is asked to
+	// wait again, CI running still, and that read schedules its own.
+	repo := newWorld()
+	repo.ciInterval = 2 * time.Second
+	repo.ci = []forge.CI{{State: forge.CIRunning, Total: 1}}
+	waiting, ticks := keptTicks(t, repo.live(t, 140, 40), repo.ciInterval, "5", "p", "w")
+
+	if len(ticks) != 1 {
+		t.Fatalf("kept %d reads scheduled as the post began to wait, want its one", len(ticks))
+	}
+
+	readsBefore := len(repo.asked("ci "))
+	retold := typing(t, waiting, "p", "w")
+
+	readsAfter := len(repo.asked("ci "))
+	if readsAfter == readsBefore {
+		t.Fatal("waiting again read no CI, want the retold hold read at once")
+	}
+
+	// Act
+	drain(t, retold, func() tea.Msg { return ticks[0].fire(testNow()) })
+
+	// Assert
+	if reads := len(repo.asked("ci ")) - readsAfter; reads != 0 {
+		t.Errorf("the tick scheduled before the hold was retold read CI %d times, want none: "+
+			"the retold read scheduled its own", reads)
+	}
+}
+
+func TestATickScheduledWhileAHoldWaitsReadsItsCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A post waits while CI runs, its next read scheduled; nothing is asked
+	// of it before that read comes due.
+	repo := newWorld()
+	repo.ciInterval = 2 * time.Second
+	repo.ci = []forge.CI{{State: forge.CIRunning, Total: 1}}
+	waiting, ticks := keptTicks(t, repo.live(t, 140, 40), repo.ciInterval, "5", "p", "w")
+
+	if len(ticks) != 1 {
+		t.Fatalf("kept %d reads scheduled as the post began to wait, want its one", len(ticks))
+	}
+
+	readsBefore := len(repo.asked("ci "))
+
+	// Act
+	drain(t, waiting, func() tea.Msg { return ticks[0].fire(testNow()) })
+
+	// Assert
+	if reads := len(repo.asked("ci ")) - readsBefore; reads != 1 {
+		t.Errorf("the tick scheduled as the post began to wait read CI %d times, want once", reads)
 	}
 }
