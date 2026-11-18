@@ -404,7 +404,10 @@ against the base it opens into and the groups that start checked, and, as a post
 from the preview does, whom it can when the Slack token lacks a scope. A draft
 is never armed, and the line says to announce it once it is ready;
 `messaging.auto_announce: false` arms nothing. The open's answer carries the
-armed announcement as `announcement` (its `automatic` set), or why none was as
+armed announcement as `announcement` (its `automatic` set), as it stands when
+the open answers: waiting, being posted or announced already, or, with the
+reason, posted elsewhere first, dropped, or stopped meanwhile, by
+**Stop waiting** or by another ask that replaced it; or why none was as
 `not_armed`.
 
 ### The messaging service
@@ -1016,7 +1019,10 @@ takes `mentions`: `users`, the people the preview showed tagged, and
 what is kept, never from the request, and a post whose linked owners are not
 `users` is a `409`. It also takes `edited_text`, posted in place of the
 composed announcement beside `text`, the one the edit began from, and
-`when: ci_passes`, which holds it until the CI passes and answers `202`, with
+`when: ci_passes`, which holds it until the CI passes and answers `202` with
+the hold this ask armed or retold, as it stands: waiting, or being posted, or,
+with the reason, posted elsewhere first, dropped, or stopped meanwhile, by
+`DELETE /api/announce/queued` or by another ask that replaced it; and with
 `replaced_pull` when it replaced another pull request's;
 `DELETE /api/announce/queued` stops a held one, and each frame of
 `GET /api/events` carries it as `queued_announcement`, with its `id`, a new

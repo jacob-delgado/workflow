@@ -2042,7 +2042,7 @@ type OpenPullRequestRequest struct {
 
 // OpenedPullRequest A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
 type OpenedPullRequest struct {
-	// Announcement The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued stops it unposted. Left out when none was armed.
+	// Announcement The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on, as it stands when the open answers: waiting or being posted; announced already, its CI having passed; or, with the reason, posted elsewhere first, dropped, or stopped meanwhile, as asked or by another ask that replaced it; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued stops it unposted. Left out when none was armed.
 	Announcement *QueuedAnnouncement `json:"announcement,omitempty"`
 
 	// FollowUps What the browser can offer now that the pull request is open, in the order the terminal offers them — the link, then the move. Empty when the branch names no Jira issue, or neither applies.
