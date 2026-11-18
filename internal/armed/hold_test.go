@@ -141,9 +141,14 @@ func TestArmingAnotherPullRequestAsAskedReplacesTheHeldOne(t *testing.T) {
 			got.Hold.Pull(), stageName(got.Hold.Stage()), got.Hold.Round(), nextName(got.Next), err)
 	}
 
-	if got.Replaced == nil || got.Replaced.Pull() != 9 || got.Replaced.Stage() != armed.StageStopped ||
-		!errors.Is(got.Replaced.Reason(), armed.ErrStopped) {
-		t.Errorf("Arm replaced %+v, want #9 stopped", got.Replaced)
+	if got.Replaced == nil {
+		t.Fatal("Arm replaced nothing, want #9 stopped as replaced")
+	}
+
+	if replaced := *got.Replaced; replaced.Pull() != 9 || replaced.Stage() != armed.StageStopped ||
+		!errors.Is(replaced.Reason(), armed.ErrReplaced) {
+		t.Errorf("Arm replaced #%d %s (%v), want #9 stopped as replaced",
+			replaced.Pull(), stageName(replaced.Stage()), replaced.Reason())
 	}
 }
 

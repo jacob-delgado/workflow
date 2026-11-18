@@ -16,9 +16,9 @@ import (
 // pull request just opened, else awaiting its checks. A waiting hold of the
 // same pull request and moment keeps its stage and round and takes the new
 // text, channel and tags, and asks for a read at once too, as one armed
-// afresh does. One of another, asked for, replaces it, stopping it; armed on
-// its own, it never does, and is OtherHeldError. A hold being posted is
-// ErrBeingPosted.
+// afresh does. One of another, asked for, replaces it, stopping it with
+// ErrReplaced; armed on its own, it never does, and is OtherHeldError. A
+// hold being posted is ErrBeingPosted.
 func (h Hold) Arm(armedAt time.Time, arming Arming) (Armed, error) {
 	switch {
 	case h.stage == StageDue:
@@ -30,7 +30,7 @@ func (h Hold) Arm(armedAt time.Time, arming Arming) (Armed, error) {
 	case arming.Automatic:
 		return Armed{Hold: h, Next: NextNothing, Replaced: nil}, OtherHeldError{Held: h.Pull()}
 	default:
-		replaced := h.ended(StageStopped, ErrStopped)
+		replaced := h.ended(StageStopped, ErrReplaced)
 
 		return Armed{Hold: h.armedAfresh(armedAt, arming), Next: NextRead, Replaced: &replaced}, nil
 	}
@@ -297,8 +297,8 @@ func (h Hold) refusedByGate(refusal loop.GateRefusalError, at time.Time) Hold {
 	return h
 }
 
-// Stop stops a waiting hold. One being posted is ErrBeingPosted, and one not
-// waiting ErrNothingWaiting; neither is changed.
+// Stop stops a waiting hold with ErrStopped. One being posted is
+// ErrBeingPosted, and one not waiting ErrNothingWaiting; neither is changed.
 func (h Hold) Stop() (Hold, error) {
 	switch {
 	case h.stage == StageDue:

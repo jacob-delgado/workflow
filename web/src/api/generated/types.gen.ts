@@ -1590,7 +1590,7 @@ export type OpenedPullRequest = {
      */
     follow_ups: Array<FollowUp>;
     /**
-     * The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued stops it unposted. Left out when none was armed.
+     * The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on, as it stands when the open answers: waiting or being posted; announced already, its CI having passed; or, with the reason, posted elsewhere first, dropped, or stopped meanwhile, as asked or by another ask that replaced it; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued stops it unposted. Left out when none was armed.
      */
     announcement?: QueuedAnnouncement;
     /**
@@ -4053,7 +4053,7 @@ export type AnnounceResponses = {
      */
     200: Announcement;
     /**
-     * The announcement, held until the pull request's CI passes.
+     * The hold this ask armed or retold, as it stands: waiting or being posted; or, with the reason, posted elsewhere first, dropped, or stopped meanwhile, as asked or by another ask that replaced it.
      */
     202: QueuedAnnouncement;
 };

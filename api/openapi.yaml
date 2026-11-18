@@ -1881,9 +1881,12 @@ paths:
         terminal's w, a ready-for-review announcement is held by the server,
         bound to the branch checked out as it is asked, and its pull request
         and CI are read at once: one whose CI has passed already is posted at
-        once (200); any other is answered 202 with the hold as it stands —
-        waiting while CI runs, reports no check yet, has a check failed, which
-        it waits out for a fix, or cannot be read. The server reads that
+        once (200); any other is answered 202 with the hold this ask armed or
+        retold, as it stands — waiting while CI runs, reports no check yet,
+        has a check failed, which it waits out for a fix, or cannot be read;
+        being posted; or, with the reason, posted elsewhere first, dropped,
+        or stopped meanwhile, by DELETE /api/announce/queued or by another
+        ask that replaced it. The server reads that
         branch's pull request and its CI on its own, on timing.ci_interval,
         whether a page is open or not, and a branch checked out meanwhile
         neither posts nor drops it. It is posted once the forge reports the CI
@@ -1935,7 +1938,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Announcement"
         "202":
-          description: The announcement, held until the pull request's CI passes.
+          description: >-
+            The hold this ask armed or retold, as it stands: waiting or being
+            posted; or, with the reason, posted elsewhere first, dropped, or
+            stopped meanwhile, as asked or by another ask that replaced it.
           content:
             application/json:
               schema:
@@ -5105,8 +5111,12 @@ components:
           allOf: [{$ref: "#/components/schemas/QueuedAnnouncement"}]
           description: >-
             The announcement armed to post once the pull request's CI passes,
-            when messaging is set up and messaging.auto_announce is on; the
-            frame's queued_announcement goes on saying how it stands, and
+            when messaging is set up and messaging.auto_announce is on, as it
+            stands when the open answers: waiting or being posted; announced
+            already, its CI having passed; or, with the reason, posted
+            elsewhere first, dropped, or stopped meanwhile, as asked or by
+            another ask that replaced it; the frame's
+            queued_announcement goes on saying how it stands, and
             DELETE /api/announce/queued stops it unposted. Left out when none
             was armed.
         not_armed:

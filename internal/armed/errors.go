@@ -36,9 +36,11 @@ var (
 	// failed for UnheardPatience, or whose pull request the forge did not
 	// list within it. An UnheardError carries it with the last failure.
 	ErrUnheard = errors.New("nothing could be heard of the pull request for too long")
-	// ErrStopped is an armed announcement stopped as asked, or replaced by
-	// another asked for.
+	// ErrStopped is an armed announcement stopped as asked.
 	ErrStopped = errors.New("the announcement was stopped before it was posted")
+	// ErrReplaced is an armed announcement stopped because another pull
+	// request's, or another moment's, was asked for in its place.
+	ErrReplaced = errors.New("the announcement was replaced, unposted, by another asked for")
 	// ErrLost is an armed announcement whose session or server ended while it
 	// waited.
 	ErrLost = errors.New("the announcement was lost, unposted, when its session ended")

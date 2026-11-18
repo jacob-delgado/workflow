@@ -44,6 +44,27 @@ type heldSlot struct {
 	// timer is the last read set for later; retired, once set, sets none.
 	timer   *time.Timer
 	retired bool
+	// current is the round hold stands in, which every ask that armed or
+	// retold it in that round answers with.
+	current *heldRound
+}
+
+// heldRound is the last hold of one round, as the slot set it: what an ask
+// that armed or retold the hold in that round answers with, whatever round
+// the slot has gone on to since.
+type heldRound struct {
+	hold armed.Hold
+}
+
+// set holds hold, and writes it to the round it stands in: a hold of another
+// round than the one held starts a new heldRound. Every write of the hold
+// goes through it, and its caller holds h.mu.
+func (h *heldSlot) set(hold armed.Hold) {
+	if hold.Round() != h.current.hold.Round() {
+		h.current = &heldRound{hold: hold}
+	}
+
+	h.hold, h.current.hold = hold, hold
 }
 
 // retire stops the next read set and the hold's wait, as the server holding
@@ -55,7 +76,7 @@ func (h *heldSlot) retire() {
 	h.retired = true
 	h.stopTimer()
 
-	h.hold = h.hold.Retire()
+	h.set(h.hold.Retire())
 }
 
 // stopTimer stops the last read set for later, if one was set. Its caller
@@ -68,7 +89,8 @@ func (h *heldSlot) stopTimer() {
 
 // announceWhenGreen holds a ready-for-review announcement until its pull
 // request's CI passes, reading it at once under ctx: answered 200 when it has
-// passed already and the post went, else 202 with the hold as it stands. One
+// passed already and the post went, else 202 with the hold this ask armed or
+// retold as it stands, which another ask may have replaced meanwhile. One
 // asked for over another pull request's waiting announcement replaces it, and
 // the answer names it; one asked for while a held one is being posted, and
 // one not ready for review, are 409.
@@ -78,14 +100,14 @@ func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.A
 			"only a ready-for-review announcement waits for CI; this one announces a merge, so announce it now"))
 	}
 
-	started, err := s.arm(post)
+	started, heldIn, err := s.arm(post)
 	if err != nil {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, heldRefusal(err)))
 	}
 
 	s.advance(ctx, started.Next)
 
-	hold, _ := s.heldNow()
+	hold := s.answerOf(heldIn)
 	if hold.Stage() == armed.StagePosted {
 		posted := announcementDTO(hold.Delivery().Text, hold.Delivery().Channel)
 		posted.Warning = heldWarning(hold)
@@ -122,10 +144,11 @@ func (s *server) previewCI(ctx context.Context, pull forge.PullRequest) (forge.C
 }
 
 // arm arms post to go once its pull request's CI passes, on its branch, as
-// the hold steps it: asked for, it replaces another pull request's waiting
-// announcement; armed as its pull request opened, it never does, and tags
-// whom it proposes as it posts.
-func (s *server) arm(post announcePost) (armed.Armed, error) {
+// the hold steps it, and answers the round it was armed or retold in: asked
+// for, it replaces another pull request's waiting announcement, which is
+// written stopped to the round it ends first; armed as its pull request
+// opened, it never does, and tags whom it proposes as it posts.
+func (s *server) arm(post announcePost) (armed.Armed, *heldRound, error) {
 	armedAt := s.now()
 
 	s.held.mu.Lock()
@@ -136,12 +159,25 @@ func (s *server) arm(post announcePost) (armed.Armed, error) {
 		Automatic: post.automatic, Seen: 0,
 	})
 	if err != nil {
-		return started, err
+		return started, nil, err
 	}
 
-	s.held.hold, s.held.memory = started.Hold, post.memory
+	if started.Replaced != nil {
+		s.held.set(*started.Replaced)
+	}
 
-	return started, nil
+	s.held.set(started.Hold)
+	s.held.memory = post.memory
+
+	return started, s.held.current, nil
+}
+
+// answerOf is the last hold of the round heldIn, as it stands now.
+func (s *server) answerOf(heldIn *heldRound) armed.Hold {
+	s.held.mu.Lock()
+	defer s.held.mu.Unlock()
+
+	return heldIn.hold
 }
 
 // heldRefusal is why the hold refused what was asked of it: it is being
@@ -249,9 +285,8 @@ func (s *server) askHeldIn(heldIn int) (armed.Ask, armed.Seams, bool) {
 
 // askedOfHeld is askHeld's ask, its caller holding the slot's lock.
 func (s *server) askedOfHeld() (armed.Ask, armed.Seams) {
-	var ask armed.Ask
-
-	s.held.hold, ask = s.held.hold.Asked()
+	asked, ask := s.held.hold.Asked()
+	s.held.set(asked)
 
 	return ask, s.heldSeams(s.held.memory)
 }
@@ -294,9 +329,8 @@ func (s *server) stepHeld(event func(armed.Hold) (armed.Hold, armed.Next)) armed
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	var next armed.Next
-
-	s.held.hold, next = event(s.held.hold)
+	stepped, next := event(s.held.hold)
+	s.held.set(stepped)
 
 	return next
 }
@@ -340,7 +374,7 @@ func (s *server) supersede(made loop.Announced) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
-	s.held.hold = s.held.hold.Superseded(made)
+	s.held.set(s.held.hold.Superseded(made))
 }
 
 // heldBeingPosted reports whether the held announcement is being posted now.
@@ -377,7 +411,7 @@ func (s *server) CancelQueuedAnnouncement(
 			problem.New(api.ProblemCodeConflict, heldRefusal(err))), nil
 	}
 
-	s.held.hold = stopped
+	s.held.set(stopped)
 
 	return api.CancelQueuedAnnouncement204Response{}, nil
 }

@@ -22,7 +22,8 @@ const draftNotArmed = "a draft is not announced; announce it once it is ready"
 
 // armOnOpen arms the announcement of pull, just opened from branch, to post
 // once its CI passes, as asking to announce when CI passes holds one, reads
-// it at once under ctx, and answers it as it stands, or why it was not armed:
+// it at once under ctx, and answers the hold it armed as it stands, which
+// another ask may have replaced meanwhile, or why it was not armed:
 // a draft is not announced, and one armed on its own never replaces another
 // pull request's announcement that waits or is being posted. Nothing is
 // armed, and nothing said, with messaging.auto_announce off in the
@@ -52,7 +53,7 @@ func (s *server) armOnOpen(
 		return nil, nil
 	}
 
-	started, err := s.arm(announcePost{
+	started, heldIn, err := s.arm(announcePost{
 		delivery: composed.Delivery(s.channelOr(""), composed.Announcement.Text(), messaging.Mentions{}),
 		memory:   s.announceMemory(loop.AnnounceMemory{}), branch: branch.Name, automatic: true,
 	})
@@ -62,7 +63,9 @@ func (s *server) armOnOpen(
 
 	s.advance(ctx, started.Next)
 
-	return s.heldStatus(), nil
+	shown := s.queuedOf(s.answerOf(heldIn))
+
+	return &shown, nil
 }
 
 // notArmed says why the announcement of pull request opened was not armed:
