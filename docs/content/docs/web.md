@@ -403,12 +403,15 @@ the line says which one still waits. It tags those
 against the base it opens into and the groups that start checked, and, as a post
 from the preview does, whom it can when the Slack token lacks a scope. A draft
 is never armed, and the line says to announce it once it is ready;
-`messaging.auto_announce: false` arms nothing. The open's answer carries the
-armed announcement as `announcement` (its `automatic` set), as it stands when
-the open answers: waiting, being posted or announced already, or, with the
-reason, posted elsewhere first, dropped, or stopped meanwhile, by
-**Stop waiting** or by another ask that replaced it; or why none was as
-`not_armed`.
+`messaging.auto_announce: false` arms nothing. Should it be posted already,
+its CI having passed, or be stopped, by **Stop waiting** or by another
+announcement asked for meanwhile, or be dropped or posted elsewhere, before
+the open answers, the line says so, and why, instead of where it goes. The
+open's answer carries the armed announcement as `announcement` (its
+`automatic` set), as it stands when the open answers: waiting, being posted or
+announced already, or, with the reason, posted elsewhere first, dropped, or
+stopped meanwhile, by **Stop waiting** or by another ask that replaced it; or
+why none was as `not_armed`.
 
 ### The messaging service
 
@@ -497,7 +500,9 @@ dropped and the section says why in red. It is bound to the branch it was
 asked for on: checking out another branch meanwhile neither posts it nor drops
 it, and **Stop waiting** is the way to stop it. **Announce when CI passes**
 over another pull request's waiting announcement replaces it, and the section
-says so. An announcement
+says so. One stopped meanwhile, by **Stop waiting** or by another announcement
+asked for, or dropped or posted elsewhere, before its answer came, is said so,
+and why, in place of *Will announce to #dev once CI passes.* An announcement
 sent now leaves the held one waiting until the post has gone, then reads it as
 announced, so the channel never reads it twice; one that fails leaves it
 waiting. The server, not the page, holds it: it reads the branch's pull

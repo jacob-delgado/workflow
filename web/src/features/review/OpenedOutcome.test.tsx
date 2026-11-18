@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
+import type { FollowUp, OpenedPullRequest, QueuedAnnouncement } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -422,3 +422,87 @@ test('the outcome says another announcement still waiting kept this one from bei
     screen.getByText("#6's announcement is still waiting, so #7's was not armed."),
   ).toBeTruthy()
 })
+
+test.each([
+  {
+    state: 'stopped',
+    reason: 'the announcement was replaced, unposted, by another asked for',
+    says: 'Not announced: the announcement was replaced, unposted, by another asked for.',
+  },
+  {
+    state: 'stopped',
+    reason: undefined,
+    says: 'Not announced: it was stopped.',
+  },
+  {
+    state: 'dropped',
+    reason: 'the forge did not list #7 within 10m',
+    says: 'Not announced: the forge did not list #7 within 10m.',
+  },
+  {
+    state: 'elsewhere',
+    reason: '#7 was already announced at this moment, here or from a terminal',
+    says: 'Not posted here: #7 was already announced at this moment, here or from a terminal.',
+  },
+  {
+    state: 'elsewhere',
+    reason: undefined,
+    says: 'Not posted here: it was announced from another session.',
+  },
+] satisfies {
+  state: QueuedAnnouncement['state']
+  reason: string | undefined
+  says: string
+}[])(
+  'the outcome says an announcement the open answers $state ($reason) was not left waiting',
+  async ({ state, reason, says }) => {
+    // Arrange
+    const user = userEvent.setup()
+    const answered: OpenedPullRequest = {
+      pull,
+      follow_ups: [],
+      announcement: { id: 1, state, channel: '#dev', pull: 7, automatic: true, reason },
+    }
+    serveTheOpen([], { '/api/pull-request': answered })
+
+    // Act
+    await openThePullRequest(user)
+
+    // Assert
+    expect(screen.getByText(says)).toBeTruthy()
+    expect(screen.queryByText(/once CI passes/)).toBeNull()
+  },
+)
+
+test.each([
+  { warning: undefined, says: 'Announced to #dev once CI passed.' },
+  {
+    warning: 'The store did not confirm it; it is not offered again.',
+    says: 'Announced to #dev once CI passed. The store did not confirm it; it is not offered again.',
+  },
+])(
+  'the outcome says an announcement posted before the open answered went ($warning)',
+  async ({ warning, says }) => {
+    // Arrange
+    const user = userEvent.setup()
+    const posted: OpenedPullRequest = {
+      pull,
+      follow_ups: [],
+      announcement: {
+        id: 1,
+        state: 'announced',
+        channel: '#dev',
+        pull: 7,
+        automatic: true,
+        warning,
+      },
+    }
+    serveTheOpen([], { '/api/pull-request': posted })
+
+    // Act
+    await openThePullRequest(user)
+
+    // Assert
+    expect(screen.getByText(says)).toBeTruthy()
+  },
+)

@@ -4,7 +4,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { stopWaiting } from './announceApi.ts'
-import { withWarning } from './withWarning.ts'
+import { settledSaying } from './settledSaying.ts'
 
 interface HeldAnnouncementProps {
   held: QueuedAnnouncement | undefined
@@ -38,29 +38,22 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
   return <Settled held={held} where={where} />
 }
 
-// Settled says how a held announcement no longer waiting stands: going; gone,
-// and that it is not offered again when the store could not confirm it; not
-// posted here, another session having claimed it first; or dropped, with why,
-// as a failure. One stopped says nothing: Stop waiting says so in the
+// Settled says how a held announcement no longer waiting stands: going; or,
+// as settledSaying words it, gone, posted elsewhere, or dropped, as a
+// failure. One stopped says nothing: Stop waiting says so in the
 // section's outcome where it was pressed.
 function Settled({ held, where }: { held: QueuedAnnouncement; where: string }) {
   switch (held.state) {
     case 'announcing':
       return <p className="text-sm text-muted-foreground">Announcing to {where}…</p>
     case 'announced':
-      return (
-        <p className="text-sm">
-          {withWarning(`Announced to ${where} once CI passed.`, held.warning)}
-        </p>
-      )
+      return <p className="text-sm">{settledSaying(held.state, held, where)}</p>
     case 'elsewhere':
       return (
-        <p className="text-sm text-muted-foreground">
-          Not posted here: {held.reason ?? 'it was announced from another session'}.
-        </p>
+        <p className="text-sm text-muted-foreground">{settledSaying(held.state, held, where)}</p>
       )
     case 'dropped':
-      return <Failure>Not announced: {held.reason ?? 'it was dropped'}.</Failure>
+      return <Failure>{settledSaying(held.state, held, where)}</Failure>
     case 'waiting':
     case 'stopped':
       return null

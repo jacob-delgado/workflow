@@ -7,9 +7,10 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { Failure } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { announce, announceWhenCIPasses, previewAnnouncement } from './announceApi.ts'
+import { announce, announceWhenCIPasses, type Held, previewAnnouncement } from './announceApi.ts'
 import { AnnouncePreview } from './AnnouncePreview.tsx'
 import { mentionsOf, pickFrom, type TagPick } from './tagPick.ts'
+import { settled, settledSaying } from './settledSaying.ts'
 import { withWarning } from './withWarning.ts'
 
 interface AnnounceControlsProps {
@@ -312,7 +313,8 @@ function useAnnouncePost(
 // useAnnounceHold holds a previewed announcement to channel until the pull
 // request's CI passes, and says so through announcing — and which pull
 // request's waiting announcement it replaced, if it did — or that it went at
-// once, when the CI had passed by then, as a post says it.
+// once, when the CI had passed by then, as a post says it; or, held, that it
+// no longer waits, as heldSaying words it.
 function useAnnounceHold(channel: string, service: string, announcing: Announcing) {
   const { sigil } = useForgeWords()
 
@@ -334,15 +336,28 @@ function useAnnounceHold(channel: string, service: string, announcing: Announcin
           return withWarning(`Announced to ${where}.`, answer.warning)
         }
 
-        const replaced =
-          answer.replaced === undefined
-            ? ''
-            : ` It replaced the announcement waiting for ${sigil}${String(answer.replaced)}.`
-
-        return `Will announce to ${where} once CI passes.${replaced}`
+        return heldSaying(answer, where, sigil)
       },
       onStart: announcing.start,
       onDone: announcing.say,
     },
   )
+}
+
+// heldSaying is what a hold the server answered says, by its state: one
+// settled, stopped, dropped or posted elsewhere, as settledSaying words it
+// wherever a hold is shown; and any other state, waiting or being posted,
+// that it will announce once CI passes, and which pull request's waiting
+// announcement it replaced, if it did.
+function heldSaying(answer: Held, where: string, sigil: string): string {
+  if (settled(answer.state)) {
+    return settledSaying(answer.state, answer, where)
+  }
+
+  const replaced =
+    answer.replaced === undefined
+      ? ''
+      : ` It replaced the announcement waiting for ${sigil}${String(answer.replaced)}.`
+
+  return `Will announce to ${where} once CI passes.${replaced}`
 }

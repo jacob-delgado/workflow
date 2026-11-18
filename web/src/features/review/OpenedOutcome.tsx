@@ -1,5 +1,6 @@
-import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
+import type { FollowUp, OpenedPullRequest, QueuedAnnouncement } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
+import { settled, settledSaying } from '@/features/messaging/settledSaying.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -33,17 +34,14 @@ export function OpenedOutcome({ opened, service }: { opened: OpenedPullRequest; 
   )
 }
 
-// ArmedLine says the opened pull request's announcement was armed, where it
-// goes and how to drop it, or why none was: a draft is not announced.
+// ArmedLine says the opened pull request's announcement was armed, as
+// armedSaying words it, or why none was: a draft is not announced.
 function ArmedLine({ opened, service }: { opened: OpenedPullRequest; service: string }) {
   const armed = opened.announcement
   if (armed !== undefined) {
-    const where = armed.channel === '' ? service : armed.channel
-
     return (
       <p role="status" className="text-sm">
-        Announces to {where} once CI passes. To drop it, press Stop waiting in the {service}{' '}
-        section.
+        {armedSaying(armed, service)}
       </p>
     )
   }
@@ -57,6 +55,21 @@ function ArmedLine({ opened, service }: { opened: OpenedPullRequest; service: st
       {sentence(opened.not_armed)}
     </p>
   )
+}
+
+// armedSaying is what the announcement armed as the pull request opened
+// says, as it stood when the open answered: one settled, posted already,
+// stopped, dropped or posted elsewhere, as settledSaying words it wherever a
+// hold is shown; and any other state, waiting or being posted, where it goes
+// once CI passes and how to drop it.
+function armedSaying(armed: QueuedAnnouncement, service: string): string {
+  const where = armed.channel === '' ? service : armed.channel
+
+  if (settled(armed.state)) {
+    return settledSaying(armed.state, armed, where)
+  }
+
+  return `Announces to ${where} once CI passes. To drop it, press Stop waiting in the ${service} section.`
 }
 
 // sentence is a reason the server words in lower case, as a sentence.

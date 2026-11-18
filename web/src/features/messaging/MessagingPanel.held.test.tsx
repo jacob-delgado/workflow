@@ -347,3 +347,55 @@ test.each([
     expect(screen.queryByRole('button', { name: 'Announce now instead' })).toBeNull()
   },
 )
+
+test.each([
+  {
+    state: 'stopped',
+    reason: 'the announcement was replaced, unposted, by another asked for',
+    says: 'Not announced: the announcement was replaced, unposted, by another asked for.',
+  },
+  {
+    state: 'stopped',
+    reason: 'the announcement was stopped before it was posted',
+    says: 'Not announced: the announcement was stopped before it was posted.',
+  },
+  { state: 'stopped', reason: undefined, says: 'Not announced: it was stopped.' },
+  {
+    state: 'dropped',
+    reason: 'the forge did not list #42 within 10m',
+    says: 'Not announced: the forge did not list #42 within 10m.',
+  },
+  {
+    state: 'elsewhere',
+    reason: '#42 was already announced at this moment, here or from a terminal',
+    says: 'Not posted here: #42 was already announced at this moment, here or from a terminal.',
+  },
+  {
+    state: 'elsewhere',
+    reason: undefined,
+    says: 'Not posted here: it was announced from another session.',
+  },
+] satisfies {
+  state: QueuedAnnouncement['state']
+  reason: string | undefined
+  says: string
+}[])(
+  'an announcement asked to wait that the server answers $state ($reason) says so',
+  async ({ state, reason, says }) => {
+    // Arrange
+    serverAnswering({
+      canWait: true,
+      post: Response.json({ id: 1, state, channel: '#dev', pull: 42, reason }, { status: 202 }),
+    })
+    withPull()
+    render(<MessagingPanel />)
+    await previews()
+
+    // Act
+    await userEvent.click(screen.getByRole('button', { name: 'Announce when CI passes' }))
+
+    // Assert
+    expect(await screen.findByText(says)).toBeTruthy()
+    expect(screen.queryByText(/once CI passes\./)).toBeNull()
+  },
+)
