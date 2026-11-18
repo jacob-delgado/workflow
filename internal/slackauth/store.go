@@ -113,8 +113,6 @@ func (s Store) KeepLogin(ctx context.Context, clientID string, renewed Credentia
 // Prove reports, as ErrKeepRefused, a store that would not take a write now,
 // found without touching what it holds, so a refresh, which spends the
 // refresh token as Slack answers, is made only where its pair can be kept.
-// Trade-off TRADE-82: a store that turns between the prove and the keep, or
-// refuses the keep for a reason no probe meets, still loses the pair.
 func (s Store) Prove(ctx context.Context) error {
 	return s.refused(s.prove(ctx))
 }
@@ -463,7 +461,6 @@ func loadKeychain(ctx context.Context, item keychain.Item) (Credentials, error) 
 
 // saveKeychain keeps credentials in item.
 func saveKeychain(ctx context.Context, item keychain.Item, credentials Credentials) error {
-	// Trade-off TRADE-13: stored holds only strings, which always encode.
 	line, err := json.Marshal(stored{
 		ClientSecret: credentials.ClientSecret.Reveal(), RefreshToken: credentials.RefreshToken.Reveal(),
 		AccessToken: credentials.AccessToken.Reveal(), ExpiresAt: stamp(credentials.ExpiresAt),

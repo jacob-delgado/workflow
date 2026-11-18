@@ -8,7 +8,7 @@
 // box drawn inside the interface: people already have an editor they are fast
 // in, and a text box would be a worse one. A comment is the exception: it is
 // written in the comment box, with vim's normal and insert modes, and handed
-// here only when asked (TRADE-30).
+// here only when asked.
 package editor
 
 import (
@@ -111,7 +111,7 @@ func chosenVariable(getenv Getenv) string {
 // defaultEditor is what opens when none of $GIT_EDITOR, $VISUAL and $EDITOR is
 // set: vi on Unix, and notepad on Windows, where vi is not usually present.
 func defaultEditor(goos string) string {
-	// Trade-off TRADE-35: no CI job takes this branch.
+	// No CI job takes this branch.
 	if goos == "windows" {
 		return "notepad"
 	}

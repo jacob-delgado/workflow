@@ -336,8 +336,6 @@ func (v spineView) paintGlyph(s stage, hue lipgloss.Style) string {
 // status` read.
 func (v spineView) stages() []stage {
 	sty := v.kit.styles
-	// Trade-off TRADE-5: the hue tells the systems apart by color alone; the
-	// stage's name, or its initial when compact, is what names the stage.
 	hues := map[progress.System]lipgloss.Style{
 		progress.Tracker: sty.jira, progress.Git: sty.git,
 		progress.Forge: sty.forge, progress.Messaging: sty.messaging,
@@ -375,8 +373,6 @@ func (v spineView) targets() []float64 {
 // done, CI's share of checks finished while Review is in flight, and none
 // otherwise.
 func (v spineView) fillOf(each progress.Stage) float64 {
-	// Trade-off TRADE-45: CI is no stage of its own; its progress fills the
-	// rule after Review.
 	switch {
 	case each.State == progress.Done:
 		return 1
@@ -419,8 +415,6 @@ func (m Model) issueWork() progress.IssueWork {
 // request's moment, or held for its CI or on its way.
 func (m Model) announceWork() progress.AnnounceWork {
 	switch {
-	// Trade-off TRADE-78: a claim, confirmed or not, outranks a post of this
-	// session's own under way, which the web's stream reads under way.
 	case m.messaging.announced(m.review):
 		return progress.AnnounceMade
 	case m.messaging.held.hold.Stage().Waiting() || m.messaging.onItsWay():

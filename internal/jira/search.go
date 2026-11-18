@@ -179,11 +179,11 @@ func (c Cursor) rest(issues []Issue) []Issue {
 // joining or leaving the list ahead of it since neither skip nor repeat a
 // row.
 //
-// Trade-off TRADE-66: Jira pages only by offset, so the page is read from the
-// offset the issue had. Once it, or one issue ahead of it, has left the list,
-// the page starts where it was, where what followed it moved to, but each
-// further issue ahead of it that left skips a row; and one moved more than a
-// page further down is not found, its page starting where it was.
+// Jira pages only by offset, so the page is read from the offset the issue had.
+// Once it, or one issue ahead of it, has left the list, the page starts where
+// it was, where what followed it moved to, but each further issue ahead of it
+// that left skips a row; and one moved more than a page further down is not
+// found, its page starting where it was.
 func (c Client) SearchAfter(ctx context.Context, jql string, after Cursor) (SearchResult, error) {
 	page, err := c.Search(ctx, jql, after.At)
 	if err != nil {

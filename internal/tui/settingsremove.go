@@ -144,7 +144,6 @@ func (f settingsForm) readWithout(removal credentialRemoval) (config.Config, err
 		values["jira"] = jira
 	}
 
-	// Trade-off TRADE-13: the configuration's JSON form always encodes.
 	read, err := json.Marshal(values)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("writing the configuration: %w", err)

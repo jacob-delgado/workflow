@@ -68,7 +68,6 @@ func (f settingsForm) edited() (config.Config, error) {
 		values[section] = inner
 	}
 
-	// Trade-off TRADE-13: the configuration's JSON form always encodes.
 	encoded, err := json.Marshal(values)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("writing the configuration: %w", err)
@@ -119,8 +118,6 @@ func seed(cfg config.Config, err error) (map[string]any, error) {
 		return nil, err
 	}
 
-	// Trade-off TRADE-13: a Config always encodes, and its JSON always reads
-	// back.
 	var values map[string]any
 
 	read, err := json.Marshal(cfg)

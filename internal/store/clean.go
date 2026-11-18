@@ -344,9 +344,9 @@ func putBack(moved []string) error {
 	failed := make([]error, 0, len(moved))
 
 	for _, path := range moved {
-		// Trade-off TRADE-16: each file was just renamed aside, so putting it
-		// back fails only when another program changes it in between, which no
-		// test can hold open: the failure is joined, not checked.
+		// Each file was just renamed aside, so putting it back fails only when
+		// another program changes it in between, which no test can hold open:
+		// the failure is joined, not checked.
 		failed = append(failed, os.Rename(path+asideSuffix, path))
 	}
 
@@ -381,8 +381,8 @@ func asideOf(paths []string) []string {
 // companionsOf is a database's path with the write-ahead log and shared-memory
 // files SQLite keeps beside it.
 func companionsOf(path string) []string {
-	// Trade-off TRADE-71: a clean sets the database aside before its log,
-	// holding no lock against a live open, so a process opening the store in
-	// between can pair a fresh database with the old log.
+	// A clean sets the database aside before its log, holding no lock against a
+	// live open, so a process opening the store in between can pair a fresh
+	// database with the old log.
 	return []string{path, path + "-wal", path + "-shm"}
 }

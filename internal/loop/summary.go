@@ -71,9 +71,6 @@ func CommitsRead(
 		}
 	}
 
-	// Trade-off TRADE-63: one repository that cannot be read marks the whole
-	// source failed, or not set up, beside the others' commits; a source has
-	// one outcome, and no partial one.
 	return unanswered(activity.Read{Source: activity.SourceGit, Items: items}, repositoryErrors(failures))
 }
 
@@ -347,9 +344,6 @@ func ReadAll(ctx context.Context, reads []SourceRead) []activity.Read {
 
 	return made
 }
-
-// Trade-off TRADE-32: a posted Summary is not recorded, as an announcement
-// is; what was done is read back from the sources each time.
 
 // PostSummary posts text — the Summary's Markdown, as it was previewed or
 // edited — to channel, rendered for the service kind names. A text longer

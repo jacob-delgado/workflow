@@ -29,11 +29,11 @@ const keptPragmas = dsnPragmas + "&_txlock=immediate"
 // keptSchemaVersion is the version of the schema keptSchema makes, stamped
 // into the file as SQLite's user_version.
 //
-// Trade-off TRADE-25: there are no migrations. Today a file at another
-// version is left as it is, read as empty and refused writes until the user
-// removes it with `workflow db-clean --all`, and the next change to a kept
-// table, which Homebrew users upgrade across, decides a migration path before
-// it changes keptSchema or bumps this.
+// There are no migrations. Today a file at another version is left as it is,
+// read as empty and refused writes until the user removes it with `workflow
+// db-clean --all`, and the next change to a kept table, which Homebrew users
+// upgrade across, decides a migration path before it changes keptSchema or
+// bumps this.
 const keptSchemaVersion = 2
 
 // ErrKeptSchemaDiffers reports a kept database written at another schema
@@ -169,9 +169,9 @@ func settleKept(read func() (fileState, error), makeSchema func() error) error {
 	case keptSchemaVersion:
 		return nil
 	case 0:
-		// Trade-off TRADE-73: a table another program left under one of the
-		// store's names fails this step in SQLite's words, not as
-		// ErrKeptSchemaDiffers, and the file is left as it was.
+		// A table another program left under one of the store's names fails
+		// this step in SQLite's words, not as ErrKeptSchemaDiffers, and the
+		// file is left as it was.
 		return makeSchema()
 	default:
 		return ErrKeptSchemaDiffers

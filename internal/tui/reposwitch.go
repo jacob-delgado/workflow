@@ -48,9 +48,9 @@ func (l Leaving) Reopens() bool {
 // The interface ends once: each ending applies only to a Next that has not
 // ended, so a ctrl+c queued behind a switch leaves it a switch.
 //
-// Trade-off TRADE-34: switching ends the program and starts another, so
-// every pane is read again for the new directory, and only what belongs to
-// the session rather than the repository is carried.
+// Switching ends the program and starts another, so every pane is read again
+// for the new directory, and only what belongs to the session rather than the
+// repository is carried.
 type Next struct {
 	leaving Leaving
 	// dir is where a switch or a reopen asks to go.

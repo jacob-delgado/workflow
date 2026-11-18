@@ -65,8 +65,6 @@ func dayAsked(day *openapi_types.Date) string {
 	return day.String()
 }
 
-// Trade-off TRADE-32: a posted Summary is not recorded, as an announcement is.
-
 // PostActivity posts the Summary's Markdown for the period asked, rendered for
 // the service, to the channel asked or the configured one, or a webhook's own.
 // A period that cannot be read and a blank text are refused before anything

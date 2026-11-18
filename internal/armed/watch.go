@@ -18,9 +18,9 @@ import (
 // for a pull request that reports no check, counted across the reads that were
 // heard since the last that reported one, or since arming, before it gives up.
 //
-// Trade-off TRADE-41: a CI that registers later than ten minutes of reads that
-// heard no check loses its automatic post, so a repository with no CI is not
-// polled for as long as it waits.
+// A CI that registers later than ten minutes of reads that heard no check loses
+// its automatic post, so a repository with no CI is not polled for as long as
+// it waits.
 const NoCIPatience = 10 * time.Minute
 
 // UnheardPatience is how long an announcement armed to go once CI passes
@@ -29,9 +29,9 @@ const NoCIPatience = 10 * time.Minute
 // pull request just opened, counted from the first such failure since a read
 // was heard, before it gives up with ErrUnheard.
 //
-// Trade-off TRADE-59: an outage longer than ten minutes loses the automatic
-// post, so a wait whose reads always fail ends, on every surface, rather than
-// polling for as long as its session runs.
+// An outage longer than ten minutes loses the automatic post, so a wait whose
+// reads always fail ends, on every surface, rather than polling for as long as
+// its session runs.
 const UnheardPatience = 10 * time.Minute
 
 // RunningPatience is how long an announcement armed to go once CI passes waits
@@ -39,9 +39,9 @@ const UnheardPatience = 10 * time.Minute
 // starting — counted from the read that first saw it as it stands, before it
 // gives up with ErrRunningTooLong.
 //
-// Trade-off TRADE-62: CI whose run reads the same for two hours loses its
-// automatic post, so a status a CI service left pending for good is not
-// polled for as long as the session runs.
+// CI whose run reads the same for two hours loses its automatic post, so a
+// status a CI service left pending for good is not polled for as long as the
+// session runs.
 const RunningPatience = 2 * time.Hour
 
 // Verdict is how an announcement armed to go once CI passes stands on a read

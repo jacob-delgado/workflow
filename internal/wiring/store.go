@@ -95,7 +95,7 @@ func storeDeps(kept store.Store, cfg config.Config, where Workspace) seams.Store
 // one second, which the store's seconds cannot tell apart, still keep the
 // list read later. A directory switch wires the surface again, which then
 // orders its own lists: a write of the wiring before it, still landing,
-// meets them only in the store, as another process's does (TRADE-70).
+// meets them only in the store, as another process's does.
 type issueCacheOrder struct {
 	lock sync.Mutex
 	// written is when the list last written for each view was read.

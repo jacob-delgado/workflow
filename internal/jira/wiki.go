@@ -59,7 +59,7 @@ var starItalicSpan = regexp.MustCompile(`\*([^\s*](?:[^*]*?[^\s*])?)\*`)
 // is left alone rather than read as emphasis. A code block the comment leaves
 // open is closed at its end, as Markdown ends one with the document.
 //
-// Trade-off TRADE-28: these rules are written again in
+// These rules are written again in
 // web/src/features/issues/wiki/wikiFromMarkdown.ts, for the web's Preview, and
 // both copies answer to the one case file testdata/wiki_from_markdown.json, so
 // a change to either alone fails its own tests.

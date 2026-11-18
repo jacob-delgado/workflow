@@ -16,8 +16,8 @@ import (
 // session's, which New leaves unending; Run gives it one that ends when the
 // program does. Its end stops a read in flight, never a write.
 func (m Model) WithContext(ctx context.Context) Model {
-	// Trade-off TRADE-38: the session ends on quit, stopping its reads;
-	// leaving a view cancels nothing it asked for.
+	// The session ends on quit, stopping its reads; leaving a view cancels
+	// nothing it asked for.
 	m.session = ctx
 
 	return m
@@ -30,8 +30,8 @@ func (m Model) WithContext(ctx context.Context) Model {
 // the context Run is given: the command line's ends on SIGINT or SIGTERM, as a
 // signal stops every command. New leaves its writes unending and uncounted.
 func (m Model) WithLifetime(ctx context.Context) Model {
-	// Trade-off TRADE-38: a quit or a switch stops reads alone; the end of the
-	// program's lifetime stops writes too.
+	// A quit or a switch stops reads alone; the end of the program's lifetime
+	// stops writes too.
 	m.deps = outlasting(lifetime.EndingWith(ctx), lifetime.UncountedEndingWith(ctx), m.given, m.vocab.noun)
 
 	return m

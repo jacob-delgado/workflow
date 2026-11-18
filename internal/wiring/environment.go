@@ -35,7 +35,7 @@ type Environment struct {
 func (e Environment) SaveLocks() config.SaveLocks {
 	dir, err := e.StateDir()
 	if err != nil {
-		// Trade-off TRADE-64: with no such directory, a save takes no lock.
+		// With no such directory, a save takes no lock.
 		return config.SaveLocksIn("")
 	}
 

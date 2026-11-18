@@ -25,8 +25,8 @@ func (h Hold) Arm(armedAt time.Time, arming Arming) (Armed, error) {
 		return Armed{Hold: h, Next: NextNothing, Replaced: nil}, ErrBeingPosted
 	case h.stage.Ended():
 		return Armed{Hold: h.armedAfresh(armedAt, arming), Next: NextRead, Replaced: nil}, nil
-	// Trade-off TRADE-79: a retold hold keeps its round, so a timer's read of
-	// that round asked after this one is the one heard.
+	// A retold hold keeps its round, so a timer's read of that round asked
+	// after this one is the one heard.
 	case h.Holds(arming.Delivery.Made()):
 		return Armed{Hold: h.retold(arming), Next: NextRead, Replaced: nil}, nil
 	case arming.Automatic:

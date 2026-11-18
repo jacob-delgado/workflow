@@ -16,8 +16,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/report"
 )
 
-// Trade-off TRADE-21: these words and the place rules below are written again
-// in web/src/features/issues/issuePlaces.ts, and both copies answer to the one
+// These words and the place rules below are written again in
+// web/src/features/issues/issuePlaces.ts, and both copies answer to the one
 // case file testdata/twins/places.json, so a change to either alone fails its
 // own tests.
 

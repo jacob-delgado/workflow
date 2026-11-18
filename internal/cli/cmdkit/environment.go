@@ -126,8 +126,8 @@ func FromWorkingDir(cmd *cobra.Command, path string) (string, error) {
 func relativeToWorkingDir(path string) bool {
 	rooted := path != "" && os.IsPathSeparator(path[0])
 
-	// Trade-off TRADE-35: no CI job sees the volume clause or the rooted one
-	// false; elsewhere a path names no volume, and a rooted path is absolute.
+	// No CI job sees the volume clause or the rooted one false; elsewhere a
+	// path names no volume, and a rooted path is absolute.
 	return !filepath.IsAbs(path) && filepath.VolumeName(path) == "" && !rooted
 }
 

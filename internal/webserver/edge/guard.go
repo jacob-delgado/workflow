@@ -116,7 +116,10 @@ func guardLoopback(next http.Handler) http.Handler {
 // every native <select> before attaching the slot, so the policy judges it as
 // the page's own.
 //
-// Trade-off TRADE-55: WebKit's style for a select's slot is allowed by hash.
+// The page keeps the native <select>, so the policy takes the one string WebKit
+// writes rather than refuse it. guard_test.go holds style-src-attr to exactly
+// this hash: a WebKit release that writes the style otherwise is refused again,
+// and the page spec fails on WebKit until the hash follows it.
 const contentPolicy = "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; " +
 	"object-src 'none'; style-src-attr 'unsafe-hashes' 'sha256-3oFxofzq3N//6J8H86e9ul4WT2OkJrtonB66gn/TLJw='"
 
@@ -142,8 +145,6 @@ func withPolicyHeaders(next http.Handler) http.Handler {
 // off it adds nothing. This is the web's dry-run: the terminal interface instead
 // simulates each write, but a read-only surface keeps the guarantee that matters
 // — nothing is written — with one gate over every write.
-//
-// Trade-off TRADE-3: a web write under --dry-run is refused, not simulated.
 func refuseWritesInDryRun(dryRun bool, next http.Handler) http.Handler {
 	if !dryRun {
 		return next

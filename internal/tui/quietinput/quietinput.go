@@ -21,9 +21,9 @@ import (
 // Input is a Huh field typing one line of text, as huh.Input does, over an
 // input whose cursor never blinks.
 //
-// Trade-off TRADE-46: huh.Input blinks its cursor and offers no way not to;
-// each focus and each key schedules a blink that waits half a second of real
-// time, which a test settling after every key pays in full.
+// huh.Input blinks its cursor and offers no way not to; each focus and each
+// key schedules a blink that waits half a second of real time, which a test
+// settling after every key pays in full.
 type Input struct {
 	title, hint, placeholder string
 	value                    *string
