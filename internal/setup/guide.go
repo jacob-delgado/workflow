@@ -106,13 +106,13 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 		cfg.Jira = InKeychain(cfg.Jira)
 	}
 
-	err = g.Where.Create(path, layers, cfg, over)
+	undo, err := g.Where.Create(path, layers, cfg, over)
 	if err != nil {
 		return Written{}, err
 	}
 
 	if keychain {
-		err = KeepFor(ctx, g.StoreSecret, path, request.Answers.Jira)
+		err = KeepFor(ctx, g.StoreSecret, undo, request.Answers.Jira)
 		if err != nil {
 			return Written{}, err
 		}

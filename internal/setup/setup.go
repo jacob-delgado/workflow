@@ -220,18 +220,24 @@ func InKeychain(settings config.Jira) config.Jira {
 	return settings
 }
 
+// Undo takes back the write a setup made: a file it created goes, and a file
+// it replaced holds again what it held, at the owner-only mode every save
+// writes, unless the files changed since.
+type Undo func() error
+
 // KeepFor keeps the token answered in the keychain item for its address
-// through store, under ctx, for the file just written at path, which reads it
-// from there. The file goes again when the keychain does not keep the token,
-// so a setup that fails leaves neither behind, and the keychain is touched
-// only once the file is written.
+// through store, under ctx, for the file a setup just wrote, which reads it
+// from there. When the keychain does not keep the token, undo takes the write
+// back: a file the setup made goes, and one it replaced holds what it held
+// before, at the owner-only mode, so a setup that fails leaves the files as
+// they were. The keychain is touched only once the file is written.
 func KeepFor(
-	ctx context.Context, store func(ctx context.Context, service, secret string) error, path string,
+	ctx context.Context, store func(ctx context.Context, service, secret string) error, undo Undo,
 	answered config.Jira,
 ) error {
 	_, err := Keep(ctx, store, answered)
 	if err != nil {
-		return errors.Join(err, os.Remove(path))
+		return errors.Join(err, undo())
 	}
 
 	return nil
@@ -264,24 +270,29 @@ func Beneath(layers config.Files) (config.Config, config.Revision, error) {
 // those cfg was made over, so a home file gone since is a change on disk
 // rather than a file of its own holding what was read from it, and so is one
 // made since where there was none. A file other than the home file that is a
-// link is refused, as RefuseLinked refuses it, and nothing is written.
-func (w Where) Save(place Place, layers config.Files, cfg config.Config, over config.Revision) error {
+// link is refused, as RefuseLinked refuses it, and nothing is written. Either
+// way it holds the save locks of the files it writes, and returns the Undo
+// that gives back what the file held before, or none with the error of a save
+// that failed.
+func (w Where) Save(place Place, layers config.Files, cfg config.Config, over config.Revision) (Undo, error) {
 	if layers.Home != "" {
-		_, err := config.SaveLayers(w.Locks, layers, cfg, over)
+		saved, err := config.Replace(w.Locks, layers, cfg, over)
 
-		return err
+		return w.takeBack(saved, err)
 	}
 
 	if made := w.Layers(place).Home; made != "" {
-		return fmt.Errorf("%s: %w", made, config.ErrChangedOnDisk)
+		return nil, fmt.Errorf("%s: %w", made, config.ErrChangedOnDisk)
 	}
 
 	err := w.RefuseLinked(place)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return config.Save(w.Path(place), cfg)
+	saved, err := config.ReplaceFile(w.Locks, w.Path(place), cfg)
+
+	return w.takeBack(saved, err)
 }
 
 // RefuseLinked refuses the file for place when it is a link, to a file or to
@@ -305,8 +316,9 @@ func (w Where) RefuseLinked(place Place) error {
 // Create writes cfg to path as Save does, but only as a new file: anything
 // already there, a link included, is refused with ErrExists and nothing is
 // written, so a file made between RefuseExisting and the write is never
-// replaced and a link is never followed.
-func (w Where) Create(path string, layers config.Files, cfg config.Config, over config.Revision) error {
+// replaced and a link is never followed. Its Undo removes the file it made;
+// a create that failed has none.
+func (w Where) Create(path string, layers config.Files, cfg config.Config, over config.Revision) (Undo, error) {
 	var err error
 	if layers.Home == "" {
 		err = config.Create(path, cfg)
@@ -314,11 +326,24 @@ func (w Where) Create(path string, layers config.Files, cfg config.Config, over 
 		err = config.CreateLayers(w.Locks, layers, cfg, over)
 	}
 
-	if errors.Is(err, fs.ErrExist) {
-		return fmt.Errorf("%w: %s", ErrExists, path)
+	switch {
+	case errors.Is(err, fs.ErrExist):
+		return nil, fmt.Errorf("%w: %s", ErrExists, path)
+	case err != nil:
+		return nil, err
 	}
 
-	return err
+	return func() error { return os.Remove(path) }, nil
+}
+
+// takeBack is the Undo of saved, under w's locks, or nil with err where the
+// save failed, so no Undo is ever built for a write it did not make.
+func (w Where) takeBack(saved config.Saved, err error) (Undo, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	return func() error { return saved.TakeBack(w.Locks) }, nil
 }
 
 // NotIgnored reports a file inside a repository that git does not ignore,

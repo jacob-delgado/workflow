@@ -372,8 +372,10 @@ never holds the token. Settings — the
 terminal's and the web's — does the same with a Jira token you type, for the
 address in the form, whichever file it saves: your home file, or a
 repository's that points Jira somewhere else, which then reads the token kept
-for its own address. A token the keychain will not keep saves nothing. To see
-or remove an item, use Keychain Access, or
+for its own address. A token the keychain will not keep saves nothing: `config
+init` leaves no file where there was none, and gives the one `--force`
+replaced back holding what it held, readable only by you. To see or remove an
+item, use Keychain Access, or
 `security find-generic-password -s 'workflow-jira https://jira.example.com'`.
 
 workflow gives each run of `security` 30 seconds, whether it keeps a token or

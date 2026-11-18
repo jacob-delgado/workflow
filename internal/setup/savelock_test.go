@@ -58,12 +58,13 @@ func TestCreatingAFileOverTheHomeFileIsRefusedWhileAnotherWorkflowHoldsTheSaveLo
 		}
 
 		// Act
-		err = where.Create(layers.Repo, layers, config.Default(), over)
+		undo, err := where.Create(layers.Repo, layers, config.Default(), over)
 
 		// Assert
 		_, statErr := os.Lstat(layers.Repo)
-		if !errors.Is(err, config.ErrSaveLocked) || !errors.Is(statErr, os.ErrNotExist) {
-			t.Errorf("Create = %v, the file: %v; want %v and no file made", err, statErr, config.ErrSaveLocked)
+		if !errors.Is(err, config.ErrSaveLocked) || !errors.Is(statErr, os.ErrNotExist) || undo != nil {
+			t.Errorf("Create = %v, the file: %v, an Undo: %t; want %v, no file made and nothing to undo",
+				err, statErr, undo != nil, config.ErrSaveLocked)
 		}
 	})
 }
@@ -81,12 +82,13 @@ func TestSavingOverTheHomeFileIsRefusedWhileAnotherWorkflowHoldsTheSaveLock(t *t
 		}
 
 		// Act
-		err = where.Save(setup.Repository, layers, config.Default(), over)
+		undo, err := where.Save(setup.Repository, layers, config.Default(), over)
 
 		// Assert
 		_, statErr := os.Lstat(layers.Repo)
-		if !errors.Is(err, config.ErrSaveLocked) || !errors.Is(statErr, os.ErrNotExist) {
-			t.Errorf("Save = %v, the file: %v; want %v and no file written", err, statErr, config.ErrSaveLocked)
+		if !errors.Is(err, config.ErrSaveLocked) || !errors.Is(statErr, os.ErrNotExist) || undo != nil {
+			t.Errorf("Save = %v, the file: %v, an Undo: %t; want %v, no file written and nothing to undo",
+				err, statErr, undo != nil, config.ErrSaveLocked)
 		}
 	})
 }
