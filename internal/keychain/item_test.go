@@ -76,14 +76,14 @@ func TestStoreHandsTheSecretToSecurityOnItsInputUnderItsService(t *testing.T) {
 	// Arrange
 	var runs []ran
 
-	item := itemFor(t, answeringRunner(&runs, "", nil))
+	item := itemFor(t, recordingRunner(&runs, nil))
 
 	// Act
 	err := item.Store(t.Context(), `{"refresh_token":"xoxe-1-secret"}`)
 
 	// Assert
-	if err != nil || len(runs) != 1 {
-		t.Fatalf("Store = %v after %d runs, want one run and no error", err, len(runs))
+	if err != nil || len(runs) != 2 {
+		t.Fatalf("Store = %v after %d runs, want the store and its read back, and no error", err, len(runs))
 	}
 
 	if args := strings.Join(runs[0].program.Args, " "); args != "-i" || strings.Contains(args, "xoxe") {
@@ -224,10 +224,11 @@ func TestItemBoundsEachSecurityRunByTheDefaultRunTimeout(t *testing.T) {
 				bounded  bool
 			)
 
+			// The store's read back, and the read, find the secret stored.
 			item := itemFor(t, func(ctx context.Context, _ proc.Command, _ []byte) ([]byte, error) {
 				deadline, bounded = ctx.Deadline()
 
-				return nil, nil
+				return []byte("s3cret\n"), nil
 			})
 			before := time.Now()
 
@@ -289,5 +290,54 @@ func TestOnlyASecurityRunPastTheItemsBoundIsTimedOut(t *testing.T) {
 				}
 			})
 		})
+	}
+}
+
+func TestAStoreThatSecurityAcceptsButDoesNotKeepIsNotKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// security exits 0 for the store, yet the item still holds what it held.
+	runner := func(_ context.Context, program proc.Command, _ []byte) ([]byte, error) {
+		if program.Args[0] == "find-generic-password" {
+			return []byte("old-secret\n"), nil
+		}
+
+		return nil, nil
+	}
+	item := itemFor(t, runner)
+
+	// Act
+	err := item.Store(t.Context(), "new-secret")
+
+	// Assert
+	if !errors.Is(err, keychain.ErrNotKept) || strings.Contains(err.Error(), "new-secret") ||
+		strings.Contains(err.Error(), "old-secret") {
+		t.Errorf("Store = %v, want %v naming neither secret", err, keychain.ErrNotKept)
+	}
+}
+
+func TestAStoreSecurityCannotReadBackIsNotKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// security exits 0 for the store, then cannot read the item back.
+	runner := func(_ context.Context, program proc.Command, _ []byte) ([]byte, error) {
+		if program.Args[0] == "find-generic-password" {
+			return nil, exitedWith(51)
+		}
+
+		return nil, nil
+	}
+	item := itemFor(t, runner)
+
+	// Act
+	err := item.Store(t.Context(), "new-secret")
+
+	// Assert
+	if !errors.Is(err, keychain.ErrNotKept) || errors.Is(err, keychain.ErrNotRead) ||
+		!strings.Contains(err.Error(), "status 51") || strings.Contains(err.Error(), "new-secret") {
+		t.Errorf("Store = %v, want %v alone, told by the read back's exit status and naming no secret",
+			err, keychain.ErrNotKept)
 	}
 }
