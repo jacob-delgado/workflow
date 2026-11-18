@@ -53,11 +53,17 @@ func (h *heldSlot) retire() {
 	defer h.mu.Unlock()
 
 	h.retired = true
+	h.stopTimer()
+
+	h.hold = h.hold.Retire()
+}
+
+// stopTimer stops the last read set for later, if one was set. Its caller
+// holds h.mu, which is not reentrant, so it takes no lock of its own.
+func (h *heldSlot) stopTimer() {
 	if h.timer != nil {
 		h.timer.Stop()
 	}
-
-	h.hold = h.hold.Retire()
 }
 
 // announceWhenGreen holds a ready-for-review announcement until its pull
