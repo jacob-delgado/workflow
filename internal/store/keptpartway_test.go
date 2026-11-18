@@ -5,18 +5,35 @@ package store_test
 
 // A kept read can fail after it has begun, on a row that fails as it is read
 // after others were; a dry run's read can meet a kept file that is no
-// database; and a fresh kept file can hold a table another program left in
-// the way of the store's schema. Each is built from content the store finds
-// there, as keptfailure_test.go's cases are.
+// database; and a kept file at no version can hold a table another program
+// left there. Each is built from content the store finds there, as
+// keptfailure_test.go's cases are.
 
 import (
 	"bytes"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/store"
 )
+
+// listedAndChosenBoth lists the api and pod groups for the repository and
+// chooses both.
+func listedAndChosenBoth(t *testing.T, kept store.Store) {
+	t.Helper()
+
+	setGroups(t, kept, workspaceA, apiGroup(), *podGroup())
+	chooseGroups(t, kept, workspaceA, apiID, podID)
+}
+
+// listedBoth lists the api and pod groups for the repository.
+func listedBoth(t *testing.T, kept store.Store) {
+	t.Helper()
+
+	setGroups(t, kept, workspaceA, apiGroup(), *podGroup())
+}
 
 func TestAKeptReadThatFailsPartwayReturnsNothing(t *testing.T) {
 	t.Parallel()
@@ -29,7 +46,7 @@ func TestAKeptReadThatFailsPartwayReturnsNothing(t *testing.T) {
 		"favorites": {
 			before: made,
 			tamper: []statement{
-				gone("favorite_dir"),
+				dropped("favorite_dir"),
 				table(`CREATE TABLE marked (dir TEXT PRIMARY KEY, number INTEGER) WITHOUT ROWID`),
 				{query: `INSERT INTO marked (dir, number) VALUES (?, 1), (?, ?)`, args: []any{apiDir, webDir, smallestInteger}},
 				table(`CREATE VIEW favorite_dir AS SELECT dir,
@@ -40,7 +57,7 @@ func TestAKeptReadThatFailsPartwayReturnsNothing(t *testing.T) {
 		"owner links": {
 			before: made,
 			tamper: []statement{
-				gone("owner_decision"),
+				dropped("owner_decision"),
 				table(`CREATE TABLE decided (
 					forge_host TEXT, owner TEXT, number INTEGER, PRIMARY KEY (forge_host, owner)
 				) WITHOUT ROWID`),
@@ -59,45 +76,39 @@ func TestAKeptReadThatFailsPartwayReturnsNothing(t *testing.T) {
 		},
 		"repository groups": {
 			// The groups are read by label, in the order the entities' own key
-			// keeps them, each looked up among the listed by its ID.
-			before: made,
+			// keeps them, each looked up among the listed by its ID. Every open
+			// makes the store's index on repo_group, which a view cannot take,
+			// so the view stands in for the Slack entities instead.
+			before: listedBoth,
 			tamper: []statement{
-				gone("repo_group"),
-				gone("slack_entity"),
-				table(`CREATE TABLE slack_entity (
-					label TEXT, slack_id TEXT, seen_at TEXT, PRIMARY KEY (label, slack_id)
+				dropped("slack_entity"),
+				table(`CREATE TABLE entity (
+					label TEXT, slack_id TEXT, number INTEGER, PRIMARY KEY (label, slack_id)
 				) WITHOUT ROWID`),
 				{
-					query: `INSERT INTO slack_entity (label, slack_id, seen_at) VALUES (?, ?, ''), (?, ?, '')`,
-					args:  []any{apiGroup().Label, apiID, podGroup().Label, podID},
+					query: `INSERT INTO entity (label, slack_id, number) VALUES (?, ?, 1), (?, ?, ?)`,
+					args:  []any{apiGroup().Label, apiID, podGroup().Label, podID, smallestInteger},
 				},
-				table(`CREATE TABLE grouped (
-					slack_id TEXT PRIMARY KEY, repo TEXT, slack_team TEXT, number INTEGER
-				) WITHOUT ROWID`),
-				{
-					query: `INSERT INTO grouped (slack_id, repo, slack_team, number) VALUES (?, ?, ?, 1), (?, ?, ?, ?)`,
-					args:  []any{apiID, repo, workspaceA, podID, repo, workspaceA, smallestInteger},
-				},
-				table(`CREATE VIEW repo_group AS
-					SELECT repo, slack_team, slack_id, '' AS added_at FROM grouped WHERE abs(number) > 0`),
+				table(`CREATE VIEW slack_entity AS
+					SELECT label, slack_id, '' AS seen_at FROM entity WHERE abs(number) > 0`),
 			},
 			call: repoGroups, step: readingGroups,
 		},
-		"the groups a choice is made among": {
-			before: made,
+		"the groups of the last choice": {
+			before: listedAndChosenBoth,
 			tamper: []statement{
-				gone("repo_group"),
-				table(`CREATE TABLE grouped (
-					repo TEXT, slack_team TEXT, slack_id TEXT PRIMARY KEY, number INTEGER
+				dropped("repo_choice_group"),
+				table(`CREATE TABLE chosen (
+					repo TEXT, slack_team TEXT, slack_id TEXT, number INTEGER, PRIMARY KEY (repo, slack_team, slack_id)
 				) WITHOUT ROWID`),
 				{
-					query: `INSERT INTO grouped (repo, slack_team, slack_id, number) VALUES (?, ?, ?, 1), (?, ?, ?, ?)`,
+					query: `INSERT INTO chosen (repo, slack_team, slack_id, number) VALUES (?, ?, ?, 1), (?, ?, ?, ?)`,
 					args:  []any{repo, workspaceA, apiID, repo, workspaceA, podID, smallestInteger},
 				},
-				table(`CREATE VIEW repo_group AS SELECT repo, slack_team,
-					CASE WHEN abs(number) > 0 THEN slack_id END AS slack_id, '' AS added_at FROM grouped`),
+				table(`CREATE VIEW repo_choice_group AS
+					SELECT repo, slack_team, slack_id FROM chosen WHERE abs(number) > 0`),
 			},
-			call: listNoGroup, step: "reading the Slack IDs",
+			call: lastGroups, step: "reading the Slack IDs",
 		},
 	}
 
@@ -155,30 +166,29 @@ func TestAReadOnlyStoreReportsAKeptFileThatIsNotADatabase(t *testing.T) {
 	}
 }
 
-func TestAKeptFileWithATableInTheWayIsReportedAndLeftAlone(t *testing.T) {
+func TestAKeptFileAtNoVersionHoldingATableIsMadeAgain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A file at no version is one the store makes its schema in; a table
-	// another program left in it under one of the store's names stops that,
-	// and the store says so rather than write around it.
+	// A file at no version that holds a table is not a fresh one, so it is
+	// another build's or another program's, and is made again like any other
+	// file at another version.
 	dir := t.TempDir()
 	execKept(t, dir, `CREATE TABLE favorite_dir (other TEXT)`)
+	kept := store.New(dir, store.ModeWrites)
 
 	// Act
-	err := store.New(dir, store.ModeWrites).Favor(t.Context(), apiDir, theTime())
+	err := kept.Favor(t.Context(), apiDir, theTime())
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "preparing the kept data") {
-		t.Errorf("Favor = %v, want the schema step to report the table in its way", err)
+	favorites, readErr := kept.Favorites(t.Context())
+
+	want := []store.Favorite{{Dir: apiDir, Added: theTime()}}
+	if err != nil || readErr != nil || !slices.Equal(favorites, want) {
+		t.Errorf("after Favor = %v: Favorites = %+v, %v; want %+v", err, favorites, readErr, want)
 	}
 
-	var tables int
-
-	err = openKeptFile(t, dir).QueryRowContext(t.Context(),
-		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'`).Scan(&tables)
-	if err != nil || tables != 1 || keptPragma(t, dir, "user_version") != 0 {
-		t.Errorf("the file holds %d tables (err %v) at version %d, want only the one it had, at none",
-			tables, err, keptPragma(t, dir, "user_version"))
+	if got := keptUserVersion(t, dir); got != keptVersion {
+		t.Errorf("the file is at version %d, want it made again at %d", got, keptVersion)
 	}
 }

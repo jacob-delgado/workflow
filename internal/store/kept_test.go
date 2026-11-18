@@ -4,18 +4,16 @@
 package store_test
 
 // The kept database, kept.db, sits beside workflow.db and holds what the user
-// decided rather than what a session saw. Its schema has one version and it
-// is never discarded: a schema bump of the cache leaves it alone, a file at
-// another version reads as empty and refuses writes, one that is not a
-// database is reported and left for the user to clean, and a dry run never
-// makes it.
+// decided rather than what a session saw. Its schema has one version, opened
+// as workflow.db's is: a schema bump of the cache leaves it alone, a file at
+// another version is discarded and made again, one that is not a database is
+// reported and left for the user to clean, and a dry run never makes it.
 
 import (
 	"bytes"
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,6 +24,10 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/store"
 )
+
+// keptVersion is the kept schema version this build stamps; it moves with the
+// store's own constant.
+const keptVersion = 2
 
 // forgeHost is the forge host the kept tests associate owners on.
 const forgeHost = "github.com"
@@ -53,18 +55,18 @@ func openKeptFile(t *testing.T, dir string) *sql.DB {
 	return database
 }
 
-// keptPragma reads one integer-valued pragma from the kept database.
-func keptPragma(t *testing.T, dir, name string) int {
+// keptUserVersion reads the schema version the kept database is stamped with.
+func keptUserVersion(t *testing.T, dir string) int {
 	t.Helper()
 
-	var value int
+	var version int
 
-	err := openKeptFile(t, dir).QueryRowContext(t.Context(), "PRAGMA "+name).Scan(&value)
+	err := openKeptFile(t, dir).QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version)
 	if err != nil {
-		t.Fatalf("reading the kept %s: %v", name, err)
+		t.Fatalf("reading the kept user_version: %v", err)
 	}
 
-	return value
+	return version
 }
 
 // execKept runs one statement against the kept database directly.
@@ -157,7 +159,7 @@ func TestKeptDataSurvivesTheCachesSchemaBump(t *testing.T) {
 	}
 }
 
-func TestAKeptFileAtAnotherSchemaVersionReadsAsEmpty(t *testing.T) {
+func TestAReadOfAKeptFileAtAnotherSchemaVersionMakesItAgain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -173,36 +175,35 @@ func TestAKeptFileAtAnotherSchemaVersionReadsAsEmpty(t *testing.T) {
 	if err != nil || len(links) != 0 {
 		t.Errorf("OwnerLinks from a file at another version = %+v, %v; want nothing and no error", links, err)
 	}
+
+	if got := keptUserVersion(t, dir); got != keptVersion {
+		t.Errorf("the file is at version %d after the read, want it made again at %d", got, keptVersion)
+	}
 }
 
-func TestAKeptFileAtAnotherSchemaVersionRefusesWritesAndIsLeftAlone(t *testing.T) {
+func TestAKeptFileAtAnotherSchemaVersionIsMadeAgain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	dir := t.TempDir()
 	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
-	execKept(t, dir, "PRAGMA user_version = 99")
-	execKept(t, dir, "PRAGMA application_id = 42")
+	execKept(t, dir, "PRAGMA user_version = 1")
 
 	// Act
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("ben", nil), theTime())
-
 	// Assert
-	if !errors.Is(err, store.ErrKeptSchemaDiffers) {
-		t.Errorf("LinkOwner on a file at another version = %v, want ErrKeptSchemaDiffers", err)
+	if err != nil {
+		t.Fatalf("LinkOwner on a file at another version = %v, want it kept in a file made again", err)
 	}
 
-	if !strings.Contains(fmt.Sprint(err), "workflow db-clean --all") {
-		t.Errorf("LinkOwner's refusal = %q, want it to name workflow db-clean --all", err)
+	if got := keptUserVersion(t, dir); got != keptVersion {
+		t.Errorf("the file is at version %d, want %d", got, keptVersion)
 	}
 
-	if got := keptPragma(t, dir, "user_version"); got != 99 {
-		t.Errorf("the file is now at version %d, want it left at 99", got)
-	}
-
-	if got := keptPragma(t, dir, "application_id"); got != 42 {
-		t.Errorf("the file's application_id is %d, want the file that was there", got)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
+	if want := []store.OwnerLink{decided("ben", nil)}; err != nil || !slices.Equal(links, want) {
+		t.Errorf("OwnerLinks = %+v, %v; want ben alone, ana's link gone with the file", links, err)
 	}
 }
 
@@ -295,6 +296,40 @@ func TestAReadOnlyStoreReadsTheKeptLinks(t *testing.T) {
 	// Assert
 	if err != nil || len(links) != 1 {
 		t.Errorf("a read-only OwnerLinks = %+v, %v; want ana's link", links, err)
+	}
+}
+
+func TestAReadOnlyStoreReadsAKeptFileAtAnotherSchemaVersionAsEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The live open would remake this file, so what it holds is not what a
+	// run would read: ana's link is there, and a dry run must not show it.
+	dir := t.TempDir()
+	linkAna(t, store.New(dir, store.ModeWrites))
+	execKept(t, dir, "PRAGMA user_version = 99")
+
+	before, err := os.ReadFile(keptPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	links, err := store.New(dir, store.ModeWrites).ReadOnly().OwnerLinks(t.Context(), forgeHost, workspaceA)
+
+	// Assert
+	if err != nil || len(links) != 0 {
+		t.Errorf("a read-only OwnerLinks = %+v, %v; want nothing read, and no error, from a file at another version",
+			links, err)
+	}
+
+	after, err := os.ReadFile(keptPath(dir))
+	if err != nil || !bytes.Equal(before, after) {
+		t.Errorf("a read-only read changed kept.db (err %v), want it left as it was", err)
+	}
+
+	if got := keptUserVersion(t, dir); got != 99 {
+		t.Errorf("kept.db is at version %d after a read-only read, want it left at 99", got)
 	}
 }
 

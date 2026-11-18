@@ -24,10 +24,9 @@
 // web server can share the files; WAL and a busy timeout keep their writes from
 // colliding.
 //
-// Each file's schema has one version, stamped into it. A workflow.db written
-// at another is discarded and started fresh, since what it held is seen
-// again. A kept.db written at another is never discarded: it is left as it
-// is, for the user to remove.
+// Each file's schema has one version, stamped into it, and a file written at
+// another is discarded and started fresh: what workflow.db held is seen
+// again, and what kept.db held is asked for again. Neither has migrations.
 package store
 
 import (

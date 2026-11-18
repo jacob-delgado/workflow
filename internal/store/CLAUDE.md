@@ -78,37 +78,30 @@ holds here alone.
   files (`internal/wiring/store_test.go`, `kept_test.go`): a change to a key
   ships with that test.
 
-## One schema version each, no migrations
+## One schema version each, one rule for both, no migrations
 
-`workflow.db`'s schema has one version: `schemaVersion` in `store.go` is
-stamped as `PRAGMA user_version` by the live `openFile` that makes the file,
-before its first table; a file whose version differs and holds tables is
-deleted with its `-wal` and `-shm` companions and made again. `kept.db`'s schema also has
-one version, `keptSchemaVersion` in `kept.go`, made and stamped in one
-`BEGIN IMMEDIATE` transaction that re-reads it; a file at another version is
-**never discarded**: it reads as empty and refuses writes with
-`ErrKeptSchemaDiffers`, naming `workflow db-clean --all`, which every surface
-reports as `unprocessable` (`internal/report/classes.go`). A `kept.db` at no
-version that already holds a table under one of the store's names, which only
-another program could leave there, is neither stamped nor written around:
-`settleKept` makes its schema, that step fails in SQLite's words ("preparing
-the kept data") and the file is left as it was
-(`TestAKeptFileWithATableInTheWayIsReportedAndLeftAlone`). Refusing it as
-`ErrKeptSchemaDiffers` instead would move its problem class and exit status, a
-breaking change. Neither file has
-**migrations**, each for its own reason. `workflow.db` holds only what a
-session can see again, so a migration for it is YAGNI: change the `CREATE
-TABLE`, bump `schemaVersion`, and a file at another version is made anew and
-refills. `kept.db` holds what the user decided, and goes without one too, as
-`keptSchemaVersion`'s comment (`kept.go`) says: a change to a kept table
-costs the answers, which go unread until the user runs
-`workflow db-clean --all` and gives them again. A bump of `schemaVersion`
-never touches `kept.db`. A
-`--dry-run` store's read-only open reads either file at another version as
-empty, since a live open would remake what it holds; it never stamps or
-changes either file, and never makes one that is missing. Every read goes
-through `readFile` and every write through `openFile` (`connect.go`), with the
-file's `storeFile`: `cacheFile()` here.
+Each file's schema has one version, `schemaVersion` (`store.go`) for
+`workflow.db` and `keptSchemaVersion` (`kept.go`) for `kept.db`, and both files
+are opened by one rule, through one pair of functions in `connect.go`: every
+write opens its file with `openFile` and every read with `readFile`, handed
+the file's `storeFile` (`cacheFile()` or `keptFile()`).
+
+- **A live open** stamps a fresh file with its version as `PRAGMA
+  user_version` before its first table; a file at another version that holds
+  tables, another build's or another program's, is deleted with its `-wal`
+  and `-shm` companions and made again; then every table and index is made
+  where it is missing. Every statement in a file's `tables` is `IF NOT
+  EXISTS`, since two processes making a fresh file both run them.
+- **A remake forgets what the file held.** For `workflow.db` that is a
+  refill, nothing a session cannot see again. For `kept.db` it is every owner
+  link, repository group and favorite: workflow asks for the links and groups
+  again, and the user marks the favorites again. That is the price of having
+  no migrations, taken on purpose for a tool with one user: change the
+  `CREATE TABLE`, bump the file's version, and say so in a breaking commit.
+- A bump of either version never touches the other file.
+- **A `--dry-run` store's read-only open** reads either file at another
+  version as empty, since a live open would remake what it holds; it never
+  stamps or changes either file, and never makes one that is missing.
 
 ## How a file is opened
 
@@ -116,9 +109,11 @@ file's `storeFile`: `cacheFile()` here.
   and the terminal and the web server share the files; WAL and a five-second
   busy timeout (`dsnPragmas`) keep their writes from colliding.
 - `keptPragmas` (`kept.go`) adds `_txlock=immediate`: every `kept.db`
-  transaction takes the write lock as it begins, which is where its stamp's
-  `BEGIN IMMEDIATE` comes from, so two processes opening a fresh file never
-  both make it.
+  transaction takes the write lock as it begins. A kept write reads before it
+  writes in one transaction (a favorite's `added_at`, a group's members), and
+  in WAL a deferred transaction whose snapshot another connection's commit
+  has moved past fails its write with `SQLITE_BUSY` at once, without the busy
+  timeout; taking the lock first makes it wait the timeout out instead.
 - **A store's `Mode` says what it does with its files.** `ModeOff`, which a
   store with no directory and the zero `Store` are too, is the privacy
   opt-out: it no-ops every method, so no caller special-cases it.
@@ -136,17 +131,16 @@ file's `storeFile`: `cacheFile()` here.
 - **Red first, through the exported method.** A new table or column starts as
   a test that writes through the `Store` method and reads it back; a schema
   bump starts as one that plants a file at the old version and expects it
-  discarded (`workflow.db`) or read as empty with `ErrKeptSchemaDiffers`
-  (`kept.db`), as `version_test.go` and `kept_test.go` do. Watch it fail, then
-  write the method or the `CREATE TABLE`.
+  discarded and made again, as `version_test.go` and `kept_test.go` do. Watch
+  it fail, then write the method or the `CREATE TABLE`.
 - **Black-box, in `package store_test`**, each test on
   `store.New(t.TempDir(), store.ModeWrites)` and `t.Parallel()`, marked
   `// Arrange`, `// Act`, `// Assert` as the root asks. Stamp every write with
   `theTime()` (`store_test.go`) rather than the wall clock.
 - **Fixtures to reuse.** `seedDatabase` and `seedDatabaseAt`
   (`failure_test.go`) leave a file as another program would; `openKeptFile`,
-  `execKept` and `keptPragma` (`kept_test.go`) read and tamper with `kept.db`
-  directly. The `storeCall` tables in `failure_test.go` and
+  `execKept` and `keptUserVersion` (`kept_test.go`) read and tamper with
+  `kept.db` directly. The `storeCall` tables in `failure_test.go` and
   `keptfailure_test.go` run every method against each failure, so a new method
   joins them. Each failure is built from content (a file that is not a
   database, a regular file where a directory goes), never from permissions,

@@ -15,7 +15,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
-	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
@@ -179,25 +178,6 @@ func TestEverySnapshotSaysWhereTheServerWorks(t *testing.T) {
 	// Assert
 	if here := webtest.FirstSnapshot(t, recorder.Body.String()).Here; here != apiCmd {
 		t.Errorf("snapshot here = %q, want %s", here, apiCmd)
-	}
-}
-
-func TestAFavoriteInKeptDataFromAnotherBuildSaysHowToStartItFresh(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// Favorites came with the kept schema's second version, so a kept file an
-	// earlier build made refuses one until it is started fresh.
-	deps := repositoryDeps(favoritesKept())
-	deps.Store.Favor = func(context.Context, string) error { return store.ErrKeptSchemaDiffers }
-	handler := webtest.Serve(t, deps, config.Default())
-
-	// Act
-	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
-
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), "db-clean --all") {
-		t.Errorf("status %d, body %s; want 422 naming workflow db-clean --all", recorder.Code, recorder.Body.String())
 	}
 }
 

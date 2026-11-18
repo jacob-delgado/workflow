@@ -302,9 +302,5 @@ func directoryFaults() []Class {
 			Causes: []error{workdirs.ErrUnreadable}, Code: api.ProblemCodeUnprocessable,
 			Detail: "that directory cannot be read; check its permissions",
 		},
-		{
-			Causes: []error{store.ErrKeptSchemaDiffers}, Code: api.ProblemCodeUnprocessable,
-			Detail: store.ErrKeptSchemaDiffers.Error(),
-		},
 	}
 }

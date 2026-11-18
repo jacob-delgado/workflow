@@ -5,9 +5,9 @@ package store_test
 
 // The kept database lives outside the process as the cache does, so these
 // tests hand each kept read and write what it may find there instead of what
-// it made: a path it cannot create, a table gone, a table of the wrong shape,
-// a table whose trigger refuses a write, and a row that fails as it is read.
-// Each is built from content, as failure_test.go's cases are.
+// it made: a path it cannot create, a table without its columns, a table of
+// the wrong shape, a table whose trigger refuses a write, and a row that fails
+// as it is read. Each is built from content, as failure_test.go's cases are.
 
 import (
 	"context"
@@ -123,9 +123,17 @@ func refusing(kind, table string) statement {
 	}
 }
 
-// gone drops table from the kept database.
-func gone(table string) statement {
+// dropped drops table from the kept database.
+func dropped(table string) statement {
 	return statement{query: `DROP TABLE ` + table}
+}
+
+// hollow puts a table of another shape in table's place. Every open makes a
+// table that is missing, so a table only dropped would be made again; this
+// one keeps a slack_id column alone, which both kept indexes name, so the
+// open still makes them and the call is what meets the table.
+func hollow(table string) []statement {
+	return []statement{dropped(table), {query: `CREATE TABLE ` + table + ` (slack_id TEXT)`}}
 }
 
 // made makes the kept database and its schema, holding nothing.
@@ -194,30 +202,30 @@ type tamperedKept struct {
 	step   string
 }
 
-// favoriteTampers are the favorite directories' table found gone or of the
+// favoriteTampers are the favorite directories' table found hollow or of the
 // wrong shape.
 func favoriteTampers() map[string]tamperedKept {
 	return map[string]tamperedKept{
-		"favorites read from a table that is gone": {
-			before: made, tamper: []statement{gone("favorite_dir")}, call: favorites,
+		"favorites read from a table without its columns": {
+			before: made, tamper: hollow("favorite_dir"), call: favorites,
 			step: "reading the favorite directories",
 		},
-		"a favorite marked in a table that is gone": {
-			before: made, tamper: []statement{gone("favorite_dir")}, call: favorAPI,
+		"a favorite marked in a table without its columns": {
+			before: made, tamper: hollow("favorite_dir"), call: favorAPI,
 			step: "reading a favorite directory",
 		},
 		"a favorite marked in a table that refuses it": {
 			before: made, tamper: []statement{refusing("INSERT", "favorite_dir")}, call: favorAPI,
 			step: "marking a favorite directory",
 		},
-		"a favorite forgotten from a table that is gone": {
-			before: made, tamper: []statement{gone("favorite_dir")}, call: unfavorAPI,
+		"a favorite forgotten from a table without its columns": {
+			before: made, tamper: hollow("favorite_dir"), call: unfavorAPI,
 			step: "forgetting a favorite directory",
 		},
 		"a favorite with no directory": {
 			before: made,
 			tamper: []statement{
-				gone("favorite_dir"),
+				dropped("favorite_dir"),
 				table(`CREATE TABLE favorite_dir (dir TEXT, added_at TEXT)`),
 				table(`INSERT INTO favorite_dir (added_at) VALUES ('2026-10-05T00:00:00Z')`),
 			},
@@ -227,17 +235,17 @@ func favoriteTampers() map[string]tamperedKept {
 }
 
 // ownerTampers are the owner tables, and the Slack entities they link to,
-// found gone, of the wrong shape, or refusing a change.
+// found hollow, of the wrong shape, or refusing a change.
 func ownerTampers() map[string]tamperedKept {
 	return map[string]tamperedKept{
-		"owner links read from a table that is gone": {
-			before: made, tamper: []statement{gone("owner_decision")}, call: ownerLinks,
+		"owner links read from a table without its columns": {
+			before: made, tamper: hollow("owner_decision"), call: ownerLinks,
 			step: "reading the owner links",
 		},
 		"an owner link with no kind": {
 			before: made,
 			tamper: []statement{
-				gone("owner_decision"),
+				dropped("owner_decision"),
 				table(`CREATE TABLE owner_decision (forge_host TEXT, owner TEXT, decided_at TEXT, owner_kind TEXT)`),
 				{query: `INSERT INTO owner_decision (forge_host, owner) VALUES (?, ?)`, args: []any{forgeHost, anaOwner}},
 				{
@@ -247,24 +255,24 @@ func ownerTampers() map[string]tamperedKept {
 			},
 			call: ownerLinks, step: "reading an owner link",
 		},
-		"what was decided for an owner of another kind dropped beside a decision table that is gone": {
-			before: made, tamper: []statement{gone("owner_decision")}, call: linkAnaOnSlack,
+		"what was decided for an owner of another kind dropped beside a decision table without its columns": {
+			before: made, tamper: hollow("owner_decision"), call: linkAnaOnSlack,
 			step: "dropping what was decided for the owner's former kind",
 		},
 		"an owner decided in a table that refuses it": {
 			before: made, tamper: []statement{refusing("INSERT", "owner_decision")}, call: linkAnaOnSlack,
 			step: "recording the owner decision",
 		},
-		"that an owner of another kind is not on Slack dropped from a table that is gone": {
-			before: made, tamper: []statement{gone("owner_not_on_slack")}, call: linkAnaOnSlack,
+		"that an owner of another kind is not on Slack dropped from a table without its columns": {
+			before: made, tamper: hollow("owner_not_on_slack"), call: linkAnaOnSlack,
 			step: "dropping what was decided for the owner's former kind",
 		},
 		"an owner's decision cleared from a table that refuses it": {
 			before: linkAna, tamper: []statement{refusing("DELETE", "owner_slack")}, call: linkAnaOnSlack,
 			step: "clearing what was decided for the owner",
 		},
-		"an owner forgotten from a table that is gone": {
-			before: made, tamper: []statement{gone("owner_not_on_slack")}, call: forgetAna,
+		"an owner forgotten from a table without its columns": {
+			before: made, tamper: hollow("owner_not_on_slack"), call: forgetAna,
 			step: "clearing what was decided for the owner",
 		},
 		"an owner's decision dropped from a table that refuses it": {
@@ -282,18 +290,18 @@ func ownerTampers() map[string]tamperedKept {
 	}
 }
 
-// groupTampers are the repository group tables found gone, of the wrong
+// groupTampers are the repository group tables found hollow, of the wrong
 // shape, or refusing a change.
 func groupTampers() map[string]tamperedKept {
 	return map[string]tamperedKept{
-		"repository groups read from a table that is gone": {
-			before: made, tamper: []statement{gone("repo_group")}, call: repoGroups,
+		"repository groups read from a table without its columns": {
+			before: made, tamper: hollow("repo_group"), call: repoGroups,
 			step: readingGroups,
 		},
 		"a repository group with no label": {
 			before: made,
 			tamper: []statement{
-				gone("slack_entity"),
+				dropped("slack_entity"),
 				table(`CREATE TABLE slack_entity (slack_id TEXT, label TEXT, seen_at TEXT)`),
 				{query: `INSERT INTO slack_entity (slack_id) VALUES (?)`, args: []any{apiID}},
 				{
@@ -303,8 +311,8 @@ func groupTampers() map[string]tamperedKept {
 			},
 			call: repoGroups, step: "reading a repository group",
 		},
-		"repository groups set in a table that is gone": {
-			before: made, tamper: []statement{gone("repo_group")}, call: listAPIGroup,
+		"repository groups set in a table without its columns": {
+			before: made, tamper: hollow("repo_group"), call: listAPIGroup,
 			step: readingGroups,
 		},
 		"a repository group dropped from a table that refuses it": {
@@ -323,32 +331,32 @@ func groupTampers() map[string]tamperedKept {
 }
 
 // choiceTampers are the tables of a repository's last choice of groups
-// found gone, of the wrong shape, or refusing a change.
+// found hollow, of the wrong shape, or refusing a change.
 func choiceTampers() map[string]tamperedKept {
 	return map[string]tamperedKept{
-		"the last choice read from a table that is gone": {
-			before: made, tamper: []statement{gone("repo_choice")}, call: lastGroups,
+		"the last choice read from a table without its columns": {
+			before: made, tamper: hollow("repo_choice"), call: lastGroups,
 			step: "reading the last choice of groups",
 		},
-		"the last choice's groups read from a table that is gone": {
-			before: listedAndChosen, tamper: []statement{gone("repo_choice_group")}, call: lastGroups,
+		"the last choice's groups read from a table without its columns": {
+			before: listedAndChosen, tamper: hollow("repo_choice_group"), call: lastGroups,
 			step: "reading the last choice of groups",
 		},
 		"a chosen group with no ID": {
 			before: listedAndChosen,
 			tamper: []statement{
-				gone("repo_choice_group"),
+				dropped("repo_choice_group"),
 				table(`CREATE TABLE repo_choice_group (repo TEXT, slack_team TEXT, slack_id TEXT)`),
 				{query: `INSERT INTO repo_choice_group (repo, slack_team) VALUES (?, ?)`, args: []any{repo, workspaceA}},
 			},
 			call: lastGroups, step: "reading a Slack ID",
 		},
-		"a choice recorded in a table that is gone": {
-			before: made, tamper: []statement{gone("repo_choice")}, call: chooseAPIGroup,
+		"a choice recorded in a table without its columns": {
+			before: made, tamper: hollow("repo_choice"), call: chooseAPIGroup,
 			step: "recording the choice of groups",
 		},
-		"a choice cleared from a table that is gone": {
-			before: made, tamper: []statement{gone("repo_choice_group")}, call: chooseAPIGroup,
+		"a choice cleared from a table without its columns": {
+			before: made, tamper: hollow("repo_choice_group"), call: chooseAPIGroup,
 			step: "clearing the last choice of groups",
 		},
 		"a choice made among groups with no ID": {
@@ -356,7 +364,7 @@ func choiceTampers() map[string]tamperedKept {
 			// its key; SQLite lets an old table's key hold a NULL.
 			before: made,
 			tamper: []statement{
-				gone("repo_group"),
+				dropped("repo_group"),
 				table(`CREATE TABLE repo_group (
 					repo TEXT, slack_team TEXT, slack_id TEXT, added_at TEXT, PRIMARY KEY (repo, slack_team, slack_id)
 				)`),

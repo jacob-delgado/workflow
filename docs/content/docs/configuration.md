@@ -1305,9 +1305,10 @@ cannot reach it.
 Where the filesystem keeps Unix modes, each database file is `0600` in a `0700`
 directory, readable only by you. What the cache holds is disposable: remove it
 and the next session simply rebuilds it, and a cache a build with another schema
-made is discarded and rebuilt the same way. `kept.db` is never discarded: one
-a build with another schema made is read as empty and left as it is, and
-workflow says to run `workflow db-clean --all` to start it fresh.
+made is discarded and rebuilt the same way. A `kept.db` a build with another
+schema made is discarded and made again too, and with it every people and group
+association it held, which workflow then asks for again, and your favorites,
+which you mark again.
 
 A `--dry-run` never makes either file or changes what one holds. The interface
 and `--web` read nothing from the cache — Local data still counts what each
