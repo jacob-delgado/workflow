@@ -105,7 +105,8 @@ func (l Look) glyphs() liveGlyphs {
 // still, what the wait is doing, and, once it counts, a bar and how many of
 // how many. Whatever is written to stderr while it runs, through these notes
 // or a Stream they are said on, prints above the line, which is erased once
-// the wait is over; the wait's error is Watched's.
+// the wait is over, and what is written as it ends prints once it is erased;
+// the wait's error is Watched's.
 //
 // The line is a Bubble Tea program, inline and taking no input, so it sends
 // the terminal no query whose answer would reach the shell, and catching no
@@ -122,6 +123,7 @@ func (n Notes) Watched(look Look, wait func(Wait) error) error {
 	stream := streamOver(n.stderr)
 	model := newLiveModel(look, func() tea.Msg {
 		outcome = wait(Wait{program: program, notes: n.To(stream), above: stream})
+		stream.closeAbove()
 
 		return liveOver{}
 	})
