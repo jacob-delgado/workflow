@@ -97,7 +97,7 @@ func awaitThenDeliver(
 	ctx context.Context, live console.Wait, seams announceSeams, pending pendingAnnouncement, pull string,
 	age pullAge,
 ) error {
-	lines := &waitLines{live: live, pull: pull, target: seams.Messaging.Target(), last: ""}
+	lines := &waitLines{live: live, pull: pull, target: seams.Messaging.Target(), told: toldLine{}}
 
 	live.Doing("CI on " + pull)
 
@@ -239,7 +239,14 @@ func unheardFor(reason error, pull, service string) error {
 type waitLines struct {
 	live         console.Wait
 	pull, target string
-	last         string
+	told         toldLine
+}
+
+// toldLine is where a hold stood when its line was told, and why, in the
+// words of its reason: an error is not safely compared with ==.
+type toldLine struct {
+	stage  armed.Stage
+	reason string
 }
 
 // tell tells of the hold after a step: how many of the checks it last heard
@@ -249,13 +256,13 @@ func (w *waitLines) tell(hold armed.Hold) {
 	w.live.Counted(hold.CI().Done, hold.CI().Total)
 
 	line := w.line(hold)
-	key := strconv.Itoa(int(hold.Stage())) + " " + fmt.Sprint(hold.Reason())
+	told := toldLine{stage: hold.Stage(), reason: fmt.Sprint(hold.Reason())}
 
-	if line == "" || key == w.last {
+	if line == "" || told == w.told {
 		return
 	}
 
-	w.last = key
+	w.told = told
 	w.live.Notes().Note(line)
 }
 
