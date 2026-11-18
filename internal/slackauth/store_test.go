@@ -362,3 +362,23 @@ func TestAFileStoreWritesNothingOverAFileThatIsNoConfiguration(t *testing.T) {
 		t.Errorf("the file holds %q (%v), want it left as it was", left, readErr)
 	}
 }
+
+// errDiskFull is a store's save that fails every time.
+var errDiskFull = errors.New("no space left on device")
+
+func TestAPairNotKeptSaysToReinstallTheApp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	store := slackauth.NewStore(inTheFile,
+		func(context.Context) (slackauth.Credentials, error) { return pairExpiringIn(0), nil },
+		func(context.Context, slackauth.Credentials) error { return errDiskFull })
+
+	// Act
+	err := store.Keep(t.Context(), pairExpiringIn(time.Hour))
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotKept) || !strings.Contains(err.Error(), "reinstall the app") {
+		t.Errorf("Keep = %v, want %v saying to reinstall the app for a fresh refresh token", err, slackauth.ErrNotKept)
+	}
+}

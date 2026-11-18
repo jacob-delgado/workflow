@@ -20,8 +20,11 @@ import (
 var ErrNotLoggedIn = errors.New("no Slack user token is set up; run `workflow slack login`")
 
 // ErrNotKept reports a new pair Slack gave that could not be kept: the refresh
-// token it replaced is spent, so only a fresh login brings posting back.
-var ErrNotKept = errors.New("slack gave a new token that could not be kept; run `workflow slack login` again")
+// token it replaced is spent, so a login with it would be refused too. Only a
+// fresh refresh token, from reinstalling the app, and a login with it bring
+// posting back.
+var ErrNotKept = errors.New("slack gave a new token that could not be kept, and the refresh token it " +
+	"replaced is spent; reinstall the app for a fresh refresh token, then run `workflow slack login`")
 
 // ErrAppOverridden reports a login whose app a repository's own file would
 // override with another app's client ID, so the secrets kept would be refreshed

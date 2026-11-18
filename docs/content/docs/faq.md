@@ -723,11 +723,12 @@ A Slack refresh token works only once. If it was spent somewhere else, the copy
 workflow holds is dead. That happens when the same `.workflow.json` or keychain
 entry is used on two machines, when you tried the refresh token yourself (with
 `curl`, say) before logging in, or when a new pair couldn't be saved (`` slack
-gave a new token that could not be kept; run `workflow slack login` again ``).
-To recover, reinstall the app under **OAuth & Permissions** to get a fresh
-refresh token, then run `workflow slack login` again. Don't copy the token's
-file or keychain entry to another machine, because each refresh spends the token
-the other copy holds. A refusal like this exits with status 3. See
+gave a new token that could not be kept, and the refresh token it replaced is
+spent; reinstall the app for a fresh refresh token, then run `workflow slack
+login` ``). To recover, reinstall the app under **OAuth & Permissions** to get
+a fresh refresh token, then run `workflow slack login` again. Don't copy the
+token's file or keychain entry to another machine, because each refresh spends
+the token the other copy holds. A refusal like this exits with status 3. See
 [Configuration: Slack: a user token or a
 webhook]({{< relref "/docs/configuration#slack-a-user-token-or-a-webhook" >}}).
 
