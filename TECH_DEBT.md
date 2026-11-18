@@ -2037,3 +2037,30 @@ claim reads, since only the server posting knows its post is out.
 be seen apart, such as a messaging service that answers slowly, or a user
 reports a page or the terminal saying an announcement was made while it was
 still being posted, or `review.announced` changes shape for another reason.
+
+### TRADE-79 A retold arm's answer can lose to the timer's read
+
+**Decided.** 2026-11-18 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: an announcement held for CI
+and asked for again, its pull request and moment the same, is retold in place
+(`Arm`, `internal/armed/step.go`): it keeps its round and asks for a read at
+once, as one armed afresh does, and a hold hears only the read asked last in
+its round. A timer's read of that round asked after the retold read is then
+the one heard, and the retold read's answer, CI passed included, is not. The
+retold ask answers its round's hold as it stands, `202` waiting or being
+posted, while the post goes out on the timer's read (`readHeldIn`,
+`internal/webserver/announcequeue.go`). Checking the round and stage before
+the timer asks (`askHeldIn`) does not close it, since the round is the same.
+Closing it would give a retold hold a round of its own, which would end the
+round the arm that held it answers with, or have a retold ask wait for the
+timer's read too.
+
+**Cost.** Once in a while, `POST /api/announce` with `when: ci_passes` over
+an announcement already waiting answers `202`, waiting or being posted,
+though its CI had passed, and the page says it will announce once CI
+passes. Nothing is lost or posted twice: the timer's read, already asked,
+posts it, and the next frame says it was announced.
+
+**Reopen when.** A user reports an announcement asked for again said to wait
+for CI that had passed, or a retold hold comes to take a round of its own for
+another reason.
