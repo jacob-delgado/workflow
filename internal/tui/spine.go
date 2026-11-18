@@ -419,6 +419,8 @@ func (m Model) issueWork() progress.IssueWork {
 // request's moment, or held for its CI or on its way.
 func (m Model) announceWork() progress.AnnounceWork {
 	switch {
+	// Trade-off TRADE-78: a claim, confirmed or not, outranks a post of this
+	// session's own under way, which the web's stream reads under way.
 	case m.messaging.announced(m.review):
 		return progress.AnnounceMade
 	case m.messaging.held.hold.Stage().Waiting() || m.messaging.onItsWay():

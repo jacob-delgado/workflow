@@ -2006,3 +2006,34 @@ applies at the next start or directory switch.
 keeps its data, so a write through the old settings could reach other
 tasks than the ones the page showed, or a user reports a write made as the
 settings changed.
+
+### TRADE-78 One post in flight reads three ways
+
+**Decided.** 2026-11-18 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: while `workflow --web` posts an
+announcement itself, announced now or held until CI passed, the event
+stream's announce stage reads it under way (`announceWork`,
+`internal/webserver/stream.go`, through `postsNow`,
+`internal/webserver/announce.go`), though the claim the post took first reads
+it begun. The same frame's `review.announced` still says `unconfirmed`
+meanwhile, which another tab's messaging section reads as announced
+(`announcedAtItsMoment`, `web/src/features/messaging/MessagingPanel.tsx`),
+and the terminal ranks a claim, confirmed or not, above a post of its own
+under way (`announceWork`, `internal/tui/spine.go`), so a refresh mid-post
+reads the claim and says made. Making the three agree would add a state to
+`review.announced`, a change to the `--web` contract, wake every stream as a
+post begins, and have the terminal keep the claims it read before its own
+post: all for the window of one post.
+
+**Cost.** For as long as one post takes, the web's loop track says the
+announcement is under way while another tab's messaging section treats it as
+announced and offers no post, and the terminal, refreshed meanwhile, says it
+was made. Each settles once the post answers: the store's record reads posted,
+or the claim stays unconfirmed, as it would anyway. A post under way in
+another process, the terminal or `workflow announce`, reads on the web as its
+claim reads, since only the server posting knows its post is out.
+
+**Reopen when.** A post comes to take long enough for the three readings to
+be seen apart, such as a messaging service that answers slowly, or a user
+reports a page or the terminal saying an announcement was made while it was
+still being posted, or `review.announced` changes shape for another reason.
