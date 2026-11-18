@@ -287,7 +287,11 @@ the issue's line added first, with **Link and update** or **Link only**. A
 linked branch says so, with **Unlink**; the link is kept in the repository's
 git configuration, as the terminal's `i` keeps it. **Rebase onto** the base
 replays the branch onto it, as the terminal's `u` does, after a last look
-that says its commits are rewritten.
+that says its commits are rewritten. While a rebase, merge, cherry-pick or
+revert is stopped part way, the heading says so — **Rebasing** and the branch
+it replays, or the branch and the merge stopped on it — and the line beneath
+says to resolve what it stopped on, then run its `--continue`, or `--abort`
+to go back.
 
 Under **Working tree**, each changed file has its own **Stage** or
 **Unstage**, and **Stage all** stages the rest; **Unstage all** beside it

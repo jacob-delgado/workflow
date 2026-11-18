@@ -192,6 +192,33 @@ func (e ForgeConfigKind) Valid() bool {
 	}
 }
 
+// Defines values for GitOperation.
+const (
+	GitOperationCherryPick GitOperation = "cherry_pick"
+	GitOperationMerge      GitOperation = "merge"
+	GitOperationNone       GitOperation = "none"
+	GitOperationRebase     GitOperation = "rebase"
+	GitOperationRevert     GitOperation = "revert"
+)
+
+// Valid indicates whether the value is a known member of the GitOperation enum.
+func (e GitOperation) Valid() bool {
+	switch e {
+	case GitOperationCherryPick:
+		return true
+	case GitOperationMerge:
+		return true
+	case GitOperationNone:
+		return true
+	case GitOperationRebase:
+		return true
+	case GitOperationRevert:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthForgeKind.
 const (
 	HealthForgeKindGithub  HealthForgeKind = "github"
@@ -1258,8 +1285,14 @@ type Branch struct {
 	IssueLinkTracker *IssueTracker `json:"issue_link_tracker,omitempty"`
 	Name             string        `json:"name"`
 
+	// Operation The git operation stopped part way in the work tree, which git finishes with --continue or ends with --abort; none when nothing is.
+	Operation GitOperation `json:"operation"`
+
 	// PushRemote The remote a push of the branch goes to, as git decides it: branch.<name>.pushRemote, else remote.pushDefault, else the remote the branch tracks (branch.<name>.remote), else origin.
 	PushRemote string `json:"push_remote"`
+
+	// Rebasing The branch a stopped rebase replays, which a detached HEAD hides; empty when it replays a detached HEAD, and for any other operation.
+	Rebasing string `json:"rebasing"`
 
 	// Uncounted Whether the branch has an upstream git could not count it against: ahead and behind are then zero for want of an answer, not because nothing differs, so the upstream is not known to hold every commit and the branch can be pushed. False with no upstream.
 	Uncounted bool `json:"uncounted"`
@@ -1623,6 +1656,9 @@ type GitOnlyHook struct {
 	// Example: git hands it the file holding the commit message
 	Reason string `json:"reason"`
 }
+
+// GitOperation The git operation stopped part way in the work tree, which git finishes with --continue or ends with --abort; none when nothing is.
+type GitOperation string
 
 // GroupTag A user group an announcement offers to tag.
 type GroupTag struct {

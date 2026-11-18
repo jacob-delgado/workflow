@@ -29,6 +29,8 @@ const emptyBranch = {
   uncounted: false,
   base: '',
   commits: [],
+  operation: 'none',
+  rebasing: '',
 } satisfies Branch
 
 // emptySnapshot is the stream's frame of a repository with nothing in it: no

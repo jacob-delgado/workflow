@@ -119,6 +119,8 @@ export const mockSnapshot: Snapshot = {
         unpushed: false,
       },
     ],
+    operation: 'none',
+    rebasing: '',
   },
   // Edits made since the test commit, to files the two commits left in
   // place: the morning's new test file is committed, so none is new here.

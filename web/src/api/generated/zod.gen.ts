@@ -623,6 +623,17 @@ export const zCommentRequest = z.object({
     text: z.string().min(1)
 });
 
+/**
+ * The git operation stopped part way in the work tree, which git finishes with --continue or ends with --abort; none when nothing is.
+ */
+export const zGitOperation = z.enum([
+    'none',
+    'rebase',
+    'merge',
+    'cherry_pick',
+    'revert'
+]);
+
 export const zCommit = z.object({
     hash: z.string(),
     subject: z.string(),
@@ -643,7 +654,9 @@ export const zBranch = z.object({
     behind: z.int(),
     uncounted: z.boolean(),
     base: z.string(),
-    commits: z.array(zCommit)
+    commits: z.array(zCommit),
+    operation: zGitOperation,
+    rebasing: z.string()
 });
 
 export const zChange = z.object({

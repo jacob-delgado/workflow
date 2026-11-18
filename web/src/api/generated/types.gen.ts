@@ -1228,7 +1228,17 @@ export type Branch = {
      * The commits on this branch since its base.
      */
     commits: Array<Commit>;
+    operation: GitOperation;
+    /**
+     * The branch a stopped rebase replays, which a detached HEAD hides; empty when it replays a detached HEAD, and for any other operation.
+     */
+    rebasing: string;
 };
+
+/**
+ * The git operation stopped part way in the work tree, which git finishes with --continue or ends with --abort; none when nothing is.
+ */
+export type GitOperation = 'none' | 'rebase' | 'merge' | 'cherry_pick' | 'revert';
 
 export type Commit = {
     hash: string;
