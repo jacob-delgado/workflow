@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"strconv"
@@ -141,14 +142,43 @@ func (s branchState) named(kit renderKit) string {
 	return s.heading(kit) + "\n" + s.upstream(kit)
 }
 
-// heading is the branch held by name, or that HEAD is detached.
+// heading is the branch held by name, or that HEAD is detached, with any git
+// operation stopped part way on it; a stopped rebase is named by the branch
+// it replays, which its detached HEAD hides.
 func (s branchState) heading(kit renderKit) string {
 	branch := s.checkedOut()
-	if branch.Detached {
-		return "detached HEAD"
+	if branch.Operation == gitrepo.OperationRebase {
+		return "rebasing " + kit.styles.strong.Render(rebased(branch))
 	}
 
-	return kit.styles.strong.Render(branch.Name)
+	name := kit.styles.strong.Render(branch.Name)
+	if branch.Detached {
+		name = "detached HEAD"
+	}
+
+	if branch.Operation != gitrepo.OperationNone {
+		return name + " · " + branch.Operation.Command() + " stopped"
+	}
+
+	return name
+}
+
+// rebased is the branch a stopped rebase replays, or that it replays none.
+func rebased(branch gitrepo.Branch) string {
+	return cmp.Or(branch.Rebasing, "a detached HEAD")
+}
+
+// stoppedAdvice says how to end the git operation stopped part way on branch.
+func stoppedAdvice(branch gitrepo.Branch) string {
+	command := branch.Operation.Command()
+
+	what := "A " + command
+	if branch.Operation == gitrepo.OperationRebase {
+		what = "A rebase of " + rebased(branch)
+	}
+
+	return what + " is stopped part way. Resolve what it stopped on, then run git " + command +
+		" --continue, or git " + command + " --abort to go back."
 }
 
 // upstream says where the branch stands against the remote it pushes to. A
@@ -223,17 +253,17 @@ func (s branchState) detail(view branchView, width int) string {
 }
 
 // described is the branch held: its base, upstream, commits and issue, or
-// that HEAD is detached and what to do about it.
+// that HEAD is detached and what to do about it; and how to end any git
+// operation stopped part way on it.
 func (s branchState) described(view branchView, width int) string {
 	kit, branch := view.kit, s.checkedOut()
 	if branch.Detached {
-		return wrap(s.heading(kit)+"\n\nCheck out a branch, or press "+view.keys.newBranch.Help().Key+
-			" to start one for the selected issue.", width)
+		return wrap(s.heading(kit)+"\n\n"+s.detachedAdvice(view), width)
 	}
 
 	label := kit.styles.label
 	lines := []string{
-		kit.styles.strong.Render(branch.Name),
+		s.heading(kit),
 		"",
 		label.Render("base      ") + valueOr(kit.styles, branch.Base, "(none found)"),
 		label.Render("upstream  ") + s.upstream(kit),
@@ -250,7 +280,22 @@ func (s branchState) described(view branchView, width int) string {
 		lines = append(lines, label.Render("issue     ")+branchKey.Key+" "+issue.Summary+unlisted(kit.styles, listed))
 	}
 
+	if branch.Operation != gitrepo.OperationNone {
+		lines = append(lines, "", stoppedAdvice(branch))
+	}
+
 	return wrap(strings.Join(lines, "\n"), width)
+}
+
+// detachedAdvice is what to do under a detached HEAD: end the operation
+// stopped part way, or check out a branch.
+func (s branchState) detachedAdvice(view branchView) string {
+	branch := s.checkedOut()
+	if branch.Operation != gitrepo.OperationNone {
+		return stoppedAdvice(branch)
+	}
+
+	return "Check out a branch, or press " + view.keys.newBranch.Help().Key + " to start one for the selected issue."
 }
 
 // unlisted marks an issue the branch names that is not among those assigned.
