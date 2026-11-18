@@ -199,7 +199,7 @@ func TestGuidedInitStopsTheKeychainWriteWhenTheCommandIsCanceled(t *testing.T) {
 		return nil, context.Cause(ctx)
 	}
 	fred := func() (*user.User, error) { return &user.User{Username: "fred"}, nil }
-	prompt := clitest.Scripted([]string{clitest.WorkingJira(t), "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{clitest.WorkingJira(t), "y"}, []string{guidedToken, ""})
 	prompt.StoreSecret = keychain.Storer("darwin", security, fred, os.Getenv)
 	root := cli.NewRootCmdOver(
 		prompt, nil, nil, clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}),

@@ -12,9 +12,10 @@ import (
 )
 
 // Scripted answers the guided prompts in order: visible lines from lines,
-// secrets from secrets. A prompt past the end of its list reads as blank.
+// secrets from secrets. A prompt past the end of its list reads the end of
+// the input, as the terminal's own readers do once a pipe runs dry.
 func Scripted(lines, secrets []string) cmdkit.Prompt {
-	return cmdkit.Prompt{Line: answersFrom(&lines), Secret: answersFrom(&secrets)}
+	return cmdkit.Prompt{Line: AnswersThenEnds(lines...), Secret: AnswersThenEnds(secrets...)}
 }
 
 // Answering is a prompt that gives every question the same answer and keeps
@@ -27,20 +28,6 @@ func Answering(answer string, asked *[]string) cmdkit.Prompt {
 	}
 
 	return cmdkit.Prompt{Line: reply, Secret: reply}
-}
-
-// answersFrom hands back each answer in turn, then blanks.
-func answersFrom(answers *[]string) func(string) (string, error) {
-	return func(string) (string, error) {
-		if len(*answers) == 0 {
-			return "", nil
-		}
-
-		next := (*answers)[0]
-		*answers = (*answers)[1:]
-
-		return next, nil
-	}
 }
 
 // AnswersThenEnds answers each question with the next of answers, then reads
