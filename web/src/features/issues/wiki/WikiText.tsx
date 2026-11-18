@@ -3,8 +3,8 @@ import { isWebAddress, NewTabLink } from '@/lib/NewTabLink.tsx'
 import { keyedByText } from '@/lib/utils.ts'
 import { wikiFromMarkdown } from './wikiFromMarkdown.ts'
 
-// Trade-off TRADE-31: past these sizes a comment is drawn as plain text, its
-// markup unread, rather than parsed by patterns that rescan from each opener.
+// Past these sizes a comment is drawn as plain text, its markup unread, rather
+// than parsed by patterns that rescan from each opener.
 export const largestParsedBody = 65_536
 const longestParsedLine = 1_000
 

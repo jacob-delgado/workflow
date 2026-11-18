@@ -1,7 +1,7 @@
-// Trade-off TRADE-51: these rules say again a few of the checks the server
-// makes of a save, so a setting is refused beside itself before anything is
-// sent. The server stays the authority: a save it refuses names each setting,
-// and Settings marks those the same way.
+// These rules say again a few of the checks the server makes of a save, so a
+// setting is refused beside itself before anything is sent. The server stays
+// the authority: a save it refuses names each setting, and Settings marks those
+// the same way.
 
 // A rule passes a value, or says why it is refused.
 type Rule = (value: unknown) => true | string

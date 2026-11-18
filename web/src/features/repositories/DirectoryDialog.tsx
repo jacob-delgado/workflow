@@ -13,8 +13,8 @@ import { Crumbs } from './Crumbs.tsx'
 import { aboveTyped, joined, matching, splitTyped, trailOf, type Match } from './dirFilter.ts'
 import { useDirectories } from './repositoriesApi.ts'
 
-// Trade-off TRADE-49: the list draws at most this many matches, and says how
-// many more there are, rather than drawing thousands of rows or windowing them.
+// The list draws at most this many matches, and says how many more there are,
+// rather than drawing thousands of rows or windowing them.
 // testdata/twins/directory_rows.json holds the same number, which the
 // terminal's picker answers to as well.
 const rowCap = 200

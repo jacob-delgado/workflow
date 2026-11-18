@@ -4,10 +4,11 @@
    code are one family at two settings (--font-sans and --font-mono below)
    rather than two fonts to fetch. Latin alone, as the cockpit's words are;
    any other script falls back, glyph by glyph, to the platform's face.
-   Trade-off TRADE-48: the face carries latin only. It is served from the page's
-   own origin, as the content policy asks, and the text draws in the fallback
-   until it arrives rather than waiting for it. The SIL Open Font License it
-   ships under is served beside it, at /fonts/Recursive-OFL.txt. */
+   Latin alone keeps the face to one 72 kB file rather than every subset. It
+   is served from the page's own origin, as the content policy asks, and the
+   text draws in the fallback until it arrives rather than waiting for it. The
+   SIL Open Font License it ships under is served beside it, at
+   /fonts/Recursive-OFL.txt. */
 @font-face {
   font-family: 'Recursive Variable';
   font-style: normal;

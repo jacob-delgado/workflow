@@ -11,10 +11,10 @@ const shortUUID = 8
 type WithStart = Task & { start: string }
 
 // isActive reports a task Taskwarrior counts started, whatever its wait:
-// pending, with a start. Its clock runs until it is stopped, so what writes —
-// a start or a stop — asks this; what the page shows asks isStarted.
-// Trade-off TRADE-65: a started task with a wait still ahead shows waiting
-// while its clock runs, so its detail offers to stop it.
+// pending, with a start. Its clock runs until it is stopped, so what writes — a
+// start or a stop — asks this; what the page shows asks isStarted. A started
+// task with a wait still ahead shows waiting while its clock runs, so its
+// detail offers to stop it.
 export function isActive(task: Task): task is WithStart {
   return task.status === 'pending' && task.start !== undefined
 }

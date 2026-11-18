@@ -4,8 +4,8 @@
 // will be sent. A code block the comment leaves open is closed at its end, as
 // Markdown ends one with the document.
 //
-// Trade-off TRADE-28: these rules are written again in internal/jira/wiki.go,
-// which converts before posting, and both copies answer to the one case file
+// These rules are written again in internal/jira/wiki.go, which converts before
+// posting, and both copies answer to the one case file
 // internal/jira/testdata/wiki_from_markdown.json, so a change to either alone
 // fails its own tests.
 export function wikiFromMarkdown(markdown: string): string {

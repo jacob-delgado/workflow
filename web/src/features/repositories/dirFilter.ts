@@ -101,9 +101,9 @@ export interface Match {
 // case: those starting with typed first, then the rest, each as listed — the
 // order workdirs.Matching ranks names in for the terminal.
 //
-// Trade-off TRADE-52: this matcher is written again in internal/workdirs, and
-// both copies answer to the one case file testdata/twins/directory_match.json,
-// so a change to either alone fails its own tests.
+// This matcher is written again in internal/workdirs, and both copies answer to
+// the one case file testdata/twins/directory_match.json, so a change to either
+// alone fails its own tests.
 export function matching(entries: DirectoryEntry[], typed: string): Match[] {
   const matches = entries.flatMap((entry) => {
     const letters = inOrder(entry.name, typed)

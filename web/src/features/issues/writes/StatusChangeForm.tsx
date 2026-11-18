@@ -332,10 +332,10 @@ function onlyJira(change: StatusChange): StatusChangeField | undefined {
 
 // emptyOf is the ids of the fields a change needs that are left empty.
 //
-// Trade-off TRADE-51: this and emptyRefusal say again what the server refuses,
-// so an empty field is refused before the change is sent: jira.ErrNeedsValue
-// for a text or single-option field and jira.ErrNeedsChoice for a list, each
-// in the server's words.
+// This and emptyRefusal say again what the server refuses, so an empty field is
+// refused before the change is sent: jira.ErrNeedsValue for a text or
+// single-option field and jira.ErrNeedsChoice for a list, each in the server's
+// words.
 function emptyOf(change: StatusChange, filled: Filled): string[] {
   return change.fields
     .filter((field) => String(filled[field.id] ?? '').trim() === '')
