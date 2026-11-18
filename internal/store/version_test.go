@@ -6,7 +6,7 @@ package store_test
 // The schema has one version, stamped into the file as SQLite's user_version. A
 // file at another version — an older build's, or one someone changed — is
 // discarded whole and made again, since nothing the store keeps is worth
-// carrying over; a read-only store reads whatever file it finds as it is.
+// carrying over; a read-only store reads a file at another version as empty.
 
 import (
 	"bytes"
@@ -137,19 +137,28 @@ func TestAFileAtAnotherVersionWithNoTablesIsKeptAndStamped(t *testing.T) {
 	}
 }
 
-func TestAReadOnlyStoreReadsAStoreAtAnotherSchemaVersionAsItIs(t *testing.T) {
+func TestAReadOnlyStoreReadsAStoreAtAnotherSchemaVersionAsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// An older build's announcements lack a column this build reads, so a dry
+	// run that read the file as it is would fail on it; and a live open would
+	// remake the file, so what it holds is not what a run would read.
 	dir := t.TempDir()
 	path := filepath.Join(dir, "workflow.db")
-
-	err := store.New(dir, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
-	if err != nil {
-		t.Fatalf("keeping a scope: %v", err)
-	}
-
-	stampVersion(t, dir, currentVersion+1)
+	older := currentVersion - 1
+	seedDatabaseAt(t, dir, older,
+		table(`CREATE TABLE announces (
+			repo TEXT NOT NULL, pull INTEGER NOT NULL, moment INTEGER NOT NULL, claim INTEGER NOT NULL,
+			first_claim INTEGER NOT NULL, claimed_at TEXT NOT NULL, posted_at TEXT,
+			PRIMARY KEY (repo, pull, moment)
+		) STRICT`),
+		statement{
+			query: `INSERT INTO announces (repo, pull, moment, claim, first_claim, claimed_at)
+				VALUES (?, 42, 1, 1, 1, '2026-09-29T12:00:00Z')`,
+			args: []any{repo},
+		},
+	)
 
 	before, err := os.ReadFile(path)
 	if err != nil {
@@ -157,11 +166,11 @@ func TestAReadOnlyStoreReadsAStoreAtAnotherSchemaVersionAsItIs(t *testing.T) {
 	}
 
 	// Act
-	scope, found, err := store.New(dir, store.ModeWrites).ReadOnly().LastScope(t.Context(), repo)
+	records, err := store.New(dir, store.ModeWrites).ReadOnly().Announces(t.Context(), repo)
 
 	// Assert
-	if err != nil || !found || scope != recorded {
-		t.Errorf("LastScope = %q, %v, %v; want the kept scope read as it is", scope, found, err)
+	if err != nil || len(records) != 0 {
+		t.Errorf("Announces = %v, %v; want nothing read, and no error, from a file at another version", records, err)
 	}
 
 	after, err := os.ReadFile(path)
@@ -169,8 +178,8 @@ func TestAReadOnlyStoreReadsAStoreAtAnotherSchemaVersionAsItIs(t *testing.T) {
 		t.Errorf("a read-only read changed the file (err %v), want it left as it was", err)
 	}
 
-	if got := readPragma(t, dir, "user_version"); got != currentVersion+1 {
-		t.Errorf("a read-only read left the file at version %d, want %d untouched", got, currentVersion+1)
+	if got := readPragma(t, dir, "user_version"); got != older {
+		t.Errorf("a read-only read left the file at version %d, want %d untouched", got, older)
 	}
 }
 

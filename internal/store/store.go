@@ -37,7 +37,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -57,7 +56,7 @@ const (
 // dbName is the database file's name inside the store directory.
 const dbName = "workflow.db"
 
-// schemaVersion is the version of the schema createSchema makes, stamped into
+// schemaVersion is the version of the schema cacheTables makes, stamped into
 // the file as SQLite's user_version. Bump it whenever a CREATE TABLE changes: a
 // file at another version is discarded whole and made again, so there are no
 // migrations to write.
@@ -75,12 +74,12 @@ func timestamp(now time.Time) string {
 // LastScope is the commit scope last recorded for repo, and whether one was. A
 // disabled store, or a repo with nothing recorded, reports no scope.
 func (s Store) LastScope(ctx context.Context, repo string) (string, bool, error) {
-	if s.nothingToRead() || repo == "" {
+	if repo == "" {
 		return "", false, nil
 	}
 
-	database, err := s.open(ctx)
-	if err != nil {
+	database, found, err := s.readFile(ctx, cacheFile())
+	if err != nil || !found {
 		return "", false, err
 	}
 	defer func() { _ = database.Close() }()
@@ -106,7 +105,7 @@ func (s Store) RecordScope(ctx context.Context, repo, scope string, now time.Tim
 		return nil
 	}
 
-	database, err := s.open(ctx)
+	database, err := s.openFile(ctx, cacheFile())
 	if err != nil {
 		return err
 	}
@@ -123,46 +122,6 @@ func (s Store) RecordScope(ctx context.Context, repo, scope string, now time.Tim
 	}
 
 	return nil
-}
-
-// open makes the store directory, opens the database at this build's schema
-// version — discarding one another build left — creates the tables it is
-// missing, and restricts the directory and file to their owner. A read-only
-// store opens the database as it is instead.
-func (s Store) open(ctx context.Context) (*sql.DB, error) {
-	if s.mode == ModeReadOnly {
-		return s.openAsItIs(dbName), nil
-	}
-
-	err := s.makeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	path := filepath.Join(s.dir, dbName)
-
-	// The file is made, stamped and given its tables whatever becomes of the
-	// caller, so a stamp or a removal still fails only when the file changes
-	// underneath it, and never for a caller who left.
-	making := context.WithoutCancel(ctx)
-
-	database, err := openCurrent(making, path)
-	if err != nil {
-		return nil, err
-	}
-
-	err = createSchema(making, database)
-	if err != nil {
-		_ = database.Close()
-
-		return nil, err
-	}
-
-	// The open created the file honoring the umask; narrow it now that it
-	// exists, so the database is readable only by its owner.
-	restrictToOwner(path, filePerm)
-
-	return database, nil
 }
 
 // makeDir makes the store directory, readable only by its owner.
@@ -186,8 +145,8 @@ func (s Store) makeDir() error {
 // discard. Two processes that both open an old file before either discards it
 // each discard the other's remade file; the file on disk ends consistent, and
 // only what the loser wrote that session is lost.
-func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
-	database := openDatabase(path)
+func openCurrent(ctx context.Context, path string, file storeFile) (*sql.DB, error) {
+	database := openDatabase(path, file.pragmas)
 
 	state, err := readStateOnOpen(ctx, database)
 	if err != nil {
@@ -196,20 +155,20 @@ func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	if state.version == schemaVersion {
+	if state.version == file.version {
 		return database, nil
 	}
 
 	if state.holdsTables {
 		_ = database.Close()
 
-		database, err = remakeDatabase(path)
+		database, err = remakeDatabase(path, file.pragmas)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	err = stamp(ctx, database)
+	err = stamp(ctx, database, file.version)
 	if err != nil {
 		_ = database.Close()
 
@@ -309,23 +268,24 @@ func inTransaction(ctx context.Context, database *sql.DB, doing string, write fu
 	return nil
 }
 
-// remakeDatabase discards the database at path and opens a fresh one there.
-func remakeDatabase(path string) (*sql.DB, error) {
+// remakeDatabase discards the database at path and opens a fresh one there
+// with pragmas.
+func remakeDatabase(path, pragmas string) (*sql.DB, error) {
 	err := removeDatabase(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return openDatabase(path), nil
+	return openDatabase(path, pragmas), nil
 }
 
-// stamp writes this build's schema version into the file. A PRAGMA binds no
-// placeholder, so the one statement built from a string holds only this
-// package's own constant.
-func stamp(ctx context.Context, database *sql.DB) error {
+// stamp writes version, this build's schema version for the file, into it. A
+// PRAGMA binds no placeholder, so the one statement built from a string holds
+// only a version this package's own constants name.
+func stamp(ctx context.Context, database *sql.DB, version int) error {
 	// The open that just made or read this file holds it, so the stamp fails
 	// only when the file changes between the two calls.
-	_, err := database.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(schemaVersion))
+	_, err := database.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(version))
 	if err != nil {
 		return fmt.Errorf("stamping the store schema version: %w", err)
 	}
@@ -355,11 +315,14 @@ func restrictToOwner(path string, perm os.FileMode) {
 	_ = os.Chmod(path, perm)
 }
 
-// createSchema makes every table the store needs where it is missing. It never
-// alters a table: a file at another version was discarded before this ran, so
-// what it meets is this version's schema or nothing.
-func createSchema(ctx context.Context, database *sql.DB) error {
-	statements := []string{
+// cacheFile is workflow.db, the cache.
+func cacheFile() storeFile {
+	return storeFile{name: dbName, pragmas: dsnPragmas, version: schemaVersion, tables: cacheTables}
+}
+
+// cacheTables makes every table the cache holds where it is missing.
+func cacheTables() []string {
+	return []string{
 		`CREATE TABLE IF NOT EXISTS scopes (
 			repo       TEXT NOT NULL PRIMARY KEY,
 			scope      TEXT NOT NULL,
@@ -406,13 +369,4 @@ func createSchema(ctx context.Context, database *sql.DB) error {
 			FOREIGN KEY (instance, view) REFERENCES issue_cache(instance, view) ON DELETE CASCADE
 		) STRICT`,
 	}
-
-	for _, statement := range statements {
-		_, err := database.ExecContext(ctx, statement)
-		if err != nil {
-			return fmt.Errorf("preparing the store schema: %w", err)
-		}
-	}
-
-	return nil
 }

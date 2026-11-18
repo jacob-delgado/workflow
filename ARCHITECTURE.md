@@ -310,8 +310,8 @@ A `--dry-run` never makes either file or changes what one holds. The interface
 and `--web` read nothing from the cache — Local data still counts what each
 file holds — and read `kept.db` read-only when it is already there, for the
 owner links, groups and favorites; a command reads the file it needs the same
-way, and only when it is there. A dry run reads `workflow.db` as it is,
-whichever build made it, and a `kept.db` another build's schema made as empty.
+way, and only when it is there. A dry run reads a file another build's
+schema made as empty, `workflow.db` and `kept.db` alike.
 Like any reader of a write-ahead-logged database, SQLite may leave the two
 owner-only companion files of the file it read — `kept.db-wal` and
 `kept.db-shm` after a read of `kept.db`, `workflow.db-wal` and
@@ -441,8 +441,8 @@ carrying across a schema change. `kept.db`'s schema also has one version,
 `BEGIN IMMEDIATE` transaction that re-reads it; a file at another version is
 never discarded — it reads as empty and refuses writes with
 `ErrKeptSchemaDiffers`, naming `workflow db-clean --all`. A `--dry-run`
-command's read-only open stamps neither file: it reads `workflow.db` as it is,
-whichever build made it, and a `kept.db` another build's schema made as empty.
+command's read-only open stamps neither file, and reads either one as empty
+when another build's schema made it.
 Neither file has migrations, each for its own reason: `workflow.db` holds only
 what a session can see again, so a change to it is a `CREATE TABLE` edit and a
 bump of `schemaVersion`, and a file at another version is made anew; `kept.db`

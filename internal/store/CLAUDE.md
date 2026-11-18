@@ -7,7 +7,7 @@ holds here alone.
 ## Two files, read in the code
 
 - **`workflow.db`** holds only conveniences a session can see again: the last
-  scope, the announcements, the issue cache. Its tables are `createSchema` in
+  scope, the announcements, the issue cache. Its tables are `cacheTables` in
   `store.go`. The announcements are also the claim each post takes before it
   goes, so one is posted once across processes; keeping that claim in a file
   `db-clean` or another build's schema discards is on purpose: a claim is not
@@ -81,9 +81,9 @@ holds here alone.
 ## One schema version each, no migrations
 
 `workflow.db`'s schema has one version: `schemaVersion` in `store.go` is
-stamped as `PRAGMA user_version` by the live `open` that makes the file, before
-its first table; a file whose version differs and holds tables is deleted with
-its `-wal` and `-shm` companions and made again. `kept.db`'s schema also has
+stamped as `PRAGMA user_version` by the live `openFile` that makes the file,
+before its first table; a file whose version differs and holds tables is
+deleted with its `-wal` and `-shm` companions and made again. `kept.db`'s schema also has
 one version, `keptSchemaVersion` in `kept.go`, made and stamped in one
 `BEGIN IMMEDIATE` transaction that re-reads it; a file at another version is
 **never discarded**: it reads as empty and refuses writes with
@@ -104,11 +104,11 @@ refills. `kept.db` holds what the user decided, and goes without one too, as
 costs the answers, which go unread until the user runs
 `workflow db-clean --all` and gives them again. A bump of `schemaVersion`
 never touches `kept.db`. A
-`--dry-run` store's read-only open reads `workflow.db` as it is and a `kept.db`
-at another version as empty, never stamps or changes either file, and never
-makes one that is missing. So until a live open remakes a `workflow.db`
-another build left, a dry run's read of a table the schema change touched
-fails.
+`--dry-run` store's read-only open reads either file at another version as
+empty, since a live open would remake what it holds; it never stamps or
+changes either file, and never makes one that is missing. Every read goes
+through `readFile` and every write through `openFile` (`connect.go`), with the
+file's `storeFile`: `cacheFile()` here.
 
 ## How a file is opened
 
@@ -127,7 +127,7 @@ fails.
   `ModeWrites` reads and writes.
 - The directory is `0700` and each file `0600` (`dirPerm`, `filePerm`), which
   also covers the `-wal` and `-shm` files beside them.
-- The open detaches from its asker (`context.WithoutCancel` in `open`), so a
+- The open detaches from its asker (`context.WithoutCancel` in `openFile`), so a
   stamp or a removal fails only when the file changes underneath it, never
   because the caller left.
 

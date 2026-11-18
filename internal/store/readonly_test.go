@@ -7,10 +7,12 @@ package store_test
 // when there is a store on disk, and nothing made or written either way.
 
 import (
+	"bytes"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -178,5 +180,40 @@ func TestAReadOnlyStoreLeavesTheDirectoryAsItFoundIt(t *testing.T) {
 
 	if info.Mode().Perm() != 0o755 {
 		t.Errorf("after a read-only read the directory is %v, want the 0755 it was", info.Mode().Perm())
+	}
+}
+
+func TestAReadOnlyStoreReportsAStoreFileThatIsNotADatabase(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]storeCall{"a scope": lastScope, "an announcement": announces, "an issue list": cachedIssues}
+
+	for name, call := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			dir := t.TempDir()
+			path := filepath.Join(dir, "workflow.db")
+			notADatabase := []byte(strings.Repeat("this is not a database\n", 45))
+
+			err := os.WriteFile(path, notADatabase, 0o600)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Act
+			readBack, err := call(t.Context(), store.New(dir, store.ModeWrites).ReadOnly())
+
+			// Assert
+			if err == nil || !strings.Contains(err.Error(), "reading the store schema version") || readBack {
+				t.Errorf("reading %s = %v, read back %v; want the file reported and nothing read", name, err, readBack)
+			}
+
+			left, readErr := os.ReadFile(path)
+			if readErr != nil || !bytes.Equal(left, notADatabase) {
+				t.Errorf("the file now holds %d bytes (err %v), want it left as it was", len(left), readErr)
+			}
+		})
 	}
 }
