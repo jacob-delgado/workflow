@@ -339,10 +339,9 @@ read:
    truthful — which is what makes trusting-nothing-on-read (below) a safe stance
    rather than a broken one.
 3. **What `kept.db` holds is kept, and still not trusted.** It is what the user
-   decided and a session cannot see again, so it is never discarded: a file
-   another build's schema made is left as it is, reads as empty, and refuses
-   every write with `ErrKeptSchemaDiffers`, which names
-   `workflow db-clean --all`. Trusting nothing on read stays safe here because
+   decided and a session cannot see again, kept until a clean or a schema
+   change: a file another build's schema made is discarded and made again, as
+   `workflow.db` is. Trusting nothing on read stays safe here because
    a row it cannot trust costs a choice made again rather than a failure: a
    row of the wrong shape is left out. The people or group association it held
    reads as never made, which workflow asks for again; a favorite directory
@@ -432,23 +431,17 @@ Three rules from `internal/store/CLAUDE.md` are visible in the schema:
   the whole group in one transaction** — upsert the parent, delete the children,
   insert the new ones — so a view is never left half-updated.
 
-`workflow.db`'s schema has one version, `schemaVersion`, stamped into the file
-as `PRAGMA user_version` by the open that makes the file, before its first
-table; a file at another version that holds tables is discarded with its `-wal`
-and `-shm` companions and made again, since nothing the cache keeps is worth
-carrying across a schema change. `kept.db`'s schema also has one version,
-`keptSchemaVersion` in `internal/store/kept.go`, made and stamped in one
-`BEGIN IMMEDIATE` transaction that re-reads it; a file at another version is
-never discarded — it reads as empty and refuses writes with
-`ErrKeptSchemaDiffers`, naming `workflow db-clean --all`. A `--dry-run`
-command's read-only open stamps neither file, and reads either one as empty
-when another build's schema made it.
-Neither file has migrations, each for its own reason: `workflow.db` holds only
-what a session can see again, so a change to it is a `CREATE TABLE` edit and a
-bump of `schemaVersion`, and a file at another version is made anew; `kept.db`
-goes without one too, and a change to a kept table costs the answers it holds,
-as `keptSchemaVersion`'s comment says. A `schemaVersion` bump never
-touches `kept.db`.
+Each file's schema has one version — `schemaVersion` for `workflow.db`,
+`keptSchemaVersion` in `internal/store/kept.go` for `kept.db` — stamped into
+the file as `PRAGMA user_version` by the open that makes the file, before its
+first table, and both files are opened by one rule: a file at another version
+that holds tables is discarded with its `-wal` and `-shm` companions and made
+again. A `--dry-run` command's read-only open stamps neither file, and reads
+either one as empty when another build's schema made it. Neither file has
+migrations: a change to one is a `CREATE TABLE` edit and a bump of its version.
+For `workflow.db` that costs a refill; for `kept.db` it costs the owner links
+and groups it held, which workflow asks for again, and the favorites, which you
+mark again. A bump of either version never touches the other file.
 
 ## Trust boundaries and data flow
 

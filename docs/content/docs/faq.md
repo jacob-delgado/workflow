@@ -1186,9 +1186,7 @@ removes `kept.db`, after a warning, and workflow then asks again whom each code
 owner is on Slack. `--dry-run` only says what it would remove, and `--yes`
 removes without asking. A file another program holds open (another workflow
 session, on Windows) fails the clean with exit `4`, and a symlink or directory
-where a database belongs is refused with exit `1`. If workflow says ``the kept
-data was written by a build of workflow with another schema; run `workflow
-db-clean --all` to start it fresh``, that is the fix. The same cleans are under
+where a database belongs is refused with exit `1`. The same cleans are under
 **Local data** in the web's Settings and behind `L` on the terminal's
 Repositories pane (`c` removes the cache, `C` everything). See [Using workflow:
 Cleaning the local data]({{< relref "/docs/usage#cleaning-the-local-data" >}}).

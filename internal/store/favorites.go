@@ -21,7 +21,7 @@ var ErrNotADirectoryPath = errors.New("a favorite is an absolute path to a direc
 // the disk each time, never kept.
 func favoritesSchema() []string {
 	return []string{
-		`CREATE TABLE favorite_dir (
+		`CREATE TABLE IF NOT EXISTS favorite_dir (
 			dir      TEXT NOT NULL PRIMARY KEY,
 			added_at TEXT NOT NULL
 		) STRICT`,
@@ -37,7 +37,7 @@ type Favorite struct {
 // Favorites is the directories you marked, by path. A row of the wrong shape
 // is left out. A disabled store, or one with none, reports none.
 func (s Store) Favorites(ctx context.Context) ([]Favorite, error) {
-	database, found, err := s.readKept(ctx)
+	database, found, err := s.readFile(ctx, keptFile())
 	if err != nil || !found {
 		return nil, err
 	}

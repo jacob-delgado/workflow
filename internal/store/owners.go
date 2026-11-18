@@ -96,19 +96,19 @@ func (l OwnerLink) OnSlack() (SlackTarget, bool) { return l.target, l.onSlack }
 // it.
 func ownersSchema() []string {
 	return []string{
-		`CREATE TABLE slack_entity (
+		`CREATE TABLE IF NOT EXISTS slack_entity (
 			slack_id TEXT NOT NULL PRIMARY KEY,
 			label    TEXT NOT NULL,
 			seen_at  TEXT NOT NULL
 		) STRICT`,
-		`CREATE TABLE owner_decision (
+		`CREATE TABLE IF NOT EXISTS owner_decision (
 			forge_host TEXT NOT NULL,
 			owner      TEXT NOT NULL,
 			decided_at TEXT NOT NULL,
 			owner_kind TEXT NOT NULL CHECK (owner_kind IN ('user', 'team')),
 			PRIMARY KEY (forge_host, owner)
 		) STRICT`,
-		`CREATE TABLE owner_slack (
+		`CREATE TABLE IF NOT EXISTS owner_slack (
 			forge_host TEXT NOT NULL,
 			owner      TEXT NOT NULL,
 			slack_team TEXT NOT NULL,
@@ -117,8 +117,8 @@ func ownersSchema() []string {
 			FOREIGN KEY (forge_host, owner) REFERENCES owner_decision(forge_host, owner) ON DELETE CASCADE,
 			FOREIGN KEY (slack_id) REFERENCES slack_entity(slack_id) ON DELETE RESTRICT
 		) STRICT`,
-		`CREATE INDEX owner_slack_by_entity ON owner_slack (slack_id)`,
-		`CREATE TABLE owner_not_on_slack (
+		`CREATE INDEX IF NOT EXISTS owner_slack_by_entity ON owner_slack (slack_id)`,
+		`CREATE TABLE IF NOT EXISTS owner_not_on_slack (
 			forge_host TEXT NOT NULL,
 			owner      TEXT NOT NULL,
 			slack_team TEXT NOT NULL,
@@ -143,7 +143,7 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost, workspace string) ([]O
 		return nil, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx)
+	database, found, err := s.readFile(ctx, keptFile())
 	if err != nil || !found {
 		return nil, err
 	}

@@ -18,7 +18,7 @@ import (
 // of the choice.
 func groupsSchema() []string {
 	return []string{
-		`CREATE TABLE repo_group (
+		`CREATE TABLE IF NOT EXISTS repo_group (
 			repo       TEXT NOT NULL,
 			slack_team TEXT NOT NULL,
 			slack_id   TEXT NOT NULL,
@@ -26,12 +26,12 @@ func groupsSchema() []string {
 			PRIMARY KEY (repo, slack_team, slack_id),
 			FOREIGN KEY (slack_id) REFERENCES slack_entity(slack_id) ON DELETE RESTRICT
 		) STRICT`,
-		`CREATE INDEX repo_group_by_entity ON repo_group (slack_id)`,
-		`CREATE TABLE repo_choice (
+		`CREATE INDEX IF NOT EXISTS repo_group_by_entity ON repo_group (slack_id)`,
+		`CREATE TABLE IF NOT EXISTS repo_choice (
 			repo      TEXT NOT NULL PRIMARY KEY,
 			chosen_at TEXT NOT NULL
 		) STRICT`,
-		`CREATE TABLE repo_choice_group (
+		`CREATE TABLE IF NOT EXISTS repo_choice_group (
 			repo       TEXT NOT NULL,
 			slack_team TEXT NOT NULL,
 			slack_id   TEXT NOT NULL,
@@ -61,7 +61,7 @@ func (s Store) RepoGroups(ctx context.Context, repo, workspace string) ([]SlackT
 		return nil, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx)
+	database, found, err := s.readFile(ctx, keptFile())
 	if err != nil || !found {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (s Store) LastGroups(ctx context.Context, repo, workspace string) ([]string
 		return nil, false, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx)
+	database, found, err := s.readFile(ctx, keptFile())
 	if err != nil || !found {
 		return nil, false, err
 	}

@@ -183,12 +183,12 @@ func TestMarkingAFavoriteOfTheWrongShapeAgainBringsItBack(t *testing.T) {
 	}
 }
 
-func TestAKeptFileFromBeforeFavoritesReadsAsEmptyAndRefusesOne(t *testing.T) {
+func TestAKeptFileFromBeforeFavoritesIsMadeAgainAndTakesOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	// Favorites came in with the kept schema's second version; a file the
-	// first made is left as it is until workflow db-clean --all.
+	// first made is discarded and made again, and keeps the favorite.
 	dir := t.TempDir()
 	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
@@ -198,8 +198,11 @@ func TestAKeptFileFromBeforeFavoritesReadsAsEmptyAndRefusesOne(t *testing.T) {
 	err := kept.Favor(t.Context(), apiDir, theTime())
 
 	// Assert
-	if !errors.Is(err, store.ErrKeptSchemaDiffers) {
-		t.Errorf("Favor on a first-version file = %v, want ErrKeptSchemaDiffers", err)
+	favorites, readErr := kept.Favorites(t.Context())
+
+	want := []store.Favorite{{Dir: apiDir, Added: theTime()}}
+	if err != nil || readErr != nil || !slices.Equal(favorites, want) {
+		t.Errorf("after Favor = %v: Favorites = %+v, %v; want %+v", err, favorites, readErr, want)
 	}
 }
 
