@@ -12,14 +12,14 @@
 # the lock, says so only when the worktree has uncommitted changes, and hands
 # the run to that user with an environment of named variables alone, each of
 # them handed on, under flock on the run lock, and without either lock's
-# descriptor, running the text the run began with from a copy under the
-# toolchain's run/, though a setup installed another gate over the path root
-# started from meanwhile. As the gate user it refuses to
-# run without task, trusts root's repository once, checks out the commit
-# refs/gate/head names, whichever commit it last named, clean but for
+# descriptor, started in / wherever root started, by whatever path, running
+# the text the run began with from a copy under the toolchain's run/, though
+# a setup installed another gate over its path meanwhile. As the gate user it
+# refuses to run without task, trusts root's repository once, checks out the
+# commit refs/gate/head names, whichever commit it last named, clean but for
 # web/node_modules and tmp/, in a checkout of its own, with the base handed
-# on fetched and named to task, or none, and runs the tasks asked
-# for there, one at a time, with a temporary directory of its own made fresh,
+# on fetched and named to task, or none, and runs the tasks asked for there,
+# one at a time, with a temporary directory of its own made fresh,
 # even of a directory a test sealed, or, asked for none, the steps of `task
 # check`, leaving out vuln only when vuln.go.dev cannot be reached; between
 # steps, a step named twice included, but not after the last, it clears its
@@ -188,6 +188,21 @@ if [[ -d /proc/self/fd ]]; then
   if grep -qF -e "${workdir}/gate.lock" -e "${workdir}/gate-run.lock" "${handed_files}"; then
     fail_case "the gate's lock" "it was handed a lock, which it would hold past the run"
   fi
+fi
+
+# runuser keeps the directory it is started in, which the gate user cannot
+# read when it is root's own, as a worktree under /tmp/claude-0 is. The gate
+# is started by a relative path there, as `bash scripts/gate-as-dev.sh` from
+# a worktree is, and still finds its library.
+mkdir -m 0700 "${workdir}/root-only"
+ln -s "${here}" "${workdir}/root-only/scripts"
+disk 9 8
+expect_exit pass "a run started in a directory of root's own" \
+  run_in "${workdir}/root-only" run_gate scripts/gate-as-dev.sh ../source lint
+count_case
+if [[ "$(cat "${handed_dirs}")" != $'/\n/' ]] || ! grep -q -- " --as-gate-user ${common} ${sha} lint$" "${log}"; then
+  fail_case "a run started in a directory of root's own" \
+    "the gate user did not start in / on ../source: $(tr '\n' ' ' <"${handed_dirs}")"
 fi
 
 disk 5 7
