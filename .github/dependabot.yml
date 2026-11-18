@@ -65,6 +65,11 @@ updates:
       # that migration.
       - dependency-name: "typescript"
         versions: ["7.x"]
+      # Playwright 1.65's Firefox crashes the page during the axe scan and
+      # breaks the keyboard walk's Tab order, so CI's Firefox e2e fails on it
+      # (#398). The next release is tried as it comes.
+      - dependency-name: "@playwright/test"
+        versions: ["1.65.x"]
 
   # markdownlint-cli2 and its whole tree (build/markdownlint/package.json and
   # its package-lock.json), which `task tools` installs with npm ci. A bump
