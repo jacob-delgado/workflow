@@ -213,8 +213,8 @@ Say which host and why, and carry on with what does not need it.
   and `TECH_DEBT.md` path checks on every push. It judges a push by what the
   checked-out branch changes against `origin/main`, so a branch that changes
   only the docs or the scripts skips unit-go, golangci-lint and web, and it
-  refuses a push of a branch at any other commit (push-is-head): push a
-  branch from its own worktree.
+  refuses, before any other check runs, a push of a branch at any other
+  commit (push-is-head): push a branch from its own worktree.
   `task test` alone takes about 15 minutes here, which is why the gate runs
   before the push and not because of it.
 - **A web change** runs `task e2e` too (see *Browsers*).

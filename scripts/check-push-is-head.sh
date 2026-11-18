@@ -18,6 +18,9 @@
 # as a run of the hook by hand is (TRADE-39), it passes: the checks then judge
 # HEAD, which is what the next push from here carries.
 #
+# lefthook.yml runs this as pre-push's first job, and its refusal stops the
+# hook before any other check.
+#
 # Exits 0 when every branch pushed would be at HEAD's commit, and 1 when one
 # would not.
 set -euo pipefail

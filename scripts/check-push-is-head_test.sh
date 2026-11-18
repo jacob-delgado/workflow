@@ -7,8 +7,10 @@
 # it, with git's lines, even when the branch checked out changes nothing
 # against origin/main, which leaves every other check of the hook no file to
 # run on: a push of another branch from main is refused, and one of main is
-# not. Those cases run the lefthook mise.toml pins, and are skipped where none
-# is on PATH.
+# not. A refused push stops the whole hook before any other check runs; an
+# allowed one runs every check its files select, a failing one hiding none
+# after it, but those LEFTHOOK_EXCLUDE names. Those cases run the lefthook
+# mise.toml pins, and are skipped where none is on PATH.
 #
 # Usage:
 #   scripts/check-push-is-head_test.sh
@@ -75,7 +77,28 @@ expect_exit pass "no lines, as from a run of the hook by hand" pushing
 #   hook <line>...
 hook() {
   printf '%s\n' "$@" | run_in "${repo}" env -u LEFTHOOK -u LEFTHOOK_EXCLUDE \
-    lefthook run pre-push origin "${origin}" --no-auto-install --command push-is-head
+    lefthook run pre-push origin "${origin}" --no-auto-install --job push-is-head
+}
+
+# Stand-ins for the tools the hook's checks run, each noting its run: task,
+# which fails, and golangci-lint, which passes.
+readonly stand_ins="${workdir}/stand-ins" ran="${workdir}/ran.log"
+mkdir -p "${stand_ins}"
+for tool in task:1 golangci-lint:0; do
+  printf '#!/usr/bin/env bash\necho %s >>"%s"\nexit %s\n' "${tool%:*}" "${ran}" "${tool#*:}" >"${stand_ins}/${tool%:*}"
+  chmod +x "${stand_ins}/${tool%:*}"
+done
+
+# whole_hook runs all of lefthook's pre-push in the repository as git's push
+# would, with the lines given on its standard input and the stand-ins first on
+# PATH, skipping only the checks the case's EXCLUDE names.
+#   [EXCLUDE=<names>] whole_hook <line>...
+whole_hook() {
+  local -a exclusion=(-u LEFTHOOK_EXCLUDE)
+  if [[ -n "${EXCLUDE:-}" ]]; then exclusion=("LEFTHOOK_EXCLUDE=${EXCLUDE}"); fi
+  : >"${ran}"
+  printf '%s\n' "$@" | run_in "${repo}" env -u LEFTHOOK "${exclusion[@]}" PATH="${stand_ins}:${PATH}" \
+    lefthook run pre-push origin "${origin}" --no-auto-install
 }
 
 if command -v lefthook >/dev/null; then
@@ -83,6 +106,32 @@ if command -v lefthook >/dev/null; then
     hook "refs/heads/main ${head} refs/heads/main ${head}"
   expect_output fail "lefthook's pre-push, a push of another branch from main" "refs/heads/other" \
     hook "refs/heads/other ${other} refs/heads/other ${zeros}"
+
+  # A refused push stops the hook before its other checks: the repository
+  # holds none of the four whole-tree scripts, so a run of one would name it.
+  expect_output fail "the whole pre-push, a push of another branch from main" "refs/heads/other" \
+    whole_hook "refs/heads/other ${other} refs/heads/other ${zeros}"
+  count_case
+  if grep -qE "check-(file-length|package-size|tradeoffs|tech-debt-paths)[.]sh" "${case_output}"; then
+    fail_case "the whole pre-push, a push of another branch from main" "a check ran after the push was refused"
+  fi
+
+  # An allowed push runs every check its files select, a failing one hiding
+  # none after it, and LEFTHOOK_EXCLUDE still skips the ones it names.
+  git -C "${repo}" switch -q other
+  expect_exit fail "the whole pre-push, a push of the Go branch checked out" \
+    whole_hook "refs/heads/other ${other} refs/heads/other ${zeros}"
+  count_case
+  if [[ "$(sort "${ran}" | tr '\n' ' ')" != "golangci-lint task " ]]; then
+    fail_case "the whole pre-push, a push of the Go branch checked out" "not every Go check ran: $(<"${ran}")"
+  fi
+  EXCLUDE=unit-go,web expect_exit fail "the whole pre-push, unit-go and web excluded" \
+    whole_hook "refs/heads/other ${other} refs/heads/other ${zeros}"
+  count_case
+  if [[ "$(<"${ran}")" != golangci-lint ]]; then
+    fail_case "the whole pre-push, unit-go and web excluded" "the checks run were not lint-go-all alone: $(<"${ran}")"
+  fi
+  git -C "${repo}" switch -q main
 else
   echo "check-push-is-head_test.sh: lefthook's cases skipped, no lefthook here"
 fi
