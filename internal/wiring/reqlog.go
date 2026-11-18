@@ -4,6 +4,7 @@
 package wiring
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,25 +22,55 @@ const webhookPrefix = "/services/"
 // redacted stands in for the part of a path that is a credential.
 const redacted = "[redacted]"
 
+// ErrRequestsUnrecorded is requests still in flight as the request log
+// closed, whose outlines it does not hold.
+var ErrRequestsUnrecorded = errors.New("requests still in flight as the request log closed, so not in it")
+
 // RequestLog records the outline of each HTTP request — its service, method,
 // path, status and duration — for a bug report. It records nothing else: never a
 // header, a body, a query string or a host, and never the path of a messaging
 // webhook, which is the credential itself; so no credential reaches the file.
+// Once closed it writes nothing, and counts what was still in flight; only its
+// echo, which outlives it, still says each outline.
 type RequestLog struct {
-	mu       sync.Mutex
-	out      io.Writer
-	now      func() time.Time
+	mu   sync.Mutex
+	out  io.Writer
+	echo io.Writer
+	now  func() time.Time
+	// stage is whether out still takes outlines.
+	stage logStage
+	// inFlight is how many requests it wraps are out, unanswered.
+	inFlight int
 	writeErr error
 }
+
+// logStage is whether a request log still records.
+type logStage int
+
+const (
+	// logRecording is a log that writes each outline as its request lands.
+	logRecording logStage = iota
+	// logClosed is a log whose writer is done with: an outline that lands
+	// now writes nothing.
+	logClosed
+)
 
 // NewRequestLog writes outlines to out, timestamped by now. A nil now means
 // time.Now.
 func NewRequestLog(out io.Writer, now func() time.Time) *RequestLog {
+	return NewEchoedRequestLog(out, io.Discard, now)
+}
+
+// NewEchoedRequestLog is NewRequestLog with each outline said to echo too:
+// every one, whatever out does with it, and before and after the log closes,
+// since echo is the debug lines on stderr, which outlive the log's file.
+// Echo's own failures go unheard, as every write to stderr's does.
+func NewEchoedRequestLog(out, echo io.Writer, now func() time.Time) *RequestLog {
 	if now == nil {
 		now = time.Now
 	}
 
-	return &RequestLog{out: out, now: now}
+	return &RequestLog{out: out, echo: echo, now: now}
 }
 
 // Wrap decorates a Doer so each request it makes is recorded under service. A
@@ -51,14 +82,23 @@ func (l *RequestLog) Wrap(service string, next func(*http.Request) (*http.Respon
 	return l.wrap(service, next, func(request *http.Request) string { return loggedPath(request.URL.Path) })
 }
 
-// Err is why the first outline the log could not write failed, or nil when
-// every outline was written. A failed write does not stop the log: each later
-// request is still offered to the writer.
-func (l *RequestLog) Err() error {
+// Close stops the log, before its writer closes: an outline that lands from
+// now on writes nothing. Its error joins why the first outline the log could
+// not write failed, since a failed write does not stop the log, with how many
+// requests were still in flight, whose outlines it will not hold; it is nil
+// when every outline was written and none is out.
+func (l *RequestLog) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	return l.writeErr
+	l.stage = logClosed
+
+	var unrecorded error
+	if l.inFlight > 0 {
+		unrecorded = fmt.Errorf("%w: %d", ErrRequestsUnrecorded, l.inFlight)
+	}
+
+	return errors.Join(l.writeErr, unrecorded)
 }
 
 // wrapWebhook is Wrap for a Doer that posts to a messaging webhook. Every
@@ -80,7 +120,7 @@ func (l *RequestLog) wrap(service string, next func(*http.Request) (*http.Respon
 	}
 
 	return func(request *http.Request) (*http.Response, error) {
-		start := l.now()
+		start := l.sent()
 		response, err := next(request)
 		l.record(service, request.Method, safePath(request), response, start, l.now().Sub(start))
 
@@ -88,17 +128,38 @@ func (l *RequestLog) wrap(service string, next func(*http.Request) (*http.Respon
 	}
 }
 
-// record writes one outline line: the start time, the service, the method, the
-// safe path, the status, and how long the request took.
-func (l *RequestLog) record(
-	service, method, safePath string, response *http.Response, start time.Time, elapsed time.Duration,
-) {
+// sent counts a request out, and is when it went.
+func (l *RequestLog) sent() time.Time {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	_, err := fmt.Fprintf(l.out, "%s %-5s %-4s %s %s %s\n",
+	l.inFlight++
+
+	return l.now()
+}
+
+// record counts a request answered, writes its outline line to the log
+// while it records, and says it to the echo: the start time, the service, the
+// method, the safe path, the status, and how long the request took.
+func (l *RequestLog) record(
+	service, method, safePath string, response *http.Response, start time.Time, elapsed time.Duration,
+) {
+	outline := fmt.Sprintf("%s %-5s %-4s %s %s %s\n",
 		start.UTC().Format(time.RFC3339), service, method,
 		safePath, status(response), elapsed.Round(time.Millisecond))
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.inFlight--
+
+	_, _ = io.WriteString(l.echo, outline)
+
+	if l.stage != logRecording {
+		return
+	}
+
+	_, err := io.WriteString(l.out, outline)
 	if err != nil && l.writeErr == nil {
 		l.writeErr = err
 	}

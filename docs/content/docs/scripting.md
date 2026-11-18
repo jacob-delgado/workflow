@@ -552,9 +552,13 @@ and never the path of a messaging webhook — Slack's, Teams', Discord's or a
 plain one — which is itself the credential. The file is created readable only
 by you. A line that cannot be written — on a full disk, say — neither stops
 the command nor changes its exit status: as it ends, the command says once on
-stderr that the request log could not be fully written. Its old name,
+stderr that the request log could not be fully written. A request still in
+flight as the command ends, such as a Slack read or a token's refresh that
+outlasted what asked for it, or a web request the server's stop did not wait
+for, is not in it, and the same warning says how many. Its old name,
 `--log`, is refused, exit 2, naming the new one. `--verbose` says the same
-outlines on stderr as debug lines, beside the file or without one.
+outlines on stderr as debug lines, beside the file or without one, and says
+even a request that lands after the file is closed.
 
 ```text
 2026-09-22T18:04:11Z jira  GET  /rest/api/2/myself 200 184ms

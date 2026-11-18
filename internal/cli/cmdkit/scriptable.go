@@ -251,33 +251,14 @@ func (logging requestLogging) open(path string) (*wiring.RequestLog, func(), err
 		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
 	}
 
-	var out io.Writer = file
+	echo := io.Discard
 	if logging.echo {
-		out = echoedFile{file: file, echo: logging.notes.DebugWriter()}
+		echo = logging.notes.DebugWriter()
 	}
 
-	requestLog := wiring.NewRequestLog(out, nil)
+	requestLog := wiring.NewEchoedRequestLog(file, echo, nil)
 
 	return requestLog, func() { closeRequestLog(requestLog, file, logging.notes) }, nil
-}
-
-// echoedFile writes each outline to the log's file and says it as a debug
-// line too. Unlike io.MultiWriter it offers every outline to both, so a file
-// that refuses its writes does not silence the echo --verbose asked for.
-type echoedFile struct {
-	file io.Writer
-	echo io.Writer
-}
-
-var _ io.Writer = echoedFile{}
-
-// Write writes outline to the file and the echo alike, and reports what
-// either could not write.
-func (out echoedFile) Write(outline []byte) (int, error) {
-	written, fileErr := out.file.Write(outline)
-	_, echoErr := out.echo.Write(outline)
-
-	return written, errors.Join(fileErr, echoErr)
 }
 
 // unfiled is the request log kept with no file: the debug lines alone when
@@ -290,12 +271,12 @@ func (logging requestLogging) unfiled() *wiring.RequestLog {
 	return wiring.NewRequestLog(logging.notes.DebugWriter(), nil)
 }
 
-// closeRequestLog closes the log's file and, when an outline was lost or the
-// file did not close cleanly, warns so in one line. The command's own result
-// stands: its work was done, and only the record of it is incomplete.
+// closeRequestLog closes the log and its file and, when an outline was lost,
+// a request was still in flight, or the file did not close cleanly, warns so
+// in one line. The command's own result stands: its work was done, and only
+// the record of it is incomplete.
 func closeRequestLog(requestLog *wiring.RequestLog, file *os.File, notes console.Notes) {
-	// Trade-off TRADE-18: only Linux's tests reach this, through /dev/full.
-	err := errors.Join(requestLog.Err(), file.Close())
+	err := errors.Join(requestLog.Close(), file.Close())
 	if err != nil {
 		reason := strings.ReplaceAll(err.Error(), "\n", "; ")
 		notes.Warn("The request log could not be fully written: " + reason)

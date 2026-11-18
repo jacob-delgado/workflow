@@ -188,12 +188,99 @@ func TestRequestLogKeepsItsFirstFailedWriteAndGoesOnWriting(t *testing.T) {
 	}
 
 	// Assert
-	err := log.Err()
+	err := log.Close()
 	if !errors.Is(err, errDiskFull) || errors.Is(err, errLogClosed) {
-		t.Errorf("Err() = %v, want the first failed write's %q alone", err, errDiskFull)
+		t.Errorf("Close() = %v, want the first failed write's %q alone", err, errDiskFull)
 	}
 
 	if written := out.written.String(); !strings.Contains(written, "/second") {
 		t.Errorf("the log stopped writing after a write failed: %q", written)
+	}
+}
+
+func TestARequestLogClosedWithNothingInFlightAndNothingFailedIsClean(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var out strings.Builder
+
+	log := wiring.NewRequestLog(&out, steppingClock(time.Millisecond))
+	_, _ = log.Wrap("jira", okDoer)(request(t, http.MethodGet, "https://jira.example.com/rest/api/2/myself"))
+
+	// Act
+	err := log.Close()
+
+	// Assert
+	if err != nil || !strings.Contains(out.String(), "/rest/api/2/myself") {
+		t.Errorf("Close() = %v, the log holding %q; want nil, and the outline written", err, out.String())
+	}
+}
+
+// closedUnderARequest is log's Close, called while a request it wraps is
+// out, once that request has landed after it.
+func closedUnderARequest(t *testing.T, log *wiring.RequestLog) error {
+	t.Helper()
+
+	arrived, release, answered := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	held := log.Wrap("slack", func(*http.Request) (*http.Response, error) {
+		close(arrived)
+		<-release
+
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	})
+	late := request(t, http.MethodPost, "https://slack.com/api/oauth.v2.access")
+
+	go func() {
+		defer close(answered)
+
+		_, _ = held(late)
+	}()
+
+	<-arrived
+
+	err := log.Close()
+
+	close(release)
+	<-answered
+
+	return err
+}
+
+func TestARequestStillInFlightWhenTheLogClosesIsCountedNotWritten(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var out strings.Builder
+
+	log := wiring.NewRequestLog(&out, steppingClock(time.Millisecond))
+
+	// Act
+	err := closedUnderARequest(t, log)
+
+	// Assert
+	if !errors.Is(err, wiring.ErrRequestsUnrecorded) || !strings.HasSuffix(err.Error(), ": 1") {
+		t.Errorf("Close() = %v, want %q, counting the one request in flight", err, wiring.ErrRequestsUnrecorded)
+	}
+
+	if out.Len() != 0 {
+		t.Errorf("the log holds %q, want no outline written after it closed", out.String())
+	}
+}
+
+func TestAnEchoedLogStillSaysARequestThatLandsAfterItCloses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var file, echo strings.Builder
+
+	log := wiring.NewEchoedRequestLog(&file, &echo, steppingClock(time.Millisecond))
+
+	// Act
+	_ = closedUnderARequest(t, log)
+
+	// Assert
+	if file.Len() != 0 || !strings.Contains(echo.String(), "slack POST /api/oauth.v2.access 200") {
+		t.Errorf("the file holds %q and the echo %q; want the late outline echoed alone", file.String(),
+			echo.String())
 	}
 }

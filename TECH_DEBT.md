@@ -306,40 +306,40 @@ that exited before its context did.
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
 
-### TRADE-18 Two conditions a test reaches where the report cannot see it
+### TRADE-18 A condition a test reaches where the report cannot see it
 
-Two conditions are reached by a test the condition report does not count.
-`closeRequestLog` (`internal/cli/cmdkit/scriptable.go`) asks whether the
-request log's file could be fully written, and says so on stderr when it could
-not. `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
-(`internal/cli/cmdkit/reqlog_test.go`) reaches it by logging to `/dev/full`,
-every write to which fails as a full disk would; macOS has none, and no other
-file can be made to refuse writes from a test, so a report measured there
-lists it as seen one way, and CI's, measured on Linux, does not. `keysFrom`
-(`internal/tui/tui.go`) asks whether the interface's input is a file and, if
-so, whether that file is a terminal, and reads no keys from a file that is
-none. `TestRunReadsKeysFromATerminalItIsHanded` (`internal/tui/run_test.go`)
-hands `Run` a pseudo-terminal in the test process, so the file check is seen
-both ways. Only `TestRunReadsNoKeysFromAFileThatIsNoTerminal`
+A condition is reached by a test the condition report does not count.
+`keysFrom` (`internal/tui/tui.go`) asks whether the interface's input is a
+file and, if so, whether that file is a terminal, and reads no keys from a
+file that is none. `TestRunReadsKeysFromATerminalItIsHanded`
+(`internal/tui/run_test.go`) hands `Run` a pseudo-terminal in the test
+process, so the file check is seen both ways. Only
+`TestRunReadsNoKeysFromAFileThatIsNoTerminal`
 (`internal/tui/run_unix_test.go`) hands it a file that is no terminal, in a
 child process that has no terminal at all, as a test run from a developer's
 shell does not, and gobco counts only the test process, so every report lists
 the terminal check as never false.
 
-**Decided.** 2026-09-26, in #146, for `closeRequestLog`, and in #237, on
-2026-10-09, for `keysFrom`.
+**Decided.** 2026-10-09, in #237, for `keysFrom`. The entry kept a second
+condition from 2026-09-26, in #146: `closeRequestLog`
+(`internal/cli/cmdkit/scriptable.go`), whose warning that the request log
+was not fully written only Linux's tests reached, by logging to `/dev/full`,
+so a report measured on macOS listed it as seen one way. Since 2026-11-18,
+in the pull request that gave the request log a closed stage,
+`TestARequestLogClosedUnderARequestInFlightSaysSoOnce`
+(`internal/cli/cmdkit/reqlog_test.go`) reaches that warning on every
+system, by closing the log under a request in flight, and its allowlist
+line went.
 
-**Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
-every report lists `keysFrom`'s terminal check as never false, though a test
-fails when either arm breaks; a reader of the report could take either for
-untested. Since the gate fails a condition seen one way on a line a change
-touches (TRADE-19), a change that touches the terminal check's line fails on
-every system until a line of `scripts/gobco-allowlist.txt` keeps it for this
-entry.
+**Cost.** Every report lists `keysFrom`'s terminal check as never false,
+though a test fails when either arm breaks; a reader of the report could take
+it for untested. Since the gate fails a condition seen one way on a line a
+change touches (TRADE-19), a change that touches the terminal check's line
+fails on every system until a line of `scripts/gobco-allowlist.txt` keeps it
+for this entry.
 
-**Reopen when.** CI measures condition coverage on another system, a test
-stops reaching either condition, or gobco comes to count what a child process
-runs.
+**Reopen when.** A test stops reaching either arm of the terminal check, or
+gobco comes to count what a child process runs.
 
 ### TRADE-19 A condition seen one way on a line no change touches stays the report's worklist
 
@@ -367,8 +367,8 @@ run 43477897900 over main at the 0.14.0 release commit, which runs as the
 runner's user, not root: of 7,203 conditions, 6,668 were seen both ways and
 535 one way, and none never ran, so 13,871 of 14,406 arms were seen, 96.3%
 against `BRANCH_COVERAGE_MIN` 93. Of the 535, the allowlist keeps 30 error
-arms for TRADE-13, TRADE-14, TRADE-16 and TRADE-36 (a 31st line, TRADE-18's,
-holds only on macOS), and the other 505 are the worklist this entry keeps.
+arms for TRADE-13, TRADE-14, TRADE-16 and TRADE-36, and the other 505 are
+the worklist this entry keeps.
 Two runs of the same code can differ by an arm or two: gobco's counters are
 plain increments, which a package's parallel tests can lose
 (`scripts/gobco-report.sh` says so), and on 2026-10-12 two runs of the same

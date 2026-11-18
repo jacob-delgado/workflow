@@ -4,6 +4,8 @@
 package cmdkit_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -161,5 +163,97 @@ func TestARequestLogNamedRelativelyNeedsTheWorkingDirectory(t *testing.T) {
 	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+clitest.WorkdirUnread) {
 		t.Errorf("--request-log requests.log from a removed directory = %v, want it to say the log cannot be "+
 			"opened for the directory it cannot name", err)
+	}
+}
+
+// heldRequest is a request the log wraps that is held until release closes,
+// with arrived closed once it is out and answered once it is answered.
+type heldRequest struct {
+	arrived, release, answered chan struct{}
+}
+
+// newHeldRequest is a request not yet out.
+func newHeldRequest() heldRequest {
+	return heldRequest{arrived: make(chan struct{}), release: make(chan struct{}), answered: make(chan struct{})}
+}
+
+// doer answers once the request is released.
+func (h heldRequest) doer(*http.Request) (*http.Response, error) {
+	close(h.arrived)
+	<-h.release
+
+	return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+}
+
+// closedUnder is a probe that opens the request log as a command does,
+// closes it while held is still in flight, and lets held land after.
+func closedUnder(held heldRequest) func(cmd *cobra.Command, _ []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		requestLog, closeLog, err := cmdkit.RequestLogFor(cmd)
+		if err != nil {
+			return err
+		}
+
+		//nolint:bodyclose // the request below closes the body of the response it is answered with
+		do := requestLog.Wrap("jira", held.doer)
+
+		go func() {
+			defer close(held.answered)
+
+			response, _ := do(httptest.NewRequestWithContext(cmd.Context(), http.MethodGet,
+				"https://jira.example.com/rest/api/2/myself", nil))
+			_ = response.Body.Close()
+		}()
+
+		<-held.arrived
+		closeLog()
+		close(held.release)
+		<-held.answered
+
+		return nil
+	}
+}
+
+func TestARequestLogClosedUnderARequestInFlightSaysSoOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	env, dir := inATempDir(t)
+	root := probeTree(env, closedUnder(newHeldRequest()))
+
+	// Act
+	printed, err := runTree(t, root, "--request-log", "requests.log", probeCommand)
+
+	// Assert
+	warned := strings.Count(printed.Stderr, "WARN The request log could not be fully written: "+
+		"requests still in flight as the request log closed, so not in it: 1")
+	if err != nil || warned != 1 {
+		t.Errorf("closing the log under a request = %v, warned %d times:\n%s\nwant it said once", err, warned,
+			printed.Stderr)
+	}
+
+	written, readErr := os.ReadFile(filepath.Join(dir, "requests.log"))
+	if readErr != nil || len(written) != 0 {
+		t.Errorf("the log = %v, holding %q; want it kept, with no outline written after it closed", readErr,
+			written)
+	}
+}
+
+func TestARequestThatLandsAfterTheLogClosesIsStillEchoedUnderVerbose(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	env, _ := inATempDir(t)
+	root := probeTree(env, closedUnder(newHeldRequest()))
+
+	// Act
+	printed, err := runTree(t, root, verboseFlag, "--request-log", "requests.log", probeCommand)
+
+	// Assert
+	// The file is done with, but stderr is not: the debug lines --verbose
+	// asked for still say the request, as they say every other.
+	if err != nil || !strings.Contains(printed.Stderr, "DEBUG jira GET /rest/api/2/myself 200") {
+		t.Errorf("--verbose with the log closed under a request = %v, stderr:\n%s\nwant the request's outline "+
+			"echoed as a debug line all the same", err, printed.Stderr)
 	}
 }
