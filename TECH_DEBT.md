@@ -1908,3 +1908,29 @@ right; the user has to read the error to see the file is the cause.
 **Reopen when.** A user reports a `kept.db` failing with SQLite's error about
 a table, or the kept schema step comes to tell a table in its way apart for
 another reason.
+
+### TRADE-74 A stop during a run's drain reads as stopped
+
+**Decided.** 2026-11-17 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: a git run of `workflow --web`
+that was asked to stop ends `stopped` whenever its program exited failing
+(`runState.ended`, `internal/webserver/runs/slot.go`). So a program that
+failed on its own, and is stopped after its exit but before the run has read
+it, reads as stopped rather than refused. That gap is a moment, or up to
+`outputGrace`, two seconds, while a process the program left behind holds
+its output open, since `Output.Wait` returns only once the output has ended
+(`internal/proc/start.go`). A program that passed still reads as passed, as
+no program passes through a kill
+(`TestAStopThatComesOnceTheProgramPassedLeavesTheRunSucceeded`). Telling the
+two apart would have `Output.Stop` report whether it killed anything, which
+reaches every caller of `internal/proc`, and a stop that found nothing to
+kill would then be refused, a refusal the page's **Stop** has no use for
+(`web/src/features/branch/GitRun.tsx`).
+
+**Cost.** A run whose program failed on its own, and was stopped within that
+gap, says "Stopped …" rather than that it failed. Its lines still show what
+the program wrote, the failure among them.
+
+**Reopen when.** A user reports a run that failed on its own shown as
+stopped, or `internal/proc` comes to report whether a stop killed its
+program for another reason.

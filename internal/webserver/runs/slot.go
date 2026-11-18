@@ -103,6 +103,9 @@ func (s runState) wrote(line string) runState {
 // reached it; any stage but runStopping reads its exit alone.
 func (s runState) ended(planned plannedRun, exit error) (runState, api.Run) {
 	switch {
+	// Trade-off TRADE-74: a program that failed on its own and was stopped
+	// before its exit was read reads as stopped, since proc cannot say
+	// whether the stop killed it.
 	case s.stage == runStopping && exit != nil:
 		s.run.State, s.run.Outcome = api.RunStateStopped, "Stopped "+planned.title+"."
 	case exit != nil:
