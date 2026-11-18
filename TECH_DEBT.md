@@ -1934,3 +1934,26 @@ the program wrote, the failure among them.
 **Reopen when.** A user reports a run that failed on its own shown as
 stopped, or `internal/proc` comes to report whether a stop killed its
 program for another reason.
+
+### TRADE-75 Only the configuration and keys reads take up a hand edit
+
+**Decided.** 2026-11-17 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: of the `--web` API's reads,
+only `GET /api/config` (`GetConfig`) and `GET /api/keys` (`GetKeys`) read the
+configuration file again and take up an edit made to it by hand
+(`server.reread`, `internal/webserver/config.go`). Every other read, the event
+stream's frames among them, and every write work with the configuration in
+effect, which those two reads, a save from Settings, a switch of directory
+or a restart replace. Reading the file again for every frame would put a
+read and a parse of the file on each frame of every page, and would change
+what the page shows mid-flow: a change of behavior, not of a machine's shape.
+
+**Cost.** An edit made to the file by hand, a Jira address, a channel or an
+issue view, reaches the page's other sections and its writes only once
+Settings opens, the page loads again (it reads its keys as it loads), or a
+save or a switch is made. Until then they work with the configuration from
+before the edit.
+
+**Reopen when.** A user reports a hand edit that the page did not take up
+until Settings opened, or the stream comes to read the file for another
+reason.

@@ -30,6 +30,8 @@ func (s *server) GetConfig(
 		return s.configMadeSince(ctx, request)
 	}
 
+	// Trade-off TRADE-75: this read and GetKeys' alone take up a hand edit;
+	// every other read and write keeps the configuration in effect.
 	cfg, read, err := s.reread()
 	if errors.Is(err, config.ErrInvalid) {
 		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
