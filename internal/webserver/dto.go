@@ -63,7 +63,22 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 		Uncounted:        branch.Uncounted,
 		Base:             branch.Base,
 		Commits:          commits,
+		Operation:        gitOperation(branch.Operation),
+		Rebasing:         branch.Rebasing,
 	}
+}
+
+// gitOperation is a stopped operation in the API's words. A map, not a
+// switch, so gobco sees no arm it can never reach, and exhaustive keeps it
+// complete.
+func gitOperation(operation gitrepo.Operation) api.GitOperation {
+	return map[gitrepo.Operation]api.GitOperation{
+		gitrepo.OperationNone:       api.GitOperationNone,
+		gitrepo.OperationRebase:     api.GitOperationRebase,
+		gitrepo.OperationMerge:      api.GitOperationMerge,
+		gitrepo.OperationCherryPick: api.GitOperationCherryPick,
+		gitrepo.OperationRevert:     api.GitOperationRevert,
+	}[operation]
 }
 
 // finishCommands are the commands finishing branch runs, or nil for one with

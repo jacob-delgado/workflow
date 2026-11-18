@@ -149,3 +149,40 @@ func TestGetBranchSaysABranchGitCouldNotCountIsUncounted(t *testing.T) {
 		t.Errorf("uncounted = false for a branch git could not count against %s, want true", branch.Upstream)
 	}
 }
+
+func TestGetBranchNamesTheGitOperationStoppedPartWay(t *testing.T) {
+	t.Parallel()
+
+	cases := map[gitrepo.Operation]struct {
+		want     api.GitOperation
+		rebasing string
+	}{
+		gitrepo.OperationNone:       {want: api.GitOperationNone, rebasing: ""},
+		gitrepo.OperationRebase:     {want: api.GitOperationRebase, rebasing: webtest.TestBranchName},
+		gitrepo.OperationMerge:      {want: api.GitOperationMerge, rebasing: ""},
+		gitrepo.OperationCherryPick: {want: api.GitOperationCherryPick, rebasing: ""},
+		gitrepo.OperationRevert:     {want: api.GitOperationRevert, rebasing: ""},
+	}
+
+	for operation, tt := range cases {
+		t.Run(string(tt.want), func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := webtest.FilledDeps()
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+				return gitrepo.Branch{Detached: true, Operation: operation, Rebasing: tt.rebasing}, nil
+			}
+
+			// Act
+			branch := webtest.Decode[api.Branch](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()),
+				"/api/branch"))
+
+			// Assert
+			if branch.Operation != tt.want || branch.Rebasing != tt.rebasing {
+				t.Errorf("operation = %q, rebasing %q; want %q, rebasing %q",
+					branch.Operation, branch.Rebasing, tt.want, tt.rebasing)
+			}
+		})
+	}
+}

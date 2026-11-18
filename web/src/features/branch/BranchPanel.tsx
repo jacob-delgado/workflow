@@ -1,6 +1,6 @@
 import { GitBranch } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { Branch, Change } from '@/api/generated/types.gen.ts'
+import type { Branch, Change, GitOperation } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -70,11 +70,12 @@ export function BranchPanel() {
 
 // BranchSummary is the checked-out branch, with the push that publishes it and
 // the line that says what the push did — which stays when the snapshot showing
-// the branch published takes the push away. A detached HEAD has no branch to
-// push, link or rebase, so it says where one is to be had instead.
+// the branch published takes the push away. A git operation stopped part way
+// is said first, with how to end it; a detached HEAD has no branch to push,
+// link or rebase, so it says where one is to be had instead.
 function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }) {
   const outcome = useOutcome()
-  const heading = branch.name === '' ? `Detached HEAD at ${shortHash(branch.head)}` : branch.name
+  const heading = branchHeading(branch)
   // There is something to push on a branch of its own (not a detached HEAD, not
   // the base) that does not track itself on the remote its push goes to, or
   // that its upstream there is not known to hold: ahead of it, or not counted
@@ -92,11 +93,7 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
           {heading}
         </h2>
       </div>
-      {branch.detached ? (
-        <p className="text-sm text-muted-foreground">
-          To work on a branch, go to Issues, where Switch branch and Start work live.
-        </p>
-      ) : null}
+      <BranchAdvice branch={branch} />
       <dl className={definitionList}>
         <dt className="text-muted-foreground">Base</dt>
         <CodeValue value={branch.base} />
@@ -119,6 +116,62 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
       <OutcomeLine said={outcome.said} />
     </section>
   )
+}
+
+// BranchAdvice says how to end a git operation stopped part way, or, under a
+// detached HEAD, where a branch is to be had; nothing on a branch at rest.
+function BranchAdvice({ branch }: { branch: Branch }) {
+  if (branch.operation !== 'none') {
+    const command = gitCommand(branch.operation)
+    const what = branch.operation === 'rebase' ? `A rebase of ${rebased(branch)}` : `A ${command}`
+    return (
+      <p className="text-sm text-muted-foreground">
+        {`${what} is stopped part way. Resolve what it stopped on, then run git ${command} --continue, or git ${command} --abort to go back.`}
+      </p>
+    )
+  }
+  if (!branch.detached) {
+    return null
+  }
+  return (
+    <p className="text-sm text-muted-foreground">
+      To work on a branch, go to Issues, where Switch branch and Start work live.
+    </p>
+  )
+}
+
+// branchHeading names the branch as the terminal's Branch pane does: what a
+// stopped rebase replays, the branch with the operation stopped on it, or the
+// commit a detached HEAD is at.
+function branchHeading(branch: Branch): string {
+  if (branch.operation === 'rebase') {
+    return `Rebasing ${rebased(branch)}`
+  }
+  const name = branch.name === '' ? `Detached HEAD at ${shortHash(branch.head)}` : branch.name
+  return branch.operation === 'none' ? name : `${name} · ${gitCommand(branch.operation)} stopped`
+}
+
+// rebased is the branch a stopped rebase replays, or that it replays none.
+function rebased(branch: Branch): string {
+  return branch.rebasing === '' ? 'a detached HEAD' : branch.rebasing
+}
+
+// gitCommand is the git command that continues or aborts a stopped operation.
+function gitCommand(operation: Exclude<GitOperation, 'none'>): string {
+  switch (operation) {
+    case 'rebase':
+      return 'rebase'
+    case 'merge':
+      return 'merge'
+    case 'cherry_pick':
+      return 'cherry-pick'
+    case 'revert':
+      return 'revert'
+    default: {
+      const unknown: never = operation
+      return unknown
+    }
+  }
 }
 
 // tracking is how the branch stands against its upstream: not pushed yet while

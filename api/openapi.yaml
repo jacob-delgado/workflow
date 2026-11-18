@@ -4521,7 +4521,7 @@ components:
 
     Branch:
       type: object
-      required: [name, detached, head, upstream, push_remote, base_remote, ahead, behind, uncounted, base, commits, issue_link]
+      required: [name, detached, head, upstream, push_remote, base_remote, ahead, behind, uncounted, base, commits, issue_link, operation, rebasing]
       properties:
         name: {type: string}
         issue_link:
@@ -4583,7 +4583,20 @@ components:
           type: array
           description: The commits on this branch since its base.
           items: {$ref: "#/components/schemas/Commit"}
+        operation: {$ref: "#/components/schemas/GitOperation"}
+        rebasing:
+          type: string
+          description: >-
+            The branch a stopped rebase replays, which a detached HEAD hides;
+            empty when it replays a detached HEAD, and for any other operation.
       additionalProperties: false
+
+    GitOperation:
+      type: string
+      enum: [none, rebase, merge, cherry_pick, revert]
+      description: >-
+        The git operation stopped part way in the work tree, which git
+        finishes with --continue or ends with --abort; none when nothing is.
 
     Commit:
       type: object
