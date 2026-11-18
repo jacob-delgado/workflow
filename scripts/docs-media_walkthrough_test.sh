@@ -11,11 +11,12 @@
 # held, with no such stretch the film has no frame of, and with each step's
 # keyframe there to look at. A WebP of 4 MiB passes and a byte more fails by
 # name. It refuses a busy machine, a load past all but one of its processors
-# or a gate or Playwright run going, the gate setup installs on PATH among
-# them, and one started while the script built too, and an ffmpeg with no
-# libwebp_anim; it fails when the run filmed nothing, the encoding fails, or a
-# gate started while it filmed. The stand-ins of lib/docs-media-fixtures.sh
-# say what they were asked, so nothing is built, filmed or encoded.
+# or a gate or Playwright run going, the gate setup installs on PATH and the
+# run copy the gate user runs among them, and one started while the script
+# built too, and an ffmpeg with no libwebp_anim; it fails when the run filmed
+# nothing, the encoding fails, or a gate started while it filmed. The
+# stand-ins of lib/docs-media-fixtures.sh say what they were asked, so
+# nothing is built, filmed or encoded.
 #
 # Usage:
 #   scripts/docs-media_walkthrough_test.sh
@@ -185,9 +186,9 @@ expect_output 2 "a gate going" "a gate or a Playwright run is going" \
   media "${root}" "${all}" "${with_browser}" "FAKE_RUNNING=4242 bash scripts/gate-as-dev.sh ."
 expect_output 2 "the gate setup installs going, as root hands it over" "a gate or a Playwright run is going" \
   media "${root}" "${all}" "${with_browser}" "FAKE_RUNNING=4242 bash /root/.local/bin/gate-as-dev /home/user/wt/lane"
-expect_output 2 "the gate setup installs going, as the gate user runs it" "a gate or a Playwright run is going" \
+expect_output 2 "the gate's run copy going, as the gate user runs it" "a gate or a Playwright run is going" \
   media "${root}" "${all}" "${with_browser}" \
-  "FAKE_RUNNING=4243 bash /opt/workflow-tools/bin/gate-as-dev --as-gate-user /home/user/workflow/.git 0123abcd"
+  "FAKE_RUNNING=4243 bash /opt/workflow-tools/run/gate-as-dev --as-gate-user /home/user/workflow/.git 0123abcd"
 expect_exit pass "a process that only names the gate's test" media "${root}" "${all}" "${with_browser}" \
   "FAKE_RUNNING=4244 less scripts/gate-as-dev_test.sh"
 # A gate started once the busy check passed is seen before the filming, once

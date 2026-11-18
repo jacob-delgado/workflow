@@ -31,9 +31,16 @@ stub() {
 }
 
 # df reports the next free space queued in ${df_queue}, in GB, and keeps
-# reporting the last one once the queue runs out.
+# reporting the last one once the queue runs out. Given DF_REPLACE, its first
+# call puts a new file at that path, as a setup run meanwhile installs another
+# gate: a copy ending in "# replaced", written beside it and renamed over it.
 # shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
 stub df 'queue="'"${df_queue}"'"
+if [[ -n "${DF_REPLACE:-}" ]] && ! grep -qx "# replaced" "${DF_REPLACE}"; then
+  cp -p "${DF_REPLACE}" "${DF_REPLACE}.new"
+  echo "# replaced" >>"${DF_REPLACE}.new"
+  mv -f "${DF_REPLACE}.new" "${DF_REPLACE}"
+fi
 free="$(head -1 "${queue}")"
 if (($(wc -l <"${queue}") > 1)); then tail -n +2 "${queue}" >"${queue}.next" && mv "${queue}.next" "${queue}"; fi
 printf "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/vda 1 1 %d 1%% /\n" $((free * 1048576))'

@@ -27,7 +27,10 @@
 # holds until it hands over and the gate user's half from then on, through
 # flock, so a gate user's half that outlives root's, killed, still holds the
 # run off its checkout. scripts/cloud-session-setup.sh waits for both before it
-# changes the toolchain.
+# changes the toolchain. The gate user's half runs a copy of the text root's
+# half started with, written under the lock into ${GATE_TOOLS}/run, so a setup
+# that installs another gate-as-dev while a run waits changes only the runs
+# that start after it.
 #
 # The toolchain is one, installed from the pins of whichever checkout ran the
 # setup last, so before a run the gate checks the commit's pins are the ones
@@ -60,6 +63,10 @@
 # own.
 set -euo pipefail
 
+# Read first, before any wait: bash reads a script as it runs it, and a setup
+# may install another one over this path while the run waits for its lock.
+self_text="$(<"${BASH_SOURCE[0]}")"
+readonly self_text
 readonly gate_user="${GATE_USER:-dev}"
 readonly gate_home="/home/${gate_user}"
 readonly tools="${GATE_TOOLS:-/opt/workflow-tools}"
@@ -124,6 +131,20 @@ take_lock() {
   wait_for "${run_lock}" "${run_lock_file}"
 }
 
+# run_copy writes the text this run began with to the copy the gate user's
+# half runs, in a directory only root writes and any user reads, whatever
+# root's umask, and prints its path. The run lock, held from here to the
+# run's end, keeps the copy as written.
+run_copy() {
+  local copy="${tools}/run/gate-as-dev"
+  mkdir -p "${copy%/*}"
+  chmod 0755 "${copy%/*}"
+  printf '%s\n' "${self_text}" >"${copy}.new"
+  chmod 0644 "${copy}.new"
+  mv -f "${copy}.new" "${copy}"
+  echo "${copy}"
+}
+
 # commit_file prints a file as a commit holds it.
 #   commit_file <worktree> <sha> <path>
 commit_file() {
@@ -178,11 +199,11 @@ name_base() {
 }
 
 # hand_over names the worktree's HEAD for the gate user to fetch and runs the
-# rest of this script as that user. Given no task, it runs check:docs for a
-# docs-only change and the steps of check for any other.
+# rest of the text this run began with as that user. Given no task, it runs
+# check:docs for a docs-only change and the steps of check for any other.
 #   hand_over <worktree> [task...]
 hand_over() {
-  local src common sha self name docs handed_base
+  local src common sha copy name docs handed_base
   local -a environment
   if ! id "${gate_user}" >/dev/null 2>&1; then
     echo "gate-as-dev: no user ${gate_user}; scripts/cloud-session-setup.sh makes it" >&2
@@ -198,7 +219,6 @@ hand_over() {
     echo "gate-as-dev: ${src} has no commit to gate" >&2
     exit 2
   fi
-  self="$(readlink -f "${BASH_SOURCE[0]}")"
   if (($# == 0)); then
     docs="$(docs_only_tasks "${src}")"
     if [[ -n "${docs}" ]]; then set -- "${docs}"; fi
@@ -212,6 +232,7 @@ hand_over() {
   handed_base="$(name_base "${src}")"
   check_pins "${src}" "${sha}"
   make_room
+  copy="$(run_copy)"
   trap 'echo "gate-as-dev: $(free_gb) GB free on / after the run"' EXIT
   # A detached HEAD is no ref the gate user can fetch, so name the commit.
   git -C "${src}" update-ref refs/gate/head "${sha}"
@@ -229,7 +250,7 @@ hand_over() {
     XDG_CACHE_HOME="${gate_home}/.cache" COREPACK_HOME="${gate_home}/.cache/node/corepack" \
     COREPACK_NPM_REGISTRY=https://registry.npmjs.org COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     NPM_CONFIG_USERCONFIG="${gate_home}/.npmrc" ZIZMOR_OFFLINE=true GATE_BASE="${handed_base}" \
-    flock -o -w "${lock_wait}" "${run_lock_file}" bash "${self}" --as-gate-user "${common}" "${sha}" "$@" {lock}>&-
+    flock -o -w "${lock_wait}" "${run_lock_file}" bash "${copy}" --as-gate-user "${common}" "${sha}" "$@" {lock}>&-
 }
 
 # check_steps prints the steps of `task check`, one per line, but vuln when

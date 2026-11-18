@@ -36,8 +36,9 @@ refuse_busy() {
 }
 
 # running_gates prints each gate or Playwright run going: a gate is
-# gate-as-dev.sh, or the gate-as-dev setup installs on PATH, run as root or as
-# the gate user, whose own runs of task name a step of check, not check.
+# gate-as-dev.sh or the gate-as-dev setup installs on PATH, as root runs it,
+# or the run copy the gate user runs, whose own runs of task name a step of
+# check, not check.
 running_gates() {
   pgrep -fa -- 'gate-as-dev([.]sh)?( |$)|task (check|e2e)|playwright test' || true
 }

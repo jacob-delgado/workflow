@@ -12,7 +12,9 @@
 # the lock, says so only when the worktree has uncommitted changes, and hands
 # the run to that user with an environment of named variables alone, each of
 # them handed on, under flock on the run lock, and without either lock's
-# descriptor. As the gate user it refuses to
+# descriptor, running the text the run began with from a copy under the
+# toolchain's run/, though a setup installed another gate over the path root
+# started from meanwhile. As the gate user it refuses to
 # run without task, trusts root's repository once, checks out the commit
 # refs/gate/head names, whichever commit it last named, clean but for
 # web/node_modules and tmp/, in a checkout of its own, with the base handed
@@ -132,6 +134,44 @@ count_case
 if [[ " ${handed} " != *" GATE_BASE=refs/gate/base "* ]] \
   || [[ "$(git -C "${source_repo}" rev-parse refs/gate/base)" != "${sha}" ]]; then
   fail_case "a base the worktree holds" "refs/gate/base was not named and handed on: ${handed}"
+fi
+
+# A setup run while a gate run waits installs another gate over the path root
+# started from; the gate user's half still runs the text root's half began
+# with, from a copy under the toolchain's run/ that the gate user can read,
+# whatever root's umask.
+installed="${workdir}/installed-gate/gate-as-dev"
+mkdir -p "${installed%/*}/lib"
+cp "${gate}" "${installed}"
+cp "${here}/lib/toolchain-pins.sh" "${installed%/*}/lib/toolchain-pins.sh"
+rm -rf "${workdir}/tools/run"
+# with_umask runs a command under a umask; a case runs in a subshell of its
+# own, so the umask ends with it.
+#   with_umask <mask> <command> [arg...]
+with_umask() {
+  umask "$1"
+  shift
+  "$@"
+}
+disk 12
+DF_REPLACE="${installed}" expect_exit pass "a gate installed while the run waits" \
+  with_umask 077 run_gate "${installed}" "${source_repo}" lint
+handed_copy="$(sed -n 's/.* flock -o -w 3600 [^ ]* bash \([^ ]*\) --as-gate-user .*/\1/p' "${log}")"
+count_case
+if ! grep -qx "# replaced" "${installed}"; then
+  fail_case "a gate installed while the run waits" "no other gate was installed while it waited"
+fi
+count_case
+if [[ ! -f "${handed_copy}" ]] || grep -qx "# replaced" "${handed_copy}" || ! cmp -s "${gate}" "${handed_copy}"; then
+  fail_case "a gate installed while the run waits" "the gate user was not handed the text the run began with: ${handed_copy}"
+fi
+count_case
+if [[ "${handed_copy}" != "${workdir}/tools/run/"* || "$(stat -c %a "${handed_copy}" 2>/dev/null)" != 644 ]]; then
+  fail_case "the gate user's run copy" "it is not a 0644 file under the toolchain's run/: ${handed_copy}"
+fi
+count_case
+if [[ "$(stat -c %a "${workdir}/tools/run" 2>/dev/null)" != 755 ]]; then
+  fail_case "the gate user's run copy" "its directory is not 0755 under umask 077: $(stat -c %a "${workdir}/tools/run" 2>&1)"
 fi
 
 disk 9 8
