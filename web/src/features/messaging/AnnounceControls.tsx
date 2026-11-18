@@ -79,7 +79,15 @@ export function AnnounceControls({
   const post = useAnnouncePost(draft.channel, service, sent, () => {
     void draft.preview.run('keeping the choices')
   })
-  const hold = useAnnounceHold(draft.channel, service, sent)
+  // A hold lets go of a post refused for a failed check, whose reason the
+  // hold answers: once the hold is made, it would stand under the button.
+  const hold = useAnnounceHold(draft.channel, service, {
+    ...sent,
+    start: () => {
+      post.reset()
+      sent.start()
+    },
+  })
 
   const refused = refusedSend(post, hold)
   if (draft.preview.state === 'done' && !refused) {
