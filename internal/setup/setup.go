@@ -235,6 +235,9 @@ func KeepFor(
 	ctx context.Context, store func(ctx context.Context, service, secret string) error, undo Undo,
 	answered config.Jira,
 ) error {
+	// Trade-off TRADE-81: the file and the keychain item are not written as
+	// one, so a process ended between the two leaves the file reading a token
+	// the keychain does not hold.
 	_, err := Keep(ctx, store, answered)
 	if err != nil {
 		return errors.Join(err, undo())

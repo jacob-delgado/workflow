@@ -2064,3 +2064,48 @@ posts it, and the next frame says it was announced.
 **Reopen when.** A user reports an announcement asked for again said to wait
 for CI that had passed, or a retold hold comes to take a round of its own for
 another reason.
+
+### TRADE-80 A repository file made while a session runs is not seen until it starts again
+
+**Decided.** 2026-11-18 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: a connection locates its
+configuration files once, as it is made (`config.Load` through
+`config.Locate`, called from `cmdkit.ConnectAt`,
+`internal/cli/cmdkit/connect.go`), and every read and save it makes is of
+those files. The revision a save checks covers only them, so a repository's
+file another terminal's `workflow config init` makes meanwhile is neither read
+nor taken for a change on disk. Locating the files again on every save would
+have a save change which file it writes under a form filled in over another,
+and a `Files` carrying a candidate path would make every read and revision
+look for a file that is not there.
+
+**Cost.** Settings, the terminal's or the web's, saves into the home file
+while a repository's file made since overrides that setting from the next
+start on, so the setting saved does not take in that repository until the
+user edits the repository's file.
+
+**Reopen when.** A user reports a setting saved in Settings that does not
+take, or `Files` comes to carry a candidate path for another reason.
+
+### TRADE-81 A crash between a setup's file and its keychain keep leaves the file reading a token not kept
+
+**Decided.** 2026-11-18 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: a first run with the Jira token
+kept in the keychain writes the file first, reading the token from the
+keychain, and then keeps the token (`setup.KeepFor`,
+`internal/setup/setup.go`), so a write the files refuse leaves the keychain
+as it was. Two resources cannot be written as one: when the keychain refuses,
+or the context ends and the keep fails with it, `KeepFor` takes the write
+back, the file made going and the one `--force` replaced holding what it held.
+Nothing takes it back after the process itself ends between the two.
+
+**Cost.** After a SIGKILL or a power loss between the file and the keep, the
+file reads a token the keychain does not hold, and `workflow doctor` names the
+Jira credential missing or rejected. A SIGINT while `security` stores the
+token can also leave the keychain holding the new token while the take-back
+gives back the old file; an old file that read `jira.keychain` for the same
+address then reads the new token.
+
+**Reopen when.** A user reports a file left reading a token the keychain does
+not hold, or one reading a token it was not set up with, after a setup was
+stopped.
