@@ -15,8 +15,13 @@ on:
 permissions:
   contents: read
 
+# A pull request's newer push cancels its older run. Each push to main is a
+# group of its own, so a later merge cannot cancel it: every commit on main
+# finishes its own run, its Go build cache save and the coverage-baseline-<sha>
+# the summary restores for a pull request based on it, which would otherwise
+# read its baseline as n/a.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
