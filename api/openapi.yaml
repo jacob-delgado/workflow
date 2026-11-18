@@ -4665,7 +4665,9 @@ components:
           type: string
           description: >-
             Why the merged pull request's branch cannot be finished, in the
-            words that follow "cannot finish BRANCH: " — it holds commits that
+            words that follow "cannot finish BRANCH: " — a rebase, merge,
+            cherry-pick or revert is stopped part way, named with the git
+            command that continues or aborts it, it holds commits that
             neither merged nor are on its upstream, it has commits made after
             the commit that merged, named, that commit is not in this clone and
             could not be fetched, there is no base to return to, or it is not a

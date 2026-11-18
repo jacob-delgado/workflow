@@ -18,12 +18,14 @@ git commands the interface's F runs. They are printed and confirmed before any
 runs, and a step git refuses stops the rest, keeping the branch. Once confirmed,
 the branch is read again, and refused if it changed meanwhile.
 
-A branch that cannot be finished is refused with the reason, and exits 4: its
-pull or merge request has not merged, it is the base itself or a detached
-HEAD, there is no base to return to, it holds commits that neither merged nor
-are on its upstream, which deleting it would lose, or it has commits made after
-the commit that merged, pushed or not: the refusal names the newest five the
-base remote's branch lacks, and counts the rest. The delete is a
+A branch that cannot be finished is refused with the reason, and exits 4: a
+rebase, merge, cherry-pick or revert is stopped part way, named with the git
+command that continues or aborts it, its pull or merge request has not merged,
+it is the base itself or a detached HEAD, there is no base to return to, it
+holds commits that neither merged nor are on its upstream, which deleting it
+would lose, or it has commits made after the commit that merged, pushed or not:
+the refusal names the newest five the base remote's branch lacks, and counts
+the rest. The delete is a
 force delete, so it goes ahead only for a branch at the very commit that
 merged, or one whose upstream holds every commit on it, and only while the
 branch is that commit or behind it. A commit that merged which this clone lacks

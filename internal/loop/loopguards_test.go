@@ -166,6 +166,62 @@ func TestRefuseFinishSaysWhyABranchCannotBeFinished(t *testing.T) {
 	}
 }
 
+func TestAFinishIsRefusedWhileAGitOperationIsStopped(t *testing.T) {
+	t.Parallel()
+
+	merged := forge.PullRequest{Number: 7, State: forge.StateMerged, HeadCommit: mergedHead}
+	// A rebase stopped part way leaves HEAD detached, the branch it replays
+	// named only by the rebase.
+	rebasing := featureBranch()
+	rebasing.Name, rebasing.Detached, rebasing.Rebasing = "", true, "feat/x"
+
+	cases := map[string]struct {
+		operation gitrepo.Operation
+		branch    gitrepo.Branch
+		want      string
+	}{
+		"rebase": {
+			operation: gitrepo.OperationRebase,
+			branch:    rebasing,
+			want:      "a rebase is stopped part way; run git rebase --continue or git rebase --abort first",
+		},
+		"merge": {
+			operation: gitrepo.OperationMerge,
+			branch:    featureBranch(),
+			want:      "a merge is stopped part way; run git merge --continue or git merge --abort first",
+		},
+		"cherry-pick": {
+			operation: gitrepo.OperationCherryPick,
+			branch:    featureBranch(),
+			want: "a cherry-pick is stopped part way; " +
+				"run git cherry-pick --continue or git cherry-pick --abort first",
+		},
+		"revert": {
+			operation: gitrepo.OperationRevert,
+			branch:    featureBranch(),
+			want:      "a revert is stopped part way; run git revert --continue or git revert --abort first",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			branch := tt.branch
+			branch.Operation = tt.operation
+
+			// Act
+			got := loop.RefuseFinish(merged, true, branch)
+
+			// Assert
+			if !errors.Is(got, loop.ErrOperationStopped) || got.Error() != tt.want {
+				t.Errorf("RefuseFinish = %v, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCanRerunOnlyFailedCIOnAnOpenPull(t *testing.T) {
 	t.Parallel()
 
