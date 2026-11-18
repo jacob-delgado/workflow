@@ -61,8 +61,11 @@
 # itself, which layers.go carried until the settings only the home file may
 # set joined the credentials a moved section withholds; 18 is lock.go, the
 # lock a save holds from its revision check through its rename, which is how
-# the configuration is saved and changes with nothing else.
-internal/config 18
+# the configuration is saved and changes with nothing else; 19 is saved.go, a
+# write a save made with what its file held before, so a write the keychain or
+# Slack then refuses is taken back through one value: how a save is undone,
+# which changes only with how a save is made.
+internal/config 19
 
 # internal/demo — the made-up world the docs' recordings run the real
 # interfaces over, spelled one file per service it fakes (Jira, the forge and
