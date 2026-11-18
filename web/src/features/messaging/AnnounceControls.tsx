@@ -6,7 +6,7 @@ import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { Failure } from '@/lib/Status.tsx'
-import { type AsyncState, type Attempt, refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { type Attempt, refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { announce, announceWhenCIPasses, type Held, previewAnnouncement } from './announceApi.ts'
 import { AnnouncePreview } from './AnnouncePreview.tsx'
 import { mentionsOf, pickFrom, type TagPick } from './tagPick.ts'
@@ -89,41 +89,110 @@ export function AnnounceControls({
     },
   })
 
-  const refused = refusedSend(post, hold)
-  if (draft.preview.state === 'done' && !refused) {
-    return (
-      <PreviewStep
-        draft={draft}
-        composed={draft.preview.result}
-        post={post}
-        hold={hold}
-        pullName={pullName}
-        onBack={handBack}
-      />
-    )
+  const step = announceStep(draft.preview, post, hold)
+  switch (step.step) {
+    case 'previewing':
+      return (
+        <PreviewStep
+          draft={draft}
+          composed={step.composed}
+          sending={step.sending}
+          post={post}
+          hold={hold}
+          pullName={pullName}
+          onBack={handBack}
+        />
+      )
+    case 'offer':
+    case 'preparing':
+      return (
+        <div className="flex flex-col gap-tight">
+          <Button
+            variant={waiting ? 'secondary' : 'primary'}
+            ref={opener}
+            aria-keyshortcuts={postKeys}
+            held={step.step === 'preparing'}
+            onClick={() => {
+              post.reset()
+              hold.reset()
+              void draft.preview.run('afresh')
+            }}
+            className="self-start"
+          >
+            {step.step === 'preparing' ? 'Preparing…' : announceLabel(service, waiting)}
+          </Button>
+          {step.failure === '' ? null : <Failure>{step.failure}</Failure>}
+        </div>
+      )
   }
+}
 
-  const failure = draft.preview.state === 'error' ? draft.preview.error : refusalOf(post, hold)
+// AnnounceStep is where the controls stand, derived each render from the
+// preview and the two sends, which stay the only sources: the button, with
+// why the last try failed or ''; the button held while the preview reads,
+// keeping the reason a post refused for a failed check gave; or the composed
+// preview, with the send in flight, if any.
+type AnnounceStep =
+  | { step: 'offer'; failure: string }
+  | { step: 'preparing'; failure: string }
+  | { step: 'previewing'; composed: Announcement; sending: Sending }
 
-  return (
-    <div className="flex flex-col gap-tight">
-      <Button
-        variant={waiting ? 'secondary' : 'primary'}
-        ref={opener}
-        aria-keyshortcuts={postKeys}
-        held={draft.preview.state === 'running'}
-        onClick={() => {
-          post.reset()
-          hold.reset()
-          void draft.preview.run('afresh')
-        }}
-        className="self-start"
-      >
-        {draft.preview.state === 'running' ? 'Preparing…' : announceLabel(service, waiting)}
-      </Button>
-      {failure === '' ? null : <Failure>{failure}</Failure>}
-    </div>
-  )
+// Sending is which send of the preview is in flight: the post, the hold, or
+// neither.
+type Sending = 'post' | 'hold' | null
+
+// announceStep is where the controls stand, by the preview's state.
+function announceStep(
+  preview: Attempt<Announcement>,
+  post: Attempt<unknown>,
+  hold: Attempt<unknown>,
+): AnnounceStep {
+  switch (preview.state) {
+    case 'idle':
+      return { step: 'offer', failure: refusalOf(post, hold) }
+    case 'running':
+      return { step: 'preparing', failure: refusalOf(post, hold) }
+    case 'error':
+      return { step: 'offer', failure: preview.error }
+    case 'done':
+      return postStep(preview.result, post, hold)
+  }
+}
+
+// postStep is where a composed preview stands by its post: a refused post
+// goes back to the button with why — but for one refused because a check
+// failed, which is previewed again to offer the wait, and stands as its hold
+// does.
+function postStep(
+  composed: Announcement,
+  post: Attempt<unknown>,
+  hold: Attempt<unknown>,
+): AnnounceStep {
+  switch (post.state) {
+    case 'running':
+      return { step: 'previewing', composed, sending: 'post' }
+    case 'error':
+      return post.code === 'ci_failed'
+        ? holdStep(composed, hold)
+        : { step: 'offer', failure: post.error }
+    case 'idle':
+    case 'done':
+      return holdStep(composed, hold)
+  }
+}
+
+// holdStep is where a composed preview stands by its hold: a refused hold
+// goes back to the button with why.
+function holdStep(composed: Announcement, hold: Attempt<unknown>): AnnounceStep {
+  switch (hold.state) {
+    case 'running':
+      return { step: 'previewing', composed, sending: 'hold' }
+    case 'error':
+      return { step: 'offer', failure: hold.error }
+    case 'idle':
+    case 'done':
+      return { step: 'previewing', composed, sending: null }
+  }
 }
 
 // announceLabel names the announce action: Announce now instead while a held
@@ -195,7 +264,6 @@ function useDraft(defaultChannel: string, channels: string[]) {
 type Draft = ReturnType<typeof useDraft>
 // Send is a send of the preview: a post now, or a hold for CI.
 interface Send {
-  state: AsyncState
   run: (previewed: string, mentions?: AnnounceMentions, edited?: string) => Promise<void>
 }
 
@@ -206,6 +274,7 @@ interface Send {
 function PreviewStep({
   draft,
   composed,
+  sending,
   post,
   hold,
   pullName,
@@ -213,6 +282,7 @@ function PreviewStep({
 }: {
   draft: Draft
   composed: Announcement
+  sending: Sending
   post: Send
   hold: Send
   pullName: string
@@ -233,7 +303,7 @@ function PreviewStep({
       channels={draft.channels}
       tagging={tagging}
       pick={draft.pick}
-      sending={sendingOf(post.state, hold.state)}
+      sending={sending}
       linking={draft.linking}
       canWait={composed.can_wait_for_ci === true}
       ciFailedOn={composed.ci === 'failed' ? pullName : undefined}
@@ -255,26 +325,10 @@ function PreviewStep({
   )
 }
 
-// refusedSend reports a send the server refused, which goes back to the button
-// with why — but for a post refused because a check failed, which is previewed
-// again to offer the wait.
-function refusedSend(post: Attempt<unknown>, hold: Attempt<unknown>): boolean {
-  return (post.state === 'error' && post.code !== 'ci_failed') || hold.state === 'error'
-}
-
 // editOf is the edit to send: none when the text was not edited, or was
 // edited back to what was shown.
 function editOf(shown: string, edited: string | null): string | undefined {
   return edited === null || edited === shown ? undefined : edited
-}
-
-// sendingOf is which send is in flight: the post, the hold, or neither.
-function sendingOf(post: AsyncState, hold: AsyncState): 'post' | 'hold' | null {
-  if (post === 'running') {
-    return 'post'
-  }
-
-  return hold === 'running' ? 'hold' : null
 }
 
 // useAnnouncePost is the post of a previewed announcement to channel, which

@@ -186,6 +186,26 @@ test('a hold made after a failed check says nothing of the refused post', async 
   expect(screen.queryByRole('alert')).toBeNull()
 })
 
+test('a hold refused goes back to the button, saying why', async () => {
+  // Arrange
+  previewing('running', () =>
+    Response.json(
+      { title: 'Conflict', status: 409, detail: 'nothing was held', code: 'conflict' },
+      { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+    ),
+  )
+  withPull()
+  render(<MessagingPanel />)
+  await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+
+  // Act
+  await userEvent.click(await screen.findByRole('button', { name: 'Announce when CI passes' }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('nothing was held')
+  expect(screen.getByRole('button', { name: 'Announce to Slack' })).toBeTruthy()
+})
+
 test('a held announcement waiting on a fix says so', () => {
   // Arrange
   previewing('failed')
