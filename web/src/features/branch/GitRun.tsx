@@ -3,6 +3,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Run, RunEvent, RunRequest } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Failure } from '@/lib/Status.tsx'
+import { refusalOf, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { startRun, stopRun } from './gitRunApi.ts'
 
 // runTitle is how the terminal titles a run, for the moment before the
@@ -37,17 +38,23 @@ export interface GitRunner {
 // is put away. A run some other page started, which the stream carries while
 // it goes, stands in when this page has none, and takes the place of one that
 // has ended in a frame read after that end, whose writes count it. A run
-// refused before it ran says why in refusal, as does a stop refused, and a
-// run whose stream broke once it began says so there, never that it did not
-// run, until the next start or Close.
+// refused before it ran says why in refusal, and a run whose stream broke
+// once it began says so there, never that it did not run, until the next
+// start or Close. A stop refused says why there too, but only while a run is
+// shown: the refusal is that run's, this page's or a streamed one, and goes
+// with it.
 export function useGitRun(streamed: Run | undefined, writes: number): GitRunner {
   const [run, setRun] = useState<Run | null>(null)
   const [endWrite, setEndWrite] = useState<number>()
   const [refusal, setRefusal] = useState('')
+  const stopping = useAsyncAction(stopRun, {
+    fallback: 'The run could not be stopped. Try again.',
+  })
   const putAway = () => {
     setRun(null)
     setEndWrite(undefined)
     setRefusal('')
+    stopping.reset()
   }
 
   // The stream carries a run only while it goes, so a run a frame read after
@@ -59,6 +66,12 @@ export function useGitRun(streamed: Run | undefined, writes: number): GitRunner 
     putAway()
   }
   const shown = run ?? streamed ?? null
+  // A stop refused as its run ends, or answered once it was put away, would
+  // otherwise say why alone, beside no run. Reset while rendering, as above;
+  // only in error, when no stop is in flight for the reset to drop.
+  if (shown === null && stopping.state === 'error') {
+    stopping.reset()
+  }
 
   const follow = (event: RunEvent) => {
     if (event.write !== undefined) {
@@ -69,6 +82,7 @@ export function useGitRun(streamed: Run | undefined, writes: number): GitRunner 
 
   const start = (request: RunRequest) => {
     setRefusal('')
+    stopping.reset()
     setEndWrite(undefined)
     setRun({
       kind: request.kind,
@@ -88,18 +102,13 @@ export function useGitRun(streamed: Run | undefined, writes: number): GitRunner 
     })
   }
 
-  const stop = () => {
-    stopRun().catch((caught: unknown) => {
-      setRefusal(apiErrorMessage(caught, 'The run could not be stopped. Try again.'))
-    })
-  }
-
   return {
     run: shown,
     going: shown?.state === 'in_progress',
-    refusal,
+    // A start resets the stop, so a stop's refusal is always the newer.
+    refusal: refusalOf(stopping) || refusal,
     start,
-    stop,
+    stop: () => void stopping.run(),
     close: putAway,
   }
 }
