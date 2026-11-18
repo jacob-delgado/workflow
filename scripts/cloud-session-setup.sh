@@ -160,10 +160,9 @@ work="$(mktemp -d)"
 readonly work
 # The tool being installed, named when its installer stops the setup.
 installing=""
-# Whether this run has checked the disk has room for an install.
-room_checked=""
-# Whether this run holds the gate off the toolchain.
-gate_held=""
+# Whether this run is ready to install: the disk checked for room and the
+# gate held off the toolchain.
+ready=""
 
 # finish removes the downloads and, when an installer stopped the setup, says
 # which tool it was.
@@ -177,18 +176,15 @@ finish() {
 }
 trap finish EXIT
 
-# check_room stops the setup before its first install when the disk has no
-# room for one. The session's disk is a fixed allowance that df reports as
-# free space.
+# check_room stops the setup when the disk has no room for an install. The
+# session's disk is a fixed allowance that df reports as free space.
 check_room() {
   local free
-  [[ -n "${room_checked}" ]] && return 0
   free="$(df -Pk / | awk 'NR == 2 { print int($4 / 1048576) }')"
   if ((free < need_gb)); then
     echo "cloud-session-setup: an install needs ${need_gb} GB free on /, and ${free} GB is" >&2
     exit 1
   fi
-  room_checked=yes
 }
 
 # wait_for_gate waits for a gate lock on an open descriptor, saying so when a
@@ -203,17 +199,26 @@ wait_for_gate() {
   fi
 }
 
-# hold_gate waits, before the first install, for any gate run going, root's
-# half and then the gate user's, and keeps the next off until the setup exits.
-# The run lock can be read by all, which is all the gate user's flock needs.
+# hold_gate waits for any gate run going, root's half and then the gate
+# user's, and keeps the next off until the setup exits. The run lock can be
+# read by all, which is all the gate user's flock needs.
 hold_gate() {
-  [[ -n "${gate_held}" ]] && return 0
   exec {gate}>"${gate_lock}"
   wait_for_gate "${gate}" "${gate_lock}"
   exec {gate_run}>"${gate_run_lock}"
   chmod 0644 "${gate_run_lock}"
   wait_for_gate "${gate_run}" "${gate_run_lock}"
-  gate_held=yes
+}
+
+# prepare_installs readies the setup for its first install, and does nothing
+# once it has: it checks the disk has room and holds the gate off the
+# toolchain. A run with nothing to install never calls it, so it neither
+# reads the disk nor waits for a gate run.
+prepare_installs() {
+  [[ -n "${ready}" ]] && return 0
+  check_room
+  hold_gate
+  ready=yes
 }
 
 # ensure runs an installer unless the tool's stamp for this version is in
@@ -226,8 +231,7 @@ hold_gate() {
 ensure() {
   local tool="$1" stamp="${prefix}/stamps/$1@$2"
   [[ -e "${stamp}" ]] && return 0
-  check_room
-  hold_gate
+  prepare_installs
   installing="$1 $2"
   shift 2
   rm -f "${prefix}/stamps/${tool}@"* "${prefix}/stamps/pins@"*
