@@ -35,6 +35,15 @@ once, and not restated here.
   leaf that imports neither the shell nor a feature; Base UI only through
   `src/lib/baseui`; and no import it cannot resolve.
 
+## State
+
+A component's or hook's own state of more than two values is one
+discriminated union, each member carrying only what it means; a transition
+returns the next value. What a read's flags or a stream frame already say is
+derived each render, never held. An answer that can land after what asked for
+it changed is heard through `useAsyncAction`'s latest run (its `reset`), or a
+round of its own.
+
 ## Accessibility is enforced, not aspirational
 
 `eslint-plugin-jsx-a11y` runs at **strict** in the web lint
