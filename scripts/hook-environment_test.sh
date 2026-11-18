@@ -2,12 +2,14 @@
 #
 # Runs every other script test, once, the way a git hook would: git exports
 # GIT_DIR to its hooks and to `git rebase --exec` (and GIT_INDEX_FILE to a
-# pre-commit), and from a linked worktree it is an absolute path into the
-# shared repository, so a script test's `git -C <temp dir>` would then work on
-# that repository instead of its own. Each test runs here with that
-# environment naming a sentinel repository, which must come out exactly as it
-# went in, and its own summary line is printed as it passes. This is what
-# `task test:scripts` runs.
+# pre-commit), and from a linked worktree it is an absolute path to that
+# worktree's git directory inside the shared repository, whose configuration
+# is the shared repository's, so a script test's `git -C <temp dir>` would then
+# work on that repository instead of its own, and its `git init` would mark it
+# bare. Each test runs here with that environment naming a linked worktree of
+# a sentinel repository, which must come out exactly as it went in, and its
+# own summary line is printed as it passes. This is what `task test:scripts`
+# runs.
 #
 # Each test also runs with every git it starts that keeps the test's
 # environment tracing its events (GIT_TRACE2_EVENT), and without this run's
@@ -34,6 +36,11 @@ source "${here}/lib/testing.sh"
 
 readonly sentinel="${workdir}/sentinel"
 git init -q "${sentinel}"
+git -C "${sentinel}" -c user.name=Tester -c user.email=t@example.com \
+  commit -q --allow-empty -m first
+git -C "${sentinel}" worktree add -q --detach "${workdir}/linked"
+linked_git_dir="$(git -C "${workdir}/linked" rev-parse --absolute-git-dir)"
+readonly linked_git_dir
 cp -R "${sentinel}" "${workdir}/before"
 
 readonly traces="${workdir}/traces"
@@ -68,7 +75,7 @@ for test in "${here}"/*_test.sh "${here}"/release/*_test.sh; do
 
   expect_exit pass "${suite} with a hook's environment" \
     env -u GIT_CONFIG_GLOBAL -u GIT_CONFIG_NOSYSTEM GIT_TRACE2_EVENT="${trace}" \
-    GIT_DIR="${sentinel}/.git" GIT_INDEX_FILE="${sentinel}/.git/index" "${test}"
+    GIT_DIR="${linked_git_dir}" GIT_INDEX_FILE="${linked_git_dir}/index" "${test}"
   if ((case_status == 0)); then
     tail -n 1 "${case_output}"
   fi

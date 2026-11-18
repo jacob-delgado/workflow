@@ -56,14 +56,15 @@ the skips it allows to them.
   `check-layout_depguard_test.sh` and `check-layout_yaml_test.sh` share
   `lib/check-layout-fixtures.sh`.
 - **`hook-environment_test.sh` is the one runner** (`task test:scripts`): it
-  runs every `*_test.sh` and `release/*_test.sh` once under a hook's git
-  environment naming a sentinel repository, and fails if the sentinel
-  changes, so a new test needs no registration and a test that lets git
-  touch the developer's repository fails. It traces every git a test starts
-  that keeps the test's environment (`GIT_TRACE2_EVENT`) and fails a test
-  whose gits start git's automatic maintenance, which since git 2.47 a
-  commit, a fetch or a push's receive-pack leaves running detached, still
-  writing into `${workdir}` as the exit trap removes it;
+  runs every `*_test.sh` and `release/*_test.sh` once under the git
+  environment a hook in a linked worktree of a sentinel repository is
+  handed, and fails if the sentinel changes, so a new test needs no
+  registration and a test that lets git touch the developer's repository,
+  marking it bare with a `git init` among them, fails. It traces every git
+  a test starts that keeps the test's environment (`GIT_TRACE2_EVENT`) and
+  fails a test whose gits start git's automatic maintenance, which since
+  git 2.47 a commit, a fetch or a push's receive-pack leaves running
+  detached, still writing into `${workdir}` as the exit trap removes it;
   `git_maintenance_started` reads the trace. A git run under `env -i`, as
   `e2e-server.sh` runs its fixture's, drops the variable, so
   `e2e-server_test.sh`'s `expect_no_maintenance` traces those itself.
