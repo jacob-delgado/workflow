@@ -181,7 +181,7 @@ function Comments({ detail }: { detail: IssueDetail }) {
   )
 }
 
-// Trade-off TRADE-31: past the budget below, a comment is drawn unparsed.
+// Past the budget below, a comment is drawn unparsed.
 //
 // beyondParsing marks the comments a thread draws as plain text: each one past
 // the first, counting back from the newest, that takes the thread's bodies over

@@ -16,9 +16,9 @@ import { mayAnswerAgain } from './api/apiError.ts'
 // something changes, is shown at once and costs no more of Jira's or the
 // forge's requests; Try again is the user's to press.
 //
-// Trade-off TRADE-4: by default no read here refetches on its own; the stream
-// keeps the cockpit fresh, and only the Tasks list reads itself again, once
-// the earliest wait still ahead has passed.
+// By default no read here refetches on its own; the stream keeps the cockpit
+// fresh, and only the Tasks list reads itself again, once the earliest wait
+// still ahead has passed.
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

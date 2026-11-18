@@ -35,9 +35,6 @@ export type MonthRead =
 // never set the period's read waiting or refused beneath it. It keeps its own
 // freshness, so paging back to a month shown moments ago reads it no sooner
 // than a section opened again would (freshFor).
-//
-// Trade-off TRADE-32: every month the calendar shows is read back from every
-// source, on top of the period's own read.
 export function useMonthRead(month: Period, today: CivilDate): MonthRead {
   const options = getActivityOptions({ query: { from: month.from, to: month.to } })
   const read = useQuery({

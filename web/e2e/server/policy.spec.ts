@@ -9,13 +9,12 @@ import { heardRefusals, openServed } from './served.ts'
 // server's own content policy: Settings' sections, which are Tabs, the
 // announcement's tag picker, whose field for an owner not yet linked is a
 // Combobox, and the directory picker, an Autocomplete in a Dialog. The policy
-// refuses a <style> element, and CSPProvider keeps every part from writing one
-// (TRADE-50 in TECH_DEBT.md), so a Base UI release that writes one from any
-// of these parts fails here. The fixture serves no configuration and reaches
-// no Slack and no forge, so the Settings and tag picker specs answer the reads
-// that fill their part themselves; the directory picker lists the fixture's
-// own directories. The page, its scripts and the policy they run under are
-// the server's.
+// refuses a <style> element, and CSPProvider keeps every part from writing one,
+// so a Base UI release that writes one from any of these parts fails here. The
+// fixture serves no configuration and reaches no Slack and no forge, so the
+// Settings and tag picker specs answer the reads that fill their part
+// themselves; the directory picker lists the fixture's own directories. The
+// page, its scripts and the policy they run under are the server's.
 
 // settingsSections are Settings' sections, in the order its list offers them.
 const settingsSections = [
