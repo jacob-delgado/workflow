@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gittest"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/setup"
@@ -391,10 +391,7 @@ func TestSetUpInARepositorySaysToIgnoreTheFile(t *testing.T) {
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
 
-	err := exec.CommandContext(t.Context(), "git", "init", "-q", run.where.WorkDir).Run()
-	if err != nil {
-		t.Fatalf("making the repository: %v", err)
-	}
+	gittest.Run(t, run.where.WorkDir, "init", "--quiet")
 
 	answered := typing(t, run.model(t, false), throughEveryQuestion()...)
 	written, cmd := pressed(t, answered, keyEnter)
