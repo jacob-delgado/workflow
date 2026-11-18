@@ -97,6 +97,8 @@ func ConnectLeniently(cmd *cobra.Command) (Connection, error) {
 // already on disk. It opens nothing, so its close is a no-op.
 func ConnectAt(ctx context.Context, cmd *cobra.Command, dir string, requestLog *wiring.RequestLog) Connection {
 	process := EnvironmentOf(cmd).Process
+	// Trade-off TRADE-80: the files are located once, here, so a repository's
+	// file made while the connection lives is not seen until the next one.
 	cfg, loadErr := config.Load(dir, process.Home)
 	where := process.Locate(ctx, dir)
 	deps, controls := process.Deps(cfg, where, requestLog)
