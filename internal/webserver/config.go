@@ -217,8 +217,10 @@ func (s *server) writeOver(ctx context.Context, posted api.Config, over basis) a
 }
 
 // unsavable says why a save was refused for what it carried, or for a
-// keychain or a Slack refresh lock that could not take it then, in words that
-// name no credential, and false for a save refused for anything else. A lock
+// keychain or a Slack refresh lock that could not take it then (a keychain
+// that would not store, found before Slack spent the refresh token typed,
+// among them), in words that name no credential, and false for a save
+// refused for anything else. A lock
 // another workflow holds is no conflict with the read the save was made
 // over: saving again, not reading again, answers it.
 func unsavable(err error) (string, bool) {
@@ -231,6 +233,9 @@ func unsavable(err error) (string, bool) {
 		return "the keychain did not keep the Jira token typed, so nothing was saved; unlock it, then save again", true
 	case errors.Is(err, keychain.ErrNotRead):
 		return "the keychain could not be read, so nothing was saved; unlock it, then save again", true
+	case errors.Is(err, slackauth.ErrKeepRefused):
+		return "the keychain would not take a write, so nothing was saved and the refresh token was not spent; " +
+			"unlock it, then save again", true
 	case errors.Is(err, slackauth.ErrLocked):
 		return "another workflow is refreshing the Slack token, so nothing was saved; save again in a minute", true
 	case errors.Is(err, config.ErrCredentialInRepository) || errors.Is(err, config.ErrHomeOnly):

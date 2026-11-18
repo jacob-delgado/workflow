@@ -2115,18 +2115,18 @@ stopped.
 
 **Decided.** 2026-11-18 in this pull request, taking the recommended option
 under the maintainer's standing rule to do so: Slack spends a refresh token as
-it answers, so before a refresh the place the new pair goes proves it takes a
-write, by a probe that leaves what it holds untouched (`Store.Prove`,
-`internal/slackauth/store.go`). The configuration file parses the layers its
-save reads and makes and removes a file beside itself; the keychain stores a
-fresh value under an item of its own, `workflow-slack-probe`, reads it back
-and deletes it, which proves what a keep needs whether or not a pair is held,
-since a keychain is locked or unlocked as a whole. One that would not is
-`ErrKeepRefused`, with nothing spent. Re-storing the pair held was rejected:
-it cannot run before a first login, and reads back the same secret, so proves
-nothing of a `security` that misreports. Keeping the pair in memory, or in the
-home file instead, was rejected too: the first is lost at exit, and the second
-would put a secret where the keychain was chosen.
+it answers, so before a refresh, a post's or a Settings save's, the place the
+new pair goes proves it takes a write, by a probe that leaves what it holds
+untouched (`Store.Prove`, `internal/slackauth/store.go`). The configuration
+file parses the layers its save reads and makes and removes a file beside
+itself; the keychain stores a fresh value under an item of its own,
+`workflow-slack-probe`, reads it back and deletes it, which proves what a keep
+needs whether or not a pair is held, since a keychain is locked or unlocked as
+a whole. One that would not is `ErrKeepRefused`, with nothing spent. Re-storing
+the pair held was rejected: it cannot run before a first login, and reads back
+the same secret, so proves nothing of a `security` that misreports. Keeping the
+pair in memory, or in the home file instead, was rejected too: the first is
+lost at exit, and the second would put a secret where the keychain was chosen.
 
 **Cost.** A store that turns between the prove and the keep — a keychain
 locked in that window, a disk that fills, a file another workflow edits three

@@ -355,6 +355,33 @@ func TestSlackSecretsTypedOverAKeychainThatCannotBeReadSayToUnlockIt(t *testing.
 	}
 }
 
+func TestSlackSecretsTypedIntoAKeychainThatWillNotStoreSayNothingWasSpent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := webserver.Deps{PlaceSlackCredentials: func(context.Context, config.Config) error {
+		return fmt.Errorf("%w (in the macOS keychain (workflow-slack)): %w: security exited with status 51",
+			slackauth.ErrKeepRefused, keychain.ErrNotKept)
+	}}
+	cfg := keychainKept(t)
+	handler := webtest.ServeWith(t, deps, cfg, webserver.Info{})
+
+	// Act
+	saved := webtest.PutConfig(t, handler, webtest.Marshal(t, typingRefresh(cfg)))
+
+	// Assert
+	if saved.Code != http.StatusUnprocessableEntity || !strings.Contains(saved.Body.String(), "was not spent") ||
+		!strings.Contains(saved.Body.String(), "unlock it") {
+		t.Errorf("status %d: %s; want a 422 saying nothing was spent, and to unlock the keychain",
+			saved.Code, saved.Body.String())
+	}
+
+	_, err := os.Stat(cfg.Path)
+	if err == nil {
+		t.Error("the configuration was written though the keychain would not store")
+	}
+}
+
 func TestSlackSecretsTypedWhileAnotherWorkflowRefreshesSayToSaveAgain(t *testing.T) {
 	t.Parallel()
 

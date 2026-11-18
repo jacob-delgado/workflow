@@ -18,9 +18,9 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -46,17 +46,27 @@ const (
 	renewedAccess  = "xoxe.xoxp-1-renewed-access"
 )
 
+// probeItem is the keychain item a Slack token's store proves itself by.
+const probeItem = "workflow-slack-probe"
+
 // fakeSecurity is macOS's security as the keychain drives it: it keeps the
-// line each store hands it and reads the secret back. Like the program it
-// stands in for, it is never run for a caller that has left.
+// line each store hands it and reads the secret back, and keeps the prove's
+// probe item apart, deleting it as asked. Where refusing, it will store
+// nothing but the probe, and where blind, it cannot read back what it has
+// stored. Like the program it stands in for, it is never run for a caller
+// that has left.
 type fakeSecurity struct {
-	lock   sync.Mutex
-	kept   string
-	stored string
+	lock     sync.Mutex
+	kept     string
+	stored   string
+	probes   map[string]string
+	refusing bool
+	blind    bool
 }
 
-// run answers security's two commands: -i, which reads a store from its
-// input, and find-generic-password, which prints the secret kept.
+// run answers security's commands: -i, which reads a store from its input,
+// find-generic-password, which prints the secret kept, and
+// delete-generic-password, which forgets it.
 func (s *fakeSecurity) run(ctx context.Context, program proc.Command, input []byte) ([]byte, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -66,15 +76,68 @@ func (s *fakeSecurity) run(ctx context.Context, program proc.Command, input []by
 	}
 
 	if program.Args[0] == "-i" {
-		line := string(input)
-		s.stored = line
-		start := strings.Index(line, ` -w "`) + len(` -w "`)
-		s.kept = strings.NewReplacer(`\"`, `"`, `\\`, `\`).Replace(strings.TrimSuffix(line[start:], "\"\n"))
+		return nil, s.store(string(input))
+	}
+
+	service := program.Args[slices.Index(program.Args, "-s")+1]
+	if service == probeItem {
+		return s.probe(program.Args[0], service)
+	}
+
+	if s.blind && s.stored != "" {
+		return nil, errKeychainLocked
+	}
+
+	return []byte(s.kept + "\n"), nil
+}
+
+// store keeps the secret line hands it under line's service.
+func (s *fakeSecurity) store(line string) error {
+	service := line[strings.Index(line, ` -s "`)+len(` -s "`) : strings.Index(line, `" -w "`)]
+	start := strings.Index(line, ` -w "`) + len(` -w "`)
+	secret := strings.NewReplacer(`\"`, `"`, `\\`, `\`).Replace(strings.TrimSuffix(line[start:], "\"\n"))
+
+	if service == probeItem {
+		if s.probes == nil {
+			s.probes = map[string]string{}
+		}
+
+		s.probes[service] = secret
+
+		return nil
+	}
+
+	if s.refusing {
+		return errKeychainLocked
+	}
+
+	s.stored, s.kept = line, secret
+
+	return nil
+}
+
+// probe answers command for the probe item.
+func (s *fakeSecurity) probe(command, service string) ([]byte, error) {
+	secret, kept := s.probes[service]
+	if !kept {
+		return nil, &proc.ExitError{Program: securityProgram, Code: itemNotFound, Stderr: "could not be found"}
+	}
+
+	if command == "delete-generic-password" {
+		delete(s.probes, service)
 
 		return nil, nil
 	}
 
-	return []byte(s.kept + "\n"), nil
+	return []byte(secret + "\n"), nil
+}
+
+// probesLeft is how many probe items the fake keeps.
+func (s *fakeSecurity) probesLeft() int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	return len(s.probes)
 }
 
 // line is the last line a store handed the fake.
@@ -186,6 +249,10 @@ func TestPlacingTypedSlackSecretsKeepsTheRenewedPairInTheKeychain(t *testing.T) 
 		t.Errorf("Place = %v, the keychain holds %q after refreshing with %q; want the typed refresh token "+
 			"spent and the renewed pair kept with the client secret", err, security.held(), slack.spent)
 	}
+
+	if left := security.probesLeft(); left != 0 {
+		t.Errorf("the keychain keeps %d probe items, want none left behind", left)
+	}
 }
 
 func TestPlacingABlankTypedRefreshTokenTakesTheOneTheKeychainKeeps(t *testing.T) {
@@ -261,12 +328,12 @@ func TestPlacingABlankTypedClientSecretTakesTheOneTheKeychainKeeps(t *testing.T)
 	}
 }
 
-func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
+func TestPlacingIntoAKeychainThatWillNotStoreAsksSlackNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
-	// The keychain reads what it keeps, then refuses to keep the new pair.
+	// The keychain reads what it keeps, and will store nothing.
 	refusingStores := func(_ context.Context, program proc.Command, _ []byte) ([]byte, error) {
 		if program.Args[0] == "-i" {
 			return nil, errKeychainLocked
@@ -274,17 +341,35 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 
 		return []byte(keptPair + "\n"), nil
 	}
-	process := placing(t)
-
-	system := onMacOSRunning(refusingStores)
-	place := process.PlaceSlackCredentials(slack.do, system)
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOSRunning(refusingStores))
 
 	// Act
 	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
 
 	// Assert
-	if !errors.Is(err, slackauth.ErrNotKept) || strings.Contains(err.Error(), typedSecret) {
-		t.Errorf("Place = %v; want ErrNotKept with no secret in it", err)
+	if !errors.Is(err, slackauth.ErrKeepRefused) || len(slack.spent) != 0 ||
+		strings.Contains(err.Error(), typedSecret) || strings.Contains(err.Error(), typedRefresh) {
+		t.Errorf("Place = %v after refreshing with %q; want %v, naming no secret, and the typed refresh token "+
+			"not spent", err, slack.spent, slackauth.ErrKeepRefused)
+	}
+}
+
+func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack := &slackRefreshes{answer: renewedPair}
+	// The keychain takes the prove's probe, then refuses the new pair.
+	security := &fakeSecurity{kept: keptPair, refusing: true}
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOS(security))
+
+	// Act
+	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotKept) || len(slack.spent) != 1 || strings.Contains(err.Error(), typedSecret) {
+		t.Errorf("Place = %v after refreshing with %q; want ErrNotKept after one refresh, with no secret in it",
+			err, slack.spent)
 	}
 }
 
@@ -296,21 +381,8 @@ func TestPlacingAPairTheKeychainCannotReadBackIsNotKeptRatherThanUnreadable(t *t
 	// The keychain reads what it keeps and takes the new pair, then cannot
 	// read it back: Slack has spent the typed refresh token by then, so the
 	// pair is not kept, which saving again cannot mend as unlocking would.
-	var stored atomic.Bool
-
-	readsBackNothing := func(_ context.Context, program proc.Command, _ []byte) ([]byte, error) {
-		switch {
-		case program.Args[0] == "-i":
-			stored.Store(true)
-
-			return nil, nil
-		case stored.Load():
-			return nil, errKeychainLocked
-		default:
-			return []byte(keptPair + "\n"), nil
-		}
-	}
-	place := placing(t).PlaceSlackCredentials(slack.do, onMacOSRunning(readsBackNothing))
+	security := &fakeSecurity{kept: keptPair, blind: true}
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
 	err := place(t.Context(), typedInto(typedSecret, typedRefresh))

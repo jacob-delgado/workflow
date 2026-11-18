@@ -794,7 +794,9 @@ leading the view that was first. The rest of the Jira part — its project, revi
 status, views and Markdown comments — applies at once. Slack's user token is
 three fields — Client ID, Client secret and Refresh token; on macOS a save
 refreshes the token with them and keeps the secrets in the keychain rather than
-the file, and where the file already keeps them it keeps what you type (see
+the file — a keychain that cannot be read or will not store refuses the save
+first, with nothing saved and nothing spent, saying to unlock it — and where
+the file already keeps them it keeps what you type (see
 [Configuration]({{< relref "/docs/configuration" >}})). The access token and its
 expiry have no field: workflow writes them. On macOS a Jira token you type goes
 to the keychain item for the Jira address, never into a file, and **Read the
