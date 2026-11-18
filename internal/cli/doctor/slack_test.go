@@ -202,3 +202,41 @@ func TestDoctorUnderDryRunHoldsBackARefreshForATokenNeverHeld(t *testing.T) {
 		t.Errorf("the Slack check under --dry-run = %q, want unchecked:\n%s", status, output)
 	}
 }
+
+func TestDoctorJSONOnlineCallsASlackTokenWhoseStoreWillNotKeepItRejected(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The token is due a refresh, and the home directory its file is in takes
+	// no new file: the token is there, but doctor cannot renew it.
+	if os.Geteuid() == 0 {
+		t.Skip("root writes in any directory")
+	}
+
+	slack := clitest.FakeSlack(t, map[string]clitest.SlackAnswer{"/oauth.v2.access": {
+		Status: http.StatusOK,
+		Body: `{"ok":true,"token_type":"user","access_token":"xoxe.xoxp-1-new",` +
+			`"refresh_token":"xoxe-1-next","expires_in":43200}`,
+	}})
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir(), State: t.TempDir()}
+	clitest.WriteFile(t, where.Home, clitest.SlackDueConfig())
+
+	err := os.Chmod(where.Home, 0o500)
+	if err != nil {
+		t.Fatalf("making the home directory read-only: %v", err)
+	}
+
+	t.Cleanup(func() { _ = os.Chmod(where.Home, 0o700) })
+
+	// Act
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "doctor", "--json", "--online")
+
+	// Assert
+	if got := credentialStatusIn(decodeReport(t, printed.Stdout), messagingService); got != "rejected" ||
+		slack.Count("/oauth.v2.access") != 0 {
+		t.Errorf("the online report calls the Slack token %q after %d refreshes, want rejected and nothing "+
+			"spent:\n%s", got, slack.Count("/oauth.v2.access"), printed.Stdout)
+	}
+
+	wantExit(t, err, 3)
+}

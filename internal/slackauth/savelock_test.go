@@ -65,7 +65,7 @@ func TestAKeychainLoginNamesNoAppWhileAnotherWorkflowSavesTheHomeFile(t *testing
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange
 		files := homeAndRepository(t)
-		store := slackauth.KeychainStore(keychainHolding(t), savingElsewhere(t, files), files)
+		store := slackauth.KeychainStore(emptyKeychain(t), savingElsewhere(t, files), files)
 
 		// Act
 		err := store.KeepLogin(t.Context(), clientID, pairExpiringIn(0))

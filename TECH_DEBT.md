@@ -2110,3 +2110,34 @@ address then reads the new token.
 **Reopen when.** A user reports a file left reading a token the keychain does
 not hold, or one reading a token it was not set up with, after a setup was
 stopped.
+
+### TRADE-82 A Slack pair whose store turns after its prove can still be lost
+
+**Decided.** 2026-11-18 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: Slack spends a refresh token as
+it answers, so before a refresh the place the new pair goes proves it takes a
+write, by a probe that leaves what it holds untouched (`Store.Prove`,
+`internal/slackauth/store.go`). The configuration file parses the layers its
+save reads and makes and removes a file beside itself; the keychain stores a
+fresh value under an item of its own, `workflow-slack-probe`, reads it back
+and deletes it, which proves what a keep needs whether or not a pair is held,
+since a keychain is locked or unlocked as a whole. One that would not is
+`ErrKeepRefused`, with nothing spent. Re-storing the pair held was rejected:
+it cannot run before a first login, and reads back the same secret, so proves
+nothing of a `security` that misreports. Keeping the pair in memory, or in the
+home file instead, was rejected too: the first is lost at exit, and the second
+would put a secret where the keychain was chosen.
+
+**Cost.** A store that turns between the prove and the keep — a keychain
+locked in that window, a disk that fills, a file another workflow edits three
+times over — and a keep refused for a reason no probe meets, such as an access
+rule on the real keychain item alone, still lose the pair, as `ErrNotKept`
+says: reinstall the app for a fresh refresh token, then log in. Each refresh
+costs three more runs of `security` on macOS, and a parse and a file made and
+removed elsewhere. The prove spends nothing, so it ends with its asker, as
+the refresh does not: a run killed, or a request that leaves, between the
+probe's store and its delete leaves `workflow-slack-probe` in the keychain,
+holding no secret, for the next prove to overwrite and delete.
+
+**Reopen when.** A pair is reported lost after a keep refused, or the keychain
+item comes to carry an access rule of its own.

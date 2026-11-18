@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -55,6 +56,31 @@ func TestASwitchToADirectoryNotThereIsRefused(t *testing.T) {
 	if recorder.Code != http.StatusNotFound || after.Here.Dir != apiCmd || named {
 		t.Errorf("status %d, body %s, now in %q; want 404 naming no path, still in api", recorder.Code,
 			recorder.Body.String(), after.Here.Dir)
+	}
+}
+
+func TestASwitchToAConfigurationThatDoesNotParseSaysItDidNotLoad(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// As the command line's Reach wraps a load's failure: a file that does
+	// not parse is config.ErrInvalid, which a Slack token store's refusal
+	// is told by too, and the switch's own words must win.
+	deps := repositoryDeps(favoritesKept())
+	deps.Reach = func(context.Context, string) (webserver.World, error) {
+		return webserver.World{}, fmt.Errorf("%w: %w", webserver.ErrConfigurationUnreadable, config.ErrInvalid)
+	}
+
+	// Act
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPut, reposPath+"/here",
+		`{"dir":"`+webRoot+`"}`)
+
+	// Assert
+	const switchWords = "the configuration there did not load"
+
+	failure := webtest.Decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, switchWords) {
+		t.Errorf("status/detail = %d/%q, want 422 saying %q", recorder.Code, failure.Detail, switchWords)
 	}
 }
 

@@ -139,7 +139,7 @@ func storeFailing(held *memory, failingFrom int) slackauth.Store {
 
 			return inner.Load(ctx)
 		},
-		inner.Save)
+		inner.Save, takesAWrite)
 }
 
 func TestATokenStopsAtTheFirstStepThatFails(t *testing.T) {

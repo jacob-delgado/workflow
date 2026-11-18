@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -200,29 +201,70 @@ func TestASlackNotReachedReadsAsUnreachable(t *testing.T) {
 	}
 }
 
-func TestANewPairThatCouldNotBeKeptAsksForALoginAgain(t *testing.T) {
-	t.Parallel()
+// withUnknownKey writes a key no configuration has into the file at path, so
+// a save into it is refused.
+func withUnknownKey(t *testing.T, path string) {
+	t.Helper()
 
-	// Arrange
-	// The file holds the pair to refresh, and a key no configuration has, so
-	// the new pair Slack gives cannot be saved into it.
-	cfg := runOut(t)
-
-	contents, err := os.ReadFile(cfg.Path)
+	contents, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	write(t, cfg.Path, strings.TrimSuffix(strings.TrimSpace(string(contents)), "}")+`, "unknown": true}`, config.FileMode)
+	write(t, path, strings.TrimSuffix(strings.TrimSpace(string(contents)), "}")+`, "unknown": true}`, config.FileMode)
+}
 
-	source := stateIn(stateDirAt(t.TempDir())).SlackToken(cfg, rotatingSlack)
+func TestANewPairThatCouldNotBeKeptAsksForALoginAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The file takes a write until Slack answers, and then gains a key no
+	// configuration has, so the new pair Slack gives cannot be saved into it.
+	cfg := runOut(t)
+	breaking := func(request *http.Request) (*http.Response, error) {
+		withUnknownKey(t, cfg.Path)
+
+		return rotatingSlack(request)
+	}
+
+	source := stateIn(stateDirAt(t.TempDir())).SlackToken(cfg, breaking)
 
 	// Act
-	_, err = source(t.Context(), "")
+	_, err := source(t.Context(), "")
 
 	// Assert
 	if !errors.Is(err, messaging.ErrNoCredential) || !errors.Is(err, slackauth.ErrNotKept) {
 		t.Errorf("the token = %v, want no credential, and the pair not kept named", err)
+	}
+}
+
+func TestAFileThatWillNotParseRefusesThePostBeforeTheRefresh(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The file holds the pair to refresh, and a key no configuration has, so
+	// no new pair could be saved into it.
+	cfg := runOut(t)
+	withUnknownKey(t, cfg.Path)
+
+	var refreshes atomic.Int32
+
+	counting := func(request *http.Request) (*http.Response, error) {
+		refreshes.Add(1)
+
+		return rotatingSlack(request)
+	}
+
+	source := stateIn(stateDirAt(t.TempDir())).SlackToken(cfg, counting)
+
+	// Act
+	_, err := source(t.Context(), "")
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrKeepRefused) || errors.Is(err, messaging.ErrNoCredential) ||
+		errors.Is(err, messaging.ErrRejected) || refreshes.Load() != 0 {
+		t.Errorf("the token = %v after %d refreshes; want the store's refusal in its own words, "+
+			"and Slack not asked", err, refreshes.Load())
 	}
 }
 

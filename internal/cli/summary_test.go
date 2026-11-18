@@ -5,9 +5,11 @@ package cli_test
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -18,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 )
@@ -421,4 +424,48 @@ func TestSummaryPostStopsAtTheQuestionWhenNothingCanAnswer(t *testing.T) {
 	}
 
 	wantExit(t, err, 2)
+}
+
+func TestSummaryPostWhoseSlackTokenCouldNotBeKeptSpendsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The token is due a refresh, and the home directory its file is in takes
+	// no new file, so the pair Slack would give could not be kept there.
+	if os.Geteuid() == 0 {
+		t.Skip("root writes in any directory")
+	}
+
+	slack := clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
+		slackRefresh: {Status: http.StatusOK, Body: slackRenewed},
+	})
+	where := clitest.Place{Dir: workedRepository(t, "Add the widget"), Home: t.TempDir(), State: t.TempDir()}
+	home := clitest.WriteFile(t, where.Home, clitest.SlackDueConfig())
+
+	err := os.Chmod(where.Home, 0o500)
+	if err != nil {
+		t.Fatalf("making the home directory read-only: %v", err)
+	}
+
+	t.Cleanup(func() { _ = os.Chmod(where.Home, 0o700) })
+
+	before, err := os.ReadFile(home)
+	if err != nil {
+		t.Fatalf("reading %s: %v", home, err)
+	}
+
+	// Act
+	_, err = clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), summaryCommand, "--from", summaryDay,
+		"--to", summaryDay, "--post", "--yes")
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrKeepRefused) || slack.Count(slackRefresh) != 0 ||
+		slack.Count(clitest.SlackPostMessage) != 0 {
+		t.Errorf("summary --post = %v after %d refreshes and %d posts; want the write refused before the "+
+			"refresh token is spent, nothing posted", err, slack.Count(slackRefresh),
+			slack.Count(clitest.SlackPostMessage))
+	}
+
+	wantExit(t, err, 1)
+	unchanged(t, home, string(before))
 }

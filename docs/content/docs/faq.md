@@ -728,7 +728,15 @@ spent; reinstall the app for a fresh refresh token, then run `workflow slack
 login` ``). To recover, reinstall the app under **OAuth & Permissions** to get
 a fresh refresh token, then run `workflow slack login` again. Don't copy the
 token's file or keychain entry to another machine, because each refresh spends
-the token the other copy holds. A refusal like this exits with status 3. See
+the token the other copy holds. A refusal like this exits with status 3.
+
+Before it refreshes, workflow checks that where the token is kept takes a
+write. If it says `` the place the Slack token is kept would not take a write,
+so no refresh token was spent ``, nothing was spent and the token still works:
+unlock the keychain, or make the configuration file's directory writable, then
+try again. That refusal exits with status 1; one whose configuration file does
+not parse exits with status 3, as any command meeting that file does, and
+fixing the file answers it. See
 [Configuration: Slack: a user token or a
 webhook]({{< relref "/docs/configuration#slack-a-user-token-or-a-webhook" >}}).
 

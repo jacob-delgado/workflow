@@ -7,15 +7,12 @@ import (
 	"context"
 	"errors"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/keychain"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 )
 
@@ -79,39 +76,11 @@ func TestAFileStoreWithNothingSavedSaysToLogIn(t *testing.T) {
 	}
 }
 
-// keychainHolding is a macOS keychain item whose security keeps what it is
-// last handed and reads it back.
-func keychainHolding(t *testing.T) keychain.Item {
-	t.Helper()
-
-	var kept string
-
-	run := func(_ context.Context, program proc.Command, input []byte) ([]byte, error) {
-		if program.Args[0] == "-i" {
-			line := string(input)
-			start := strings.Index(line, ` -w "`) + len(` -w "`)
-			kept = strings.NewReplacer(`\"`, `"`, `\\`, `\`).Replace(strings.TrimSuffix(line[start:], "\"\n"))
-
-			return nil, nil
-		}
-
-		return []byte(kept + "\n"), nil
-	}
-
-	item, ok := keychain.Open("darwin", "workflow-slack", run,
-		func() (*user.User, error) { return &user.User{Username: "jacob"}, nil }, func(string) string { return "" })
-	if !ok {
-		t.Fatal("no keychain item on darwin")
-	}
-
-	return item
-}
-
 func TestTheKeychainStoreKeepsThePair(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, config.Files{})
+	store := slackauth.KeychainStore(emptyKeychain(t), config.SaveLocks{}, config.Files{})
 	pair := pairExpiringIn(0)
 
 	// Act
@@ -131,7 +100,7 @@ func TestThePairKeptWithNoExpiryReadsBackWithNone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, config.Files{})
+	store := slackauth.KeychainStore(emptyKeychain(t), config.SaveLocks{}, config.Files{})
 	pair := startingPair()
 	pair.ExpiresAt = time.Time{}
 
@@ -152,7 +121,7 @@ func TestThePairKeptWithNoExpiryReadsBackWithNone(t *testing.T) {
 func TestChooseKeepsThePairWhereItBelongs(t *testing.T) {
 	t.Parallel()
 
-	item := keychainHolding(t)
+	item := emptyKeychain(t)
 	cases := map[string]struct {
 		goos      string
 		messaging config.Messaging
@@ -201,7 +170,7 @@ func TestAKeychainEntryMissingItsSecretsSaysToLogIn(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			item := keychainHolding(t)
+			item := emptyKeychain(t)
 
 			err := item.Store(t.Context(), entry)
 			if err != nil {
@@ -372,7 +341,7 @@ func TestAPairNotKeptSaysToReinstallTheApp(t *testing.T) {
 	// Arrange
 	store := slackauth.NewStore(inTheFile,
 		func(context.Context) (slackauth.Credentials, error) { return pairExpiringIn(0), nil },
-		func(context.Context, slackauth.Credentials) error { return errDiskFull })
+		func(context.Context, slackauth.Credentials) error { return errDiskFull }, takesAWrite)
 
 	// Act
 	err := store.Keep(t.Context(), pairExpiringIn(time.Hour))

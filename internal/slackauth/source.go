@@ -69,6 +69,14 @@ func (s Source) Token(ctx context.Context, expired config.Secret) (config.Secret
 		return held.AccessToken, nil
 	}
 
+	// Slack spends held's refresh token as it answers, so a store that would
+	// refuse the pair refuses first, with ErrKeepRefused and nothing spent.
+	// The prove spends nothing either, so it ends when the caller leaves.
+	err = s.Store.Prove(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	detached, release := lifetime.Detached(ctx)
 	defer release()
 

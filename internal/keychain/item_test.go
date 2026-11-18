@@ -341,3 +341,117 @@ func TestAStoreSecurityCannotReadBackIsNotKept(t *testing.T) {
 			err, keychain.ErrNotKept)
 	}
 }
+
+func TestUnderIsTheItemForAnotherServiceAsTheSameUser(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var runs []ran
+
+	item := itemFor(t, answeringRunner(&runs, "probe-secret\n", nil))
+
+	// Act
+	_, err := item.Under("workflow-slack-probe").Read(t.Context())
+
+	// Assert
+	if got := strings.Join(runs[0].program.Args, " "); err != nil ||
+		got != "find-generic-password -a jacob -s workflow-slack-probe -w" {
+		t.Errorf("security ran with %q, %v; want the other service read for the same user", got, err)
+	}
+}
+
+func TestDeleteRemovesTheServicesSecret(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var runs []ran
+
+	item := itemFor(t, recordingRunner(&runs, nil))
+
+	err := item.Store(t.Context(), "probe-secret")
+	if err != nil {
+		t.Fatalf("Store = %v", err)
+	}
+
+	// Act
+	err = item.Delete(t.Context())
+	// Assert
+	if err != nil {
+		t.Fatalf("Delete = %v, want the secret deleted", err)
+	}
+
+	got := strings.Join(runs[len(runs)-1].program.Args, " ")
+	if got != "delete-generic-password -a jacob -s workflow-slack" {
+		t.Errorf("security ran with %q, want the service's secret deleted for its user", got)
+	}
+
+	_, err = item.Read(t.Context())
+	if !errors.Is(err, keychain.ErrNotStored) {
+		t.Errorf("Read after Delete = %v, want %v", err, keychain.ErrNotStored)
+	}
+}
+
+func TestDeletingWhatIsNotThereIsDone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var runs []ran
+
+	item := itemFor(t, answeringRunner(&runs, "", exitedWith(44)))
+
+	// Act
+	err := item.Delete(t.Context())
+
+	// Assert
+	if err != nil || len(runs) != 1 {
+		t.Errorf("Delete = %v after %d runs, want one run and nothing to delete taken as done", err, len(runs))
+	}
+}
+
+func TestADeleteSecurityRefusesIsNotDeleted(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]error{
+		"an exit status":    &proc.ExitError{Program: securityProgram, Code: 51, Stderr: "SECRET-VALUE nearby"},
+		"a run that failed": errKeychainLocked,
+	}
+
+	for name, refusal := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var runs []ran
+
+			item := itemFor(t, answeringRunner(&runs, "", refusal))
+
+			// Act
+			err := item.Delete(t.Context())
+
+			// Assert
+			if !errors.Is(err, keychain.ErrNotDeleted) || strings.Contains(err.Error(), "SECRET-VALUE") {
+				t.Errorf("Delete = %v, want %v told without what security printed", err, keychain.ErrNotDeleted)
+			}
+		})
+	}
+}
+
+func TestDeleteRefusesWithoutAnAccountName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var runs []ran
+
+	item, ok := keychain.Open("darwin", slackService, answeringRunner(&runs, "", nil), failedLookup, userIs(""))
+	if !ok {
+		t.Fatal("Open on darwin gave no item")
+	}
+
+	// Act
+	err := item.Delete(t.Context())
+
+	// Assert
+	if !errors.Is(err, keychain.ErrNoAccount) || len(runs) != 0 {
+		t.Errorf("Delete = %v after %d runs, want %v and nothing run", err, len(runs), keychain.ErrNoAccount)
+	}
+}

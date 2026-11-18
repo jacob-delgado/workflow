@@ -213,16 +213,18 @@ func (e Environment) SlackToken(cfg config.Config, do httpx.Doer) messaging.Toke
 }
 
 // asMessagingError is a token source's failure as the messaging client's error.
-// A lock held elsewhere, and a wait Slack asked for, are no refusal of the
-// token, so they keep their own words; a status Slack gave no verdict with is
-// the messaging client's unexpected status.
+// A lock held elsewhere, a wait Slack asked for, and a store that would not
+// take a write, found before anything was spent, are no refusal of the token,
+// which still works, so they keep their own words; a status Slack gave no
+// verdict with is the messaging client's unexpected status.
 func asMessagingError(err error) error {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, slackauth.ErrNotLoggedIn), errors.Is(err, slackauth.ErrNotKept):
 		return fmt.Errorf("%w: %w", messaging.ErrNoCredential, err)
-	case errors.Is(err, slackauth.ErrLocked), errors.Is(err, httpx.ErrRateLimited):
+	case errors.Is(err, slackauth.ErrLocked), errors.Is(err, httpx.ErrRateLimited),
+		errors.Is(err, slackauth.ErrKeepRefused):
 		return err
 	case errors.Is(err, slackauth.ErrUnreachable):
 		return fmt.Errorf("%w: %w", messaging.ErrUnreachable, err)

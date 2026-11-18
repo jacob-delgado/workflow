@@ -73,7 +73,10 @@ func checkCredentials(ctx context.Context, run doctorRun, remote string, answere
 
 // credentialStatus names an outcome for the reader to act on: a working
 // credential, one doctor could not ask about, none to ask with, one the service
-// refused, or a service that never answered.
+// refused, or a service that never answered. A Slack token whose store would
+// not take a write, found before anything was sent, is rejected too, as one
+// whose refresh lock another workflow holds is: neither was put to Slack, but
+// each is the user's to clear before the token can be checked.
 func credentialStatus(err error) string {
 	switch {
 	case err == nil:

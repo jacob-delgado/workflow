@@ -37,10 +37,21 @@ const SlackPostMessage = "/chat.postMessage"
 // token good for an hour, whose credentials the file keeps, so no keychain is
 // read and no refresh is due.
 func SlackLoggedInConfig() string {
+	return slackConfigExpiring(time.Now().Add(time.Hour))
+}
+
+// SlackDueConfig is SlackLoggedInConfig with a user token that has expired,
+// so the next post, or doctor --online, refreshes it first.
+func SlackDueConfig() string {
+	return slackConfigExpiring(time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC))
+}
+
+// slackConfigExpiring is SlackLoggedInConfig with a user token expiring at.
+func slackConfigExpiring(at time.Time) string {
 	return `{"forge":{"cli":true,"kind":"github","host":"github.com"},` +
 		`"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",` +
 		`"refresh_token":"xoxe-1-refresh","access_token":"xoxe.xoxp-1-held",` +
-		`"expires_at":"` + time.Now().Add(time.Hour).UTC().Format(time.RFC3339) + `","channel":"#dev"}}`
+		`"expires_at":"` + at.UTC().Format(time.RFC3339) + `","channel":"#dev"}}`
 }
 
 // TaggingScopes are the scopes workflow slack login asks for, which the fake
