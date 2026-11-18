@@ -19,6 +19,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
+// replaceFile writes cfg to a file of its own at path, as config init --force
+// does, with no save lock, for a test of the file it leaves.
+func replaceFile(path string, cfg config.Config) error {
+	_, err := config.ReplaceFile(config.SaveLocksIn(""), path, cfg)
+
+	return err
+}
+
 // replacedContents is the file a ReplaceFile test replaces.
 const replacedContents = `{"jira": {"base_url": "https://old.example.com", "token": "old"}}` + "\n"
 

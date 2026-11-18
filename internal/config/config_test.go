@@ -188,9 +188,9 @@ func TestSaveWritesOwnerOnlyPermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), config.FileName)
 
 	// Act
-	err := config.Save(path, config.Template())
+	err := replaceFile(path, config.Template())
 	if err != nil {
-		t.Fatalf("Save: %v", err)
+		t.Fatalf("ReplaceFile: %v", err)
 	}
 
 	// Assert
@@ -211,9 +211,9 @@ func TestSavedTemplateLoadsBack(t *testing.T) {
 	// Arrange
 	workDir := t.TempDir()
 
-	err := config.Save(filepath.Join(workDir, config.FileName), config.Template())
+	err := replaceFile(filepath.Join(workDir, config.FileName), config.Template())
 	if err != nil {
-		t.Fatalf("Save: %v", err)
+		t.Fatalf("ReplaceFile: %v", err)
 	}
 
 	// Act
@@ -248,10 +248,10 @@ func TestSaveReplacesASharedFileWithAnOwnerOnlyOne(t *testing.T) {
 	}
 
 	// Act
-	err = config.Save(path, config.Template())
+	err = replaceFile(path, config.Template())
 	// Assert
 	if err != nil {
-		t.Fatalf("Save: %v", err)
+		t.Fatalf("ReplaceFile: %v", err)
 	}
 
 	info, err := os.Stat(path)
@@ -321,11 +321,11 @@ func TestSaveReportsAnUnwritablePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing-dir", config.FileName)
 
 	// Act
-	err := config.Save(path, config.Template())
+	err := replaceFile(path, config.Template())
 
 	// Assert
 	if !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("Save = %v, want the write's own not-exist error", err)
+		t.Errorf("ReplaceFile = %v, want the write's own not-exist error", err)
 	}
 }
 

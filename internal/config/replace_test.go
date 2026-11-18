@@ -136,8 +136,8 @@ func TestASaveThroughALinkReplacesTheFileItPointsAt(t *testing.T) {
 //nolint:paralleltest // t.Chdir moves the whole process, so these run serially.
 func TestSaveToAnEmptyPathWritesNothing(t *testing.T) {
 	cases := map[string]func(cfg config.Config) error{
-		"Save": func(cfg config.Config) error {
-			return config.Save("", cfg)
+		"ReplaceFile": func(cfg config.Config) error {
+			return replaceFile("", cfg)
 		},
 		"SaveLayers": func(cfg config.Config) error {
 			_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: ""}, cfg, config.Revision{})
@@ -204,11 +204,11 @@ func TestSaveThatFailsLeavesNoFileBesideThePath(t *testing.T) {
 			occupy(t, path)
 
 			// Act
-			err := config.Save(path, config.Default())
+			err := replaceFile(path, config.Default())
 
 			// Assert
 			if err == nil {
-				t.Error("Save = nil, want the failure to replace the path")
+				t.Error("ReplaceFile = nil, want the failure to replace the path")
 			}
 
 			if names := entryNames(t, dir); !slices.Equal(names, []string{config.FileName}) {
@@ -241,12 +241,16 @@ func TestSaveThroughMoreLinksThanTheSystemFollowsWritesNothing(t *testing.T) {
 		reached = next
 	}
 
+	// The save lock is taken, so its own walk of the links meets the
+	// system's refusal before the read does.
+	locks := config.SaveLocksIn(t.TempDir())
+
 	// Act
-	err := config.Save(filepath.Join(reached, config.FileName), savedConfig())
+	_, err := config.ReplaceFile(locks, filepath.Join(reached, config.FileName), savedConfig())
 
 	// Assert
 	if !errors.Is(err, syscall.ELOOP) {
-		t.Errorf("Save through %d links = %v, want the system's refusal to follow them", linkChain, err)
+		t.Errorf("ReplaceFile through %d links = %v, want the system's refusal to follow them", linkChain, err)
 	}
 
 	if names := entryNames(t, actual); len(names) != 0 {

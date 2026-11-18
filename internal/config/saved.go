@@ -62,11 +62,13 @@ func (s Saved) TakeBack(locks SaveLocks) error {
 	return errors.Join(err, os.Remove(made))
 }
 
-// ReplaceFile writes cfg to a file of its own at path, replacing whatever is
-// there, or the file a link there points at, and returns the write with what
-// that file held before, so the write can be taken back. It holds the file's
-// save lock from its read through the rename, so a save another workflow
-// makes meanwhile is waited for, as every save is.
+// ReplaceFile writes cfg to a file of its own at path, at FileMode, replacing
+// whatever is there, or the file a link there points at, and returns the write
+// with what that file held before, so the write can be taken back. The new
+// file is made in the directory of the file it replaces, so that directory
+// must be writable too. It holds the file's save lock from its read through
+// the rename, so a save another workflow makes meanwhile is waited for, as
+// every save is.
 func ReplaceFile(locks SaveLocks, path string, cfg Config) (Saved, error) {
 	files := Files{Home: path}
 
