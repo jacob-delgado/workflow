@@ -354,22 +354,17 @@ func SaveEdit(edit Edit) (Config, Revision, error) {
 		return Config{}, Revision{}, err
 	}
 
-	before, err := edit.targetAsRead()
-	if err != nil {
-		return Config{}, Revision{}, err
-	}
-
-	written, err := SaveLayers(edit.Locks, edit.Files, file, edit.Over)
+	saved, err := Replace(edit.Locks, edit.Files, file, edit.Over)
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
 
 	err = edit.handOff(incoming)
 	if err != nil {
-		return Config{}, Revision{}, errors.Join(err, restoreLayer(edit.Locks, edit.Files, before, written))
+		return Config{}, Revision{}, errors.Join(err, saved.TakeBack(edit.Locks))
 	}
 
-	return file, written, nil
+	return file, saved.Revision(), nil
 }
 
 // fileFor is what the file holds for incoming: without a Jira token the
@@ -443,51 +438,4 @@ func (edit Edit) keepsJiraToken(incoming Config) bool {
 	typed := incoming.Jira.Token != "" && incoming.Jira.Token != edit.Read.Jira.Token
 
 	return typed && incoming.Jira.BaseURL != "" && edit.KeepJiraToken != nil
-}
-
-// targetAsRead is the file the edit saves to as the read found it, for a
-// write handed off and refused to be taken back, refused with
-// ErrChangedOnDisk when the files are no longer at the revision the edit was
-// made over, and with the reason when they cannot be read.
-func (edit Edit) targetAsRead() (layer, error) {
-	home, repo, err := readLayers(edit.Files)
-	if err != nil {
-		return layer{}, err
-	}
-
-	if layersRevision(home, repo) != edit.Over {
-		return layer{}, fmt.Errorf("%s: %w", edit.Files, ErrChangedOnDisk)
-	}
-
-	if edit.Files.Repo != "" {
-		return repo, nil
-	}
-
-	return home, nil
-}
-
-// restoreLayer takes back the write that left files at the revision written:
-// the file it saved to holds what before held again, or, where before was no
-// file, goes from where the write followed its links to. Files changed since
-// are left as they are, refused with ErrChangedOnDisk. It holds locks from
-// the revision check through the write, as SaveLayers does.
-func restoreLayer(locks SaveLocks, files Files, before layer, written Revision) error {
-	unlock, err := locks.Hold(files)
-	if err != nil {
-		return fmt.Errorf("taking the write back: %w", err)
-	}
-	defer unlock()
-
-	now, err := RevisionOfLayers(files)
-	if err != nil || now != written {
-		return fmt.Errorf("taking the write back: %s: %w", files, ErrChangedOnDisk)
-	}
-
-	if before.exists {
-		return writePrivate(files.Target(), before.contents)
-	}
-
-	made, err := filepath.EvalSymlinks(files.Target())
-
-	return errors.Join(err, os.Remove(made))
 }

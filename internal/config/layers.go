@@ -144,32 +144,43 @@ func RevisionOfLayers(files Files) (Revision, error) {
 // a save another workflow makes meanwhile is waited for, then seen. It
 // returns the revision of the pair it leaves.
 func SaveLayers(locks SaveLocks, files Files, cfg Config, over Revision) (Revision, error) {
+	saved, err := Replace(locks, files, cfg, over)
+
+	return saved.Revision(), err
+}
+
+// Replace saves as SaveLayers does, and returns the write it made with what
+// the file it saved to held before, read under the lock, so the write can be
+// taken back.
+func Replace(locks SaveLocks, files Files, cfg Config, over Revision) (Saved, error) {
 	unlock, err := locks.Hold(files)
 	if err != nil {
-		return Revision{}, err
+		return Saved{}, err
 	}
 	defer unlock()
 
 	home, repo, err := readLayers(files)
 	if err != nil {
-		return Revision{}, err
+		return Saved{}, err
 	}
 
 	if layersRevision(home, repo) != over {
-		return Revision{}, fmt.Errorf("%s: %w", files, ErrChangedOnDisk)
+		return Saved{}, fmt.Errorf("%s: %w", files, ErrChangedOnDisk)
 	}
 
 	contents, err := layerContents(files, home, cfg)
 	if err != nil {
-		return Revision{}, err
+		return Saved{}, err
 	}
 
 	err = writePrivate(files.Target(), contents)
 	if err != nil {
-		return Revision{}, fmt.Errorf("writing %s: %w", files.Target(), err)
+		return Saved{}, fmt.Errorf("writing %s: %w", files.Target(), err)
 	}
 
-	return RevisionOfLayers(files)
+	at, err := RevisionOfLayers(files)
+
+	return Saved{files: files, before: targetOf(files, home, repo), at: at}, err
 }
 
 // CreateLayers writes the configuration as SaveLayers does, but only as a new
