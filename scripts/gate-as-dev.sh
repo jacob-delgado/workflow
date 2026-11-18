@@ -42,7 +42,8 @@
 # root's credentials reach the code under test, and not the descriptors the
 # locks are held on, so nothing it leaves running holds a lock past the run.
 # It gets a temporary directory of its own too, made fresh under ~/.cache, so
-# the fixed names tools keep in /tmp are never root's. It reaches the tools
+# the fixed names tools keep in /tmp are never root's, and starts in /, which
+# it can read wherever root started the run. It reaches the tools
 # through root's PATH, whose ~/.local/bin links into the toolchain; /root is
 # readable by others in a cloud session.
 #
@@ -231,6 +232,11 @@ hand_over() {
   # cannot move the base a run going has yet to fetch.
   handed_base="$(name_base "${src}")"
   check_pins "${src}" "${sha}"
+  # runuser keeps the directory it is started in, which the gate user may not
+  # read, as a worktree under root's 0700 /tmp/claude-0 is. Only now, since
+  # check_pins finds its library through this script's path, which is
+  # relative to that directory when the run began as `bash scripts/...`.
+  cd /
   make_room
   copy="$(run_copy)"
   trap 'echo "gate-as-dev: $(free_gb) GB free on / after the run"' EXIT

@@ -20,6 +20,7 @@ readonly stub_bin="${workdir}/stubs"
 readonly log="${workdir}/calls.log"
 readonly df_queue="${workdir}/df.queue"
 readonly handed_files="${workdir}/handed-files"
+readonly handed_dirs="${workdir}/handed-dirs"
 mkdir -p "${stub_bin}"
 
 # stub writes a stand-in command that logs its name and arguments.
@@ -44,10 +45,11 @@ fi
 free="$(head -1 "${queue}")"
 if (($(wc -l <"${queue}") > 1)); then tail -n +2 "${queue}" >"${queue}.next" && mv "${queue}.next" "${queue}"; fi
 printf "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/vda 1 1 %d 1%% /\n" $((free * 1048576))'
-# runuser stands in for switching users, notes the files it was handed open,
-# and exits RUNUSER_STATUS.
+# runuser stands in for switching users, notes the files it was handed open
+# and the directory it was started in, and exits RUNUSER_STATUS.
 # shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
 stub runuser 'ls -l "/proc/$$/fd" >>"'"${handed_files}"'" 2>/dev/null
+printf "%s\n" "${PWD}" >>"'"${handed_dirs}"'"
 exit "${RUNUSER_STATUS:-0}"'
 # shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
 stub curl 'exit "${CURL_STATUS:-0}"'
@@ -130,6 +132,7 @@ run_gate() {
   shift
   : >"${log}"
   : >"${handed_files}"
+  : >"${handed_dirs}"
   env PATH="${stub_bin}:${PATH}" GATE_TOOLS="${workdir}/tools" GATE_LOCK="${workdir}/gate.lock" \
     GATE_RUN_LOCK="${workdir}/gate-run.lock" "${handed_on[@]}" GITHUB_TOKEN=secret-for-the-test "${copy}" "$@"
 }
