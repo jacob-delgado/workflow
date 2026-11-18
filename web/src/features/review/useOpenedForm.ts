@@ -20,6 +20,16 @@ export interface OpenedForm {
   group: RefObject<HTMLDivElement | null>
 }
 
+// FormStage is where the pull request's forms stand: none open; none, the
+// one open put away as its offer lapsed, so focus goes to the offers left;
+// one open; or one a write was sent from, which stays, even past a refusal
+// or a lapsed offer, until that write is done or it is backed out of.
+type FormStage =
+  | { at: 'none' }
+  | { at: 'lapsed' }
+  | { at: 'open'; form: FormName }
+  | { at: 'sent'; form: FormName }
+
 // useOpenedForm keeps one form open at a time. A form whose offer has lapsed
 // — CI running again under Merge, say — is put away, as the server would
 // refuse what it sends, and does not come back unasked when the offer does;
@@ -29,19 +39,18 @@ export interface OpenedForm {
 // left once that button is gone too; put away with focus in it, to the
 // offers left. A write done leaves focus to the outcome line that says it.
 export function useOpenedForm(can: (form: FormName) => boolean): OpenedForm {
-  const [opened, setOpened] = useState<Opened>('none')
-  const [sending, setSending] = useState(false)
-  const [lapsed, setLapsed] = useState(false)
+  const [stage, setStage] = useState<FormStage>({ at: 'none' })
   const buttons = useRef<Partial<Record<FormName, HTMLButtonElement | null>>>({})
   const group = useRef<HTMLDivElement>(null)
   const returnTo = useRef<Opened>('none')
 
   // Set while rendering, so the frame that takes the offer away is the one
   // drawn without its form.
-  if (opened !== 'none' && !sending && !can(opened)) {
-    setOpened('none')
-    setLapsed(true)
+  if (stage.at === 'open' && !can(stage.form)) {
+    setStage({ at: 'lapsed' })
   }
+  const opened = openedOf(stage)
+  const lapsed = stage.at === 'lapsed'
 
   useEffect(() => {
     if (opened === 'none' && returnTo.current !== 'none') {
@@ -57,15 +66,13 @@ export function useOpenedForm(can: (form: FormName) => boolean): OpenedForm {
   }, [lapsed])
 
   const shut = () => {
-    setOpened('none')
-    setSending(false)
+    setStage({ at: 'none' })
   }
 
   return {
     opened,
     open: (form) => {
-      setLapsed(false)
-      setOpened(form)
+      setStage({ at: 'open', form })
     },
     close: () => {
       returnTo.current = opened
@@ -73,11 +80,30 @@ export function useOpenedForm(can: (form: FormName) => boolean): OpenedForm {
     },
     done: shut,
     sent: () => {
-      setSending(true)
+      setStage(sentFrom)
     },
     button: (form) => (button) => {
       buttons.current[form] = button
     },
     group,
   }
+}
+
+// openedOf is the form a stage has open, or none.
+function openedOf(stage: FormStage): Opened {
+  switch (stage.at) {
+    case 'none':
+    case 'lapsed':
+      return 'none'
+    case 'open':
+    case 'sent':
+      return stage.form
+  }
+}
+
+// sentFrom is the stage once a write is sent from the form open: that form,
+// sent. A sent form whose write was refused sends again and stays as it is;
+// none and lapsed show no form to send from.
+function sentFrom(stage: FormStage): FormStage {
+  return stage.at === 'open' ? { at: 'sent', form: stage.form } : stage
 }

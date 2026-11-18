@@ -478,3 +478,28 @@ test('a form put away by its offer lapsing hands focus to the offers left', asyn
   // Assert
   expect(document.activeElement).toBe(screen.getByRole('group', { name: 'Change #42' }))
 })
+
+test('an edit refused and sent again keeps its form while it sends', async () => {
+  // Arrange
+  vi.mocked(readPullText).mockResolvedValueOnce({ title: 'x', body: '' })
+  vi.mocked(editPull).mockRejectedValueOnce({
+    code: 'unprocessable',
+    detail: 'GitHub refused this',
+  })
+  holdWrite(editPull)
+  streamPull(ready, ciOf('passed'))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Edit pull request' }))
+  const form = await screen.findByRole('form', { name: 'Edit #42' })
+  await user.click(within(form).getByRole('button', { name: 'Save' }))
+  await within(form).findByRole('alert')
+
+  // Act
+  await user.click(within(form).getByRole('button', { name: 'Save' }))
+
+  // Assert
+  expect(
+    within(screen.getByRole('form', { name: 'Edit #42' })).getByRole('button', { name: 'Saving…' }),
+  ).toBeTruthy()
+})
