@@ -24,11 +24,10 @@
 # Each arm is named by its file, line and function, and by its number among
 # the conditions its function holds that read the same, counted from the
 # top: the first "err != nil" in a function is 1, the next 2. A line of the
-# allowlist keeps one arm for the trade-off it names, on the systems it names
-# ("any", or GOOS values joined by commas), by that number rather than its
-# line, which drifts:
+# allowlist keeps one arm, on the systems it names ("any", or GOOS values
+# joined by commas), by that number rather than its line, which drifts:
 #
-#   <file> <function> <TRADE-n> <systems> <number> <condition>
+#   <file> <function> <systems> <number> <condition>
 #
 # So a kept arm a test comes to reach is not traded for a new one no test
 # reaches that reads the same, added below it in the same function: the new
@@ -36,17 +35,17 @@
 # kept arm moves the arm's number on, and the gate fails until the line
 # follows it, with one exception it cannot see: when a test comes to reach the
 # kept arm in the same change, the new arm takes the kept one's number, the
-# line keeps it, and the gate passes. Trade-off TRADE-19: without source lines
-# the two cannot be told apart. A run over named packages misses only lines
-# for files it did not measure.
+# line keeps it, and the gate passes: without source lines the two cannot be
+# told apart, and a scripts/gobco-report_test.sh case pins that it passes. A
+# run over named packages misses only lines for files it did not measure.
 #
 # A line may keep any arm of a condition seen at most one way, so a condition
-# only another system sees both ways, kept for a trade-off, passes on a line a
+# only another system sees both ways, kept by a line, passes on a line a
 # change touches. So a line keeps its condition while either arm of it goes
 # unseen, and fails once a test reaches both: a line kept for a condition never
 # evaluated, or for an error's arm, stays once a test reaches that arm but
-# leaves the other unseen. Trade-off TRADE-19: a line does not name which arm
-# it keeps, and a scripts/gobco-report_test.sh case pins that it passes.
+# leaves the other unseen: a line does not name which arm it keeps, and a
+# scripts/gobco-report_test.sh case pins that it passes.
 #
 # It reads the conditions a line each, "<file>:<line>:<column>", the code, and
 # how often each was seen true and false, apart by tabs and sorted by file,
@@ -125,16 +124,15 @@ BEGIN {
     if (line ~ /^[ \t]*(#|$)/) continue
     fields = split(line, field, /[ \t]+/)
     if (field[1] == "") { for (i = 1; i < fields; i++) field[i] = field[i + 1]; fields-- }
-    if (fields < 6 || field[3] !~ /^TRADE-[1-9][0-9]*$/ || field[4] !~ /^(any|[a-z0-9]+(,[a-z0-9]+)*)$/ ||
-      field[5] !~ /^[1-9][0-9]*$/) {
-      printf "%s:%d: want <file> <function> <TRADE-n> <systems> <number> <condition>\n", allowlist, number > "/dev/stderr"
+    if (fields < 5 || field[3] !~ /^(any|[a-z0-9]+(,[a-z0-9]+)*)$/ || field[4] !~ /^[1-9][0-9]*$/) {
+      printf "%s:%d: want <file> <function> <systems> <number> <condition>\n", allowlist, number > "/dev/stderr"
       bad = 1
       continue
     }
-    if (!applies(field[4])) continue
-    condition = field[6]
-    for (i = 7; i <= fields; i++) condition = condition " " field[i]
-    arm = field[1] SUBSEP field[2] SUBSEP field[5] SUBSEP condition
+    if (!applies(field[3])) continue
+    condition = field[5]
+    for (i = 6; i <= fields; i++) condition = condition " " field[i]
+    arm = field[1] SUBSEP field[2] SUBSEP field[4] SUBSEP condition
     if (arm in allowed) {
       printf "%s:%d: keeps the arm line %d keeps already\n", allowlist, number, allowed[arm] > "/dev/stderr"
       bad = 1
@@ -142,7 +140,7 @@ BEGIN {
     }
     allowed[arm] = number
     file[arm] = field[1]
-    text[arm] = field[1] " " field[2] " " field[3] " " field[4] " " field[5] " " condition
+    text[arm] = field[1] " " field[2] " " field[3] " " field[4] " " condition
   }
   allowlist_lines = number
   if (changed != "") while ((getline line < changed) > 0) touched[line] = 1
@@ -183,20 +181,20 @@ END {
     bad = 1
   }
   if (misses > 0) {
-    print "Condition arms no test reached, and no trade-off keeps:" > "/dev/stderr"
+    print "Condition arms no test reached, and no line of the allowlist keeps:" > "/dev/stderr"
     for (i = 1; i <= misses; i++) print missed[i] > "/dev/stderr"
-    print "Each is a test to write. One a kept trade-off in TECH_DEBT.md keeps goes in" > "/dev/stderr"
-    print "the allowlist instead, a line an arm, naming that trade-off." > "/dev/stderr"
+    print "Each is a test to write. One no test can reach goes in the allowlist" > "/dev/stderr"
+    print "instead, a line an arm, under a comment that says why." > "/dev/stderr"
     bad = 1
   }
   if (one_ways > 0) {
     print "Conditions seen only one way on a line this change touched, since " since ":" > "/dev/stderr"
     for (i = 1; i <= one_ways; i++) print one_way[i] > "/dev/stderr"
     print "A condition a change adds or rewrites is seen both ways before it lands: a" > "/dev/stderr"
-    print "defect once shipped behind one this report listed as seen one way" > "/dev/stderr"
-    print "(TRADE-19). Each is a test to write. In a package whose tests run in" > "/dev/stderr"
-    print "parallel, gobco's counts can lose an increment (gobco-report.sh's sharp" > "/dev/stderr"
-    print "edge 1), so run that package again to confirm one before writing its test." > "/dev/stderr"
+    print "defect once shipped behind one this report listed as seen one way." > "/dev/stderr"
+    print "Each is a test to write. In a package whose tests run in parallel," > "/dev/stderr"
+    print "gobco's counts can lose an increment (gobco-report.sh's sharp edge 1)," > "/dev/stderr"
+    print "so run that package again to confirm one before writing its test." > "/dev/stderr"
     bad = 1
   }
   exit bad

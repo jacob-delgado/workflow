@@ -14,12 +14,12 @@
 # naming the file, line and function, a method by its type's name whatever type
 # parameters it takes, and the arm's number among its function's conditions
 # that read the same, unless a line of the allowlist keeps that arm, by that
-# number, for a trade-off (a new arm added above a kept arm a test came to
-# reach takes its number, a limit TRADE-19 keeps and a case below pins); a
-# line keeps one arm, on the systems it names, and no other line may keep it
-# too; a line whose condition a test now sees both ways, or that is not shaped
-# as one, fails too, though one kept for an arm a test now reaches stays while
-# the other arm goes unseen, a second limit TRADE-19 keeps and a case pins; and
+# number (a new arm added above a kept arm a test came to reach takes its
+# number, a known limit a case below pins); a line keeps one arm, on the
+# systems it names, and no other line may keep it too; a line whose condition
+# a test now sees both ways, or that is not shaped as one, fails too, though
+# one kept for an arm a test now reaches stays while the other arm goes
+# unseen, a second known limit a case pins; and
 # a boolean seen one way on a line the change left as it was is only listed.
 # gobco-report_changes_test.sh holds one on a line the change touched.
 #
@@ -180,13 +180,13 @@ expect pass "a boolean seen one way" "${boolean_one_way}" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 
 # A line of the allowlist keeps one arm, of the function, number and
-# condition it names, for the trade-off it names.
-kept="$(allowlist kept "${fixture} reader.read TRADE-1 any 1 err != nil" \
-  "${fixture} ready TRADE-2 any 1 err == nil")"
+# condition it names.
+kept="$(allowlist kept "${fixture} reader.read any 1 err != nil" \
+  "${fixture} ready any 1 err == nil")"
 GOBCO_ALLOWLIST="${kept}" expect pass "arms the allowlist keeps" "${error_arm_unseen}" "" \
   "Condition coverage" --package "${buildinfo}" 50
 
-one="$(allowlist one "${fixture} reader.read TRADE-1 any 1 err != nil")"
+one="$(allowlist one "${fixture} reader.read any 1 err != nil")"
 GOBCO_ALLOWLIST="${one}" expect fail "a second arm the one line does not keep" "${twice_unseen}" "" \
   "${fixture}:9:9 in reader.read: \"err != nil\", number 2 there, was never seen true" --package "${buildinfo}" 50
 
@@ -198,10 +198,10 @@ traded="[$(condition 5:5 'err != nil' 1 3),$(condition 9:9 'err != nil' 0 1)]"
 GOBCO_ALLOWLIST="${one}" expect fail "a kept arm reached, and a new one that reads the same" "${traded}" "" \
   "${fixture}:9:9 in reader.read: \"err != nil\", number 2 there, was never seen true" --package "${buildinfo}" 50
 GOBCO_ALLOWLIST="${one}" expect fail "a kept arm reached, its line left" "${traded}" "" \
-  "${one}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any 1 err != nil\"" \
+  "${one}:2: no unseen arm is left for \"${fixture} reader.read any 1 err != nil\"" \
   --package "${buildinfo}" 50
 
-# The known limit, which TRADE-19 names: a new arm that reads the same, added
+# The known limit: a new arm that reads the same, added
 # above a kept arm in the change in which a test comes to reach the kept one,
 # takes the kept arm's number, so the line keeps the new arm and the run
 # passes. Without source lines the gate cannot tell the two apart; this case
@@ -211,39 +211,34 @@ GOBCO_ALLOWLIST="${one}" expect pass "the known limit: a new arm added above a k
   "${traded_above}" "" "Condition coverage 75.0% (floor 50%)." --package "${buildinfo}" 50
 
 # A line names its arm's number, and only one line keeps an arm.
-unnumbered="$(allowlist unnumbered "${fixture} reader.read TRADE-1 any err != nil")"
+unnumbered="$(allowlist unnumbered "${fixture} reader.read any err != nil")"
 GOBCO_ALLOWLIST="${unnumbered}" expect fail "an allowlist line without its arm's number" "${error_arm_unseen}" "" \
-  "${unnumbered}:2: want <file> <function> <TRADE-n> <systems> <number> <condition>" --package "${buildinfo}" 50
-twice="$(allowlist twice "${fixture} reader.read TRADE-1 any 1 err != nil" \
-  "${fixture} reader.read TRADE-1 any 1 err != nil")"
+  "${unnumbered}:2: want <file> <function> <systems> <number> <condition>" --package "${buildinfo}" 50
+twice="$(allowlist twice "${fixture} reader.read any 1 err != nil" \
+  "${fixture} reader.read any 1 err != nil")"
 GOBCO_ALLOWLIST="${twice}" expect fail "two lines keeping one arm" "${error_arm_unseen}" "" \
   "${twice}:3: keeps the arm line 2 keeps already" --package "${buildinfo}" 50
 
 # A line whose condition a test now sees both ways keeps nothing, and goes.
 GOBCO_ALLOWLIST="${kept}" expect fail "a line whose arm a test now reaches" "${seen_both_ways}" "" \
-  "${kept}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any 1 err != nil\"" \
+  "${kept}:2: no unseen arm is left for \"${fixture} reader.read any 1 err != nil\"" \
   --package "${buildinfo}" 50
 
-# The second limit TRADE-19 names: a line does not say which arm it keeps, and
+# The second known limit: a line does not say which arm it keeps, and
 # may keep a condition seen one way, so one kept for a condition never
 # evaluated stays once a test reaches it one way, the other arm unseen. This
 # case pins what the gate cannot catch, so a change to the matching changes it.
-unevaluated="$(allowlist unevaluated "${fixture} ready TRADE-1 any 1 open")"
+unevaluated="$(allowlist unevaluated "${fixture} ready any 1 open")"
 GOBCO_ALLOWLIST="${unevaluated}" expect pass "the known limit: a line kept for a condition never evaluated, now seen one way" \
   "[$(condition 13:9 'open' 0 3)]" "" "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 
 # A line names the systems it holds on; elsewhere it neither keeps its arm nor
 # is missed.
-elsewhere="$(allowlist elsewhere "${fixture} reader.read TRADE-1 plan9 1 err != nil")"
+elsewhere="$(allowlist elsewhere "${fixture} reader.read plan9 1 err != nil")"
 GOBCO_ALLOWLIST="${elsewhere}" expect fail "a line for another system" "${error_arm_unseen}" "" \
   "${fixture}:5:5 in reader.read: \"err != nil\", number 1 there, was never seen true" --package "${buildinfo}" 50
 GOBCO_ALLOWLIST="${elsewhere}" expect pass "a line for another system, its arm seen" "${seen_both_ways}" "" \
   "Condition coverage" --package "${buildinfo}" 50
-
-# A line that does not name a trade-off is no line at all.
-unnamed="$(allowlist unnamed "${fixture} reader.read any 1 err != nil")"
-GOBCO_ALLOWLIST="${unnamed}" expect fail "an allowlist line naming no trade-off" "${seen_both_ways}" "" \
-  "${unnamed}:2: want <file> <function> <TRADE-n> <systems> <number> <condition>" --package "${buildinfo}" 50
 
 # floors writes a floors file holding the given lines, and names it.
 #   floors <name> [line...]
