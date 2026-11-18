@@ -877,7 +877,17 @@ Slack user token on macOS, once Slack has taken the refresh and before the
 keychain keeps the new pair, can lose the only pair that works, since Slack
 spends the old one as it answers, and so can a wait given up on there, when the
 keychain takes longer than the wait has left; reinstall the app for a fresh
-refresh token, then run `workflow slack login`. A write the interface chains
+refresh token, then run `workflow slack login`. A signal during `workflow slack
+login`, once Slack has taken the refresh token typed and before the pair it
+gave is kept, can lose that pair the same way: the login's refresh and keep end
+with the command, as every renewal does, since a login that ran on past a
+Ctrl+C would hold it for up to `timing.request_timeout` and three tries of a
+keychain store and its read back. On Linux and Windows the file's keep runs
+whatever the signal, so the window is the request itself; on macOS it is the
+request and the keychain's `security`. The recovery is the same: reinstall the
+app for a fresh refresh token, then log in. The refresh itself is still cut
+short by a signal, as `Execute`'s comment (`internal/cli/cli.go`) has every
+command's work. A write the interface chains
 on another's outcome once that outcome reaches it (a commit's scope,
 remembered once the commit is shown) is never begun after a quit. A write a
 pane sent just before a switch goes on in the directory left, and its outcome
