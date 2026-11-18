@@ -161,32 +161,51 @@ function momentOf(pull: PullRequest): string {
   return `${String(pull.number)} ${pull.state}`
 }
 
+// AnnouncedHere is the section's own record of an announcement made here:
+// none, one going out at the moment the pull request stood at, or one said in
+// the outcome, with what it said, at the moment it was said.
+type AnnouncedHere =
+  { at: 'none' } | { at: 'going'; moment: string } | { at: 'said'; moment: string; text: string }
+
 // useAnnouncedHere is how the section says where an announcement made here
 // went: start marks one going out at the moment the pull request stands at,
 // say puts what became of it in the section's outcome, and refuse lets go of
 // one refused. saidHere is whether the section says it already, for the
-// moment the pull request stands at now: it is still going out — its answer
-// handed on after the frame that agrees with it — or the outcome says it
-// still, which no later write has cleared.
+// moment the pull request stands at now.
 function useAnnouncedHere(outcome: ReturnType<typeof useOutcome>, moment: string) {
-  const [announced, setAnnounced] = useState<{ text: string | null; moment: string }>({
-    text: '',
-    moment: '',
-  })
-  const said = announced.text === null || outcome.said?.text === announced.text
+  const [announced, setAnnounced] = useState<AnnouncedHere>({ at: 'none' })
 
   return {
     start: () => {
-      setAnnounced({ text: null, moment })
+      setAnnounced({ at: 'going', moment })
     },
     refuse: () => {
-      setAnnounced({ text: '', moment: '' })
+      setAnnounced({ at: 'none' })
     },
     say: (text: string) => {
-      setAnnounced({ text, moment })
+      setAnnounced({ at: 'said', moment, text })
       outcome.say(text)
     },
-    saidHere: announced.moment === moment && said,
+    saidHere: saysAlready(announced, moment, outcome.said?.text),
+  }
+}
+
+// saysAlready is whether the section says an announcement made here at moment
+// already: one still going out — its answer handed on after the frame that
+// agrees with it — or one the outcome says still, which no later write has
+// cleared.
+function saysAlready(
+  announced: AnnouncedHere,
+  moment: string,
+  outcome: string | undefined,
+): boolean {
+  switch (announced.at) {
+    case 'none':
+      return false
+    case 'going':
+      return announced.moment === moment
+    case 'said':
+      return announced.moment === moment && outcome === announced.text
   }
 }
 
