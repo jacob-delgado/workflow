@@ -7,14 +7,15 @@
 # actionlint, which reads every workflow in the working tree, and
 # sibling-tests, which reads every script under scripts/ as the index holds it.
 # Pre-push first runs push-is-head, which refuses a push of a branch at any
-# commit but the one checked out, and its refusal stops the hook. Then it runs
-# seven checks over the working tree, each reporting whatever another found:
-# unit-go (`task test`) and lint-go-all (golangci-lint) when the push carries a
-# Go change, web (the web's lint, client-drift check and unit tests) when it
+# commit but the one checked out, or from a working tree with changes or files
+# git does not ignore, and its refusal stops the hook. Then it runs seven
+# checks over the working tree, a failing one hiding none after it: unit-go
+# (`task test`) and lint-go-all (golangci-lint) when the push carries a Go
+# change, web (the web's lint, client-drift check and unit tests) when it
 # carries a web/ or API-spec change, and file-length, package-size, tradeoffs
-# and tech-debt-paths on every push. The rest of `task check` —
-# the Go coverage floors, the whole-tree linters and secret scan, govulncheck —
-# and CI's end-to-end suites run only there.
+# and tech-debt-paths on every push. The rest of `task check` — the Go coverage
+# floors, the whole-tree linters and secret scan, govulncheck — and CI's
+# end-to-end suites run only there.
 #
 # DO NOT reach for `LEFTHOOK=0` to get past a blocked commit. A failing hook is
 # the hook working — fix the underlying issue. The only legitimate bypass is a
@@ -164,9 +165,11 @@ pre-push:
   files: (git diff --name-only --no-renames origin/main...HEAD 2>/dev/null || git ls-files) && echo lefthook.yml
   jobs:
     # The checks run over the working tree and are picked by what HEAD
-    # changes, so they judge the commit checked out: this refuses a push of a
-    # branch at any other, as `git push origin feat/x` from main, which they
-    # would otherwise pass on HEAD's account. git hands it the refs pushed.
+    # changes, so they judge the commit checked out as the tree holds it: this
+    # refuses a push of a branch at any other, as `git push origin feat/x`
+    # from main, which they would otherwise pass on HEAD's account, and a push
+    # from a working tree with changes or files git does not ignore, which
+    # they would judge in place of the commit. git hands it the refs pushed.
     # It runs first, and its refusal stops the hook before any check.
     - name: push-is-head
       use_stdin: true
