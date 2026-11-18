@@ -111,9 +111,9 @@ func TestArmingTheHeldAnnouncementAgainRetellsIt(t *testing.T) {
 	got, err := hold.Arm(after(3*time.Minute), again)
 
 	// Assert
-	if err != nil || got.Next != armed.NextNothing || got.Hold.Stage() != armed.StageRunning ||
+	if err != nil || got.Next != armed.NextRead || got.Hold.Stage() != armed.StageRunning ||
 		got.Hold.Round() != hold.Round() {
-		t.Errorf("Arm = %s in round %d asking for %s (%v); want it running as it was, asking for nothing",
+		t.Errorf("Arm = %s in round %d asking for %s (%v); want it running as it was, asking for a read",
 			stageName(got.Hold.Stage()), got.Hold.Round(), nextName(got.Next), err)
 	}
 

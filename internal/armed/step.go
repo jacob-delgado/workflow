@@ -15,9 +15,10 @@ import (
 // once. An idle or ended hold is armed afresh, in a new round: listing a
 // pull request just opened, else awaiting its checks. A waiting hold of the
 // same pull request and moment keeps its stage and round and takes the new
-// text, channel and tags. One of another, asked for, replaces it, stopping
-// it; armed on its own, it never does, and is OtherHeldError. A hold being
-// posted is ErrBeingPosted.
+// text, channel and tags, and asks for a read at once too, as one armed
+// afresh does. One of another, asked for, replaces it, stopping it; armed on
+// its own, it never does, and is OtherHeldError. A hold being posted is
+// ErrBeingPosted.
 func (h Hold) Arm(armedAt time.Time, arming Arming) (Armed, error) {
 	switch {
 	case h.stage == StageDue:
@@ -25,7 +26,7 @@ func (h Hold) Arm(armedAt time.Time, arming Arming) (Armed, error) {
 	case h.stage.Ended():
 		return Armed{Hold: h.armedAfresh(armedAt, arming), Next: NextRead, Replaced: nil}, nil
 	case h.Holds(arming.Delivery.Made()):
-		return Armed{Hold: h.retold(arming), Next: NextNothing, Replaced: nil}, nil
+		return Armed{Hold: h.retold(arming), Next: NextRead, Replaced: nil}, nil
 	case arming.Automatic:
 		return Armed{Hold: h, Next: NextNothing, Replaced: nil}, OtherHeldError{Held: h.Pull()}
 	default:

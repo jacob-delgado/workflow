@@ -60,11 +60,10 @@ type heldPost struct {
 }
 
 // armed is the post holding hold, just armed, which tags whom tags say. The
-// beat goes on from the one before: a hold retold in place asks for no read,
-// so the read it scheduled is still the one made. A hold armed afresh asks
-// for one at once, and a read the hold it replaced scheduled, due before
-// this one schedules its own, is made for it too, costing only that read,
-// since the hold hears the read asked last.
+// beat goes on from the one before. A hold armed afresh or retold in place
+// asks for a read at once, which schedules its own beat as it answers; a
+// read scheduled before, due ahead of that answer, is made too, costing
+// only that read, since the hold hears the read asked last.
 func (p heldPost) armed(hold armed.Hold, tags postTags) heldPost {
 	p.hold, p.tags = hold, tags
 
