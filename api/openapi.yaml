@@ -1218,8 +1218,9 @@ paths:
             removed holds) or a setting only the home directory's file may
             make (jira.token_command, jira.token_env, taskwarrior.program); or
             Slack refused the user token's secrets typed, the keychain could
-            not be read or did not keep the Jira token typed, or another
-            workflow was refreshing the Slack token; nothing was written.
+            not be read, did not keep the Jira token typed or would not store
+            the Slack secrets typed, or another workflow was refreshing the
+            Slack token; nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

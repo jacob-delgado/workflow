@@ -38,6 +38,9 @@ const (
 	unreadableItem = 51
 )
 
+// securityProgram is the program the keychain runs.
+const securityProgram = "security"
+
 // keychainHolding is macOS's security as a read drives it: it answers
 // find-generic-password with the token kept under the service asked for, and
 // remembers each service asked.
@@ -57,7 +60,7 @@ func (k *keychainHolding) run(_ context.Context, program proc.Command, _ []byte)
 
 	token, kept := k.tokens[service]
 	if !kept {
-		return nil, &proc.ExitError{Program: "security", Code: itemNotFound, Stderr: "could not be found"}
+		return nil, &proc.ExitError{Program: securityProgram, Code: itemNotFound, Stderr: "could not be found"}
 	}
 
 	return []byte(token + "\n"), nil
@@ -208,7 +211,7 @@ func TestAnUnreadableKeychainItemIsToldWithoutWhatSecurityPrinted(t *testing.T) 
 
 	// Arrange
 	printed := func(context.Context, proc.Command, []byte) ([]byte, error) {
-		return nil, &proc.ExitError{Program: "security", Code: unreadableItem, Stderr: "SECRET-VALUE nearby"}
+		return nil, &proc.ExitError{Program: securityProgram, Code: unreadableItem, Stderr: "SECRET-VALUE nearby"}
 	}
 	system := onMacOSRunning(printed)
 

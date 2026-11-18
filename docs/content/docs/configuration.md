@@ -490,8 +490,9 @@ The web's Settings takes the same three answers. Where the keychain keeps the
 token, a save refreshes it once with what you typed — a field left blank keeps
 the keychain's — and keeps the new pair there, never in the file; Slack
 refusing them is said at once, and nothing is written. A keychain that cannot
-be read, a locked one say, refuses the save before anything is spent: unlock
-it, then save again. Where the file keeps
+be read, a locked one say, or one that will not store — the save first stores
+and deletes an item of its own, `workflow-slack-probe`, to see — refuses the
+save before anything is spent: unlock it, then save again. Where the file keeps
 the token, what you type is written to it, and the next post refreshes with
 it, which is when a refusal shows.
 

@@ -207,6 +207,11 @@ was given where it tags no one — only a ready-for-review announcement with a
 Slack user token in the configuration in effect at the post tags, so a switch
 to a webhook in Settings after the preview lands here — and posts nothing.
 
+A Settings save on macOS that types the Slack user token's secrets answers
+it too when the keychain cannot be read or will not store: nothing is saved,
+the refresh token typed is not spent, and the detail says to unlock the
+keychain, then save again.
+
 ## Not set up
 
 Status 422. The service the request needs is not set up, so nothing was asked

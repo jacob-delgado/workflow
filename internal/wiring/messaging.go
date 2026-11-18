@@ -280,14 +280,23 @@ func (e Environment) PlaceSlackCredentials(
 
 // renewTyped spends the Slack secrets typed into cfg, each left blank taken
 // from those system's keychain keeps, on a refresh through transport, and
-// keeps the pair Slack gives back there. It runs under the refresh lock, so
-// the pair it reads is not one another workflow is spending.
+// keeps the pair Slack gives back there, once the keychain is proved to take
+// a write: one that would not is slackauth.ErrKeepRefused, with nothing
+// spent. It runs under the refresh lock, so the pair it reads is not one
+// another workflow is spending.
 func (e Environment) renewTyped(ctx context.Context, transport httpx.Doer, system Keychain, cfg config.Config) error {
 	without := cfg
 	without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
 	without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
 
-	starting, err := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
+	store := system.SlackStore(without)
+
+	starting, err := keptUnlessTyped(ctx, store, cfg.Messaging)
+	if err != nil {
+		return err
+	}
+
+	err = store.Prove(ctx)
 	if err != nil {
 		return err
 	}
@@ -302,7 +311,7 @@ func (e Environment) renewTyped(ctx context.Context, transport httpx.Doer, syste
 		return asMessagingError(err)
 	}
 
-	return system.SlackStore(without).Keep(renewing, renewed)
+	return store.Keep(renewing, renewed)
 }
 
 // keptUnlessTyped is the secrets typed into settings, each one left blank
