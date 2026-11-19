@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -199,5 +200,44 @@ func TestHandlerStartsFromWhatTheProcessReadWhenTheFileHasTurnedInvalid(t *testi
 	views := webtest.Decode[api.ViewList](t, webtest.Get(t, webtest.Presenting(t, session, handler), "/api/views"))
 	if len(views.Views) != 1 || views.Views[0].Name != sprintView {
 		t.Errorf("views = %+v, want the configuration the process read", views.Views)
+	}
+}
+
+// hotfixTypes is a file setting the commit types to hotfixType alone.
+const (
+	hotfixType  = "hotfix"
+	hotfixTypes = `{"commit": {"types": ["` + hotfixType + `"]}}`
+)
+
+func TestAnEditMadeOnDiskShowsInTheNextFrame(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Nothing reads the configuration in between: Settings is not open.
+	handler, path := servedFile(t, fileAtStart, webserver.Info{})
+	webtest.Rewrite(t, path, hotfixTypes)
+
+	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	if want := []string{hotfixType}; !slices.Equal(frame.CommitTypes, want) {
+		t.Errorf("commit types = %q, want %q, as the edit on disk set", frame.CommitTypes, want)
+	}
+}
+
+func TestAFileOnDiskThatIsNotValidLeavesTheFrameOnTheConfigurationInEffect(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	handler, path := servedFile(t, hotfixTypes, webserver.Info{})
+	webtest.Rewrite(t, path, notValid)
+
+	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	if want := []string{hotfixType}; !slices.Equal(frame.CommitTypes, want) {
+		t.Errorf("commit types = %q, want %q, as the configuration in effect holds", frame.CommitTypes, want)
 	}
 }

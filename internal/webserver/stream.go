@@ -108,8 +108,11 @@ func (s *server) pushSnapshots(request *http.Request, out *eventStream, view str
 // freshFrame is a frame of view read wholly after the last write to land,
 // counting the writes landed before its read began, and the signal the next
 // write to land closes: a read a write landed during is read again, until ctx
-// ends or the server is retired, when the frame read is the last.
+// ends or the server is retired, when the frame read is the last. It takes up
+// a hand edit of the configuration first, so the frame shows it.
 func (s *server) freshFrame(ctx context.Context, view string) (api.Snapshot, <-chan struct{}) {
+	s.takeUpEdit()
+
 	for {
 		landed, writes := s.worlds.landed.next()
 
