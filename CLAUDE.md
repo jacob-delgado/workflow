@@ -543,9 +543,9 @@ container gets in the way. The rules every session needs:
 - **Chromium alone runs here,** the image's build, which the hook points
   Playwright at; never run `playwright install`. Any other engine's verdict
   comes from CI, where the branch's `ci.yml` runs it. A session older than the
-  hook exports `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, `COREPACK_NPM_REGISTRY` and
-  `ZIZMOR_OFFLINE=true` itself, and runs the worktree's own
-  `scripts/gate-as-dev.sh` (the skill says what each is for).
+  hook exports `PLAYWRIGHT_CHROMIUM_EXECUTABLE` and `COREPACK_NPM_REGISTRY`
+  itself, and runs the worktree's own `scripts/gate-as-dev.sh` (the skill
+  says what each is for).
 - **A workflow lane sees the maintainer's latest message too.** It finds
   it beside its prompt, and one took an answer meant for something else as
   an order to stop. The prompt of a lane started or resumed after such a

@@ -547,11 +547,15 @@ tasks:
       # rather than reported. Written as an if/else on purpose: the older
       # `[ -d … ] && actionlint || echo` form also swallowed actionlint's OWN
       # failure, reporting "no workflows" for a workflow that did not lint.
-      # actionlint says a workflow is valid; zizmor says it is safe.
+      # actionlint says a workflow is valid; zizmor says it is safe. zizmor
+      # runs offline everywhere, as CI's does with no token: its online
+      # audits read each action's tags from github.com, which refuses a
+      # cloud session's token, and a check should say the same wherever it
+      # runs.
       - |
         if [ -d .github/workflows ]; then
           actionlint
-          zizmor --no-progress .github/workflows
+          zizmor --offline --no-progress .github/workflows
         else
           echo "No workflows to lint."
         fi

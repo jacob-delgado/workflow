@@ -246,16 +246,12 @@ hand_over() {
     if [[ -n "${!name:-}" ]]; then environment+=("${name}=${!name}"); fi
   done
   exec {run_lock}>&-
-  # zizmor runs offline here, as it would anyway with no GitHub token handed
-  # on; its online audits read each third-party action's tags from github.com,
-  # which refuses a session's token. CI's zizmor has no token and runs offline
-  # too.
   runuser -u "${gate_user}" -- env -i "${environment[@]}" \
     HOME="${gate_home}" USER="${gate_user}" LOGNAME="${gate_user}" \
     GOPATH="${gate_home}/go" GOCACHE="${gate_home}/.cache/go-build" GOFLAGS="" GOTOOLCHAIN=local \
     XDG_CACHE_HOME="${gate_home}/.cache" COREPACK_HOME="${gate_home}/.cache/node/corepack" \
     COREPACK_NPM_REGISTRY=https://registry.npmjs.org COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-    NPM_CONFIG_USERCONFIG="${gate_home}/.npmrc" ZIZMOR_OFFLINE=true GATE_BASE="${handed_base}" \
+    NPM_CONFIG_USERCONFIG="${gate_home}/.npmrc" GATE_BASE="${handed_base}" \
     flock -o -w "${lock_wait}" "${run_lock_file}" bash "${copy}" --as-gate-user "${common}" "${sha}" "$@" {lock}>&-
 }
 
