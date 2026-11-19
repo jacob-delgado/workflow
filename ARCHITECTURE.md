@@ -297,7 +297,6 @@ repository's groups, the favorite directories. Both are SQLite databases
 
 - macOS — `~/Library/Application Support/workflow`
 - Linux — `$XDG_STATE_HOME/workflow`, else `~/.local/state/workflow`
-- Windows — `%AppData%\workflow`
 
 It is **on by default**; `store.disabled: true` in the config turns it off, and
 with it off the code path is identical to having no store at all — a disabled

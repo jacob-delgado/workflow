@@ -13,8 +13,8 @@ Set up the Slack user token workflow posts with
 
 Ask for your Slack app's client ID, its client secret and a refresh token
 (xoxe-1-…), refresh the token once to prove them, and keep what Slack gives
-back: in the macOS keychain, or in .workflow.json on Linux and Windows or
-when the file already holds them. The client ID is written to .workflow.json.
+back: in the macOS keychain, or in .workflow.json on Linux or when the
+file already holds them. The client ID is written to .workflow.json.
 
 The app needs token rotation turned on and the chat:write user token scope.
 Tagging people and user groups in an announcement is optional and also needs

@@ -4,8 +4,7 @@ name: Packages
 # SHA256SUMS, writes the formula from it with
 # scripts/release/package-manifests.sh, and commits it with
 # scripts/release/publish-packages.sh to jacob-delgado/homebrew-tap as
-# Formula/workflow.rb, for `brew install jacob-delgado/tap/workflow`. Windows
-# has no package: it installs the release's binary, as install.md says.
+# Formula/workflow.rb, for `brew install jacob-delgado/tap/workflow`.
 #
 # release.yml dispatches this on main once a release is out. A dispatch rather
 # than a trigger on the release event, for the reason pages.yml gives: an event

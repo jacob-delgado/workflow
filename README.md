@@ -144,7 +144,7 @@ password.
    `workflow slack login`.
 
 workflow refreshes the token before its twelve hours run out, and keeps it in the
-macOS keychain, or in the configuration file on Linux and Windows.
+macOS keychain, or in the configuration file on Linux.
 
 **Teams, Discord or a plain webhook**: create an incoming webhook in the service,
 set `messaging.kind` accordingly, and put the URL in `messaging.webhook_url`.

@@ -11,9 +11,8 @@
 # RELEASE_PLATFORMS in Taskfile.yml builds, and which also lists each binary's
 # own .sha256 file; those lines have no package to go in and are passed over.
 #
-# Every platform a release builds must have its place here: in the formula,
-# or named as one installed from the release alone, as Windows is. A binary
-# with neither is refused rather than left out unseen, which CI's
+# Every platform a release builds must have its place here, in the formula.
+# A binary with none is refused rather than left out unseen, which CI's
 # Cross-compile job checks against the binaries every change builds. A tag,
 # repository or checksum line of any other shape is refused too, so the values
 # written into Ruby below never need escaping.
@@ -25,9 +24,6 @@ set -euo pipefail
 
 readonly macos_binary="workflow_darwin_arm64"
 readonly linux_binary="workflow_linux_amd64"
-# windows_binary is in no package: Windows installs the release's binary
-# itself, as install.md's "From a release" says.
-readonly windows_binary="workflow_windows_amd64.exe"
 readonly description="Run your Jira, Git forge and messaging workflow, in the terminal or a browser"
 readonly script="scripts/release/package-manifests.sh"
 
@@ -62,13 +58,12 @@ check_repository() {
   fi
 }
 
-# check_name refuses a binary that has no place in the formula and is not
-# named as installed from the release alone.
+# check_name refuses a binary that has no place in the formula.
 #   check_name <binary>
 check_name() {
   case "$1" in
-    "${macos_binary}" | "${linux_binary}" | "${windows_binary}") ;;
-    *) fail "$1 has no place in the Homebrew formula, nor is it named as installed from the release; give it one in ${script}" ;;
+    "${macos_binary}" | "${linux_binary}") ;;
+    *) fail "$1 has no place in the Homebrew formula; give it one in ${script}" ;;
   esac
 }
 
@@ -79,11 +74,11 @@ check_name() {
 binary_checksums() {
   local line name seen=" "
   while IFS= read -r line || [[ -n "${line}" ]]; do
-    if [[ ! "${line}" =~ ^[0-9a-f]{64}\ \ (workflow_[a-z0-9]+_[a-z0-9]+(\.exe)?)(\.sha256)?$ ]]; then
+    if [[ ! "${line}" =~ ^[0-9a-f]{64}\ \ (workflow_[a-z0-9]+_[a-z0-9]+)(\.sha256)?$ ]]; then
       fail "'${line}' is not a checksum line, '<sha256>  workflow_<os>_<arch>'"
     fi
     name="${BASH_REMATCH[1]}"
-    if [[ -n "${BASH_REMATCH[3]}" ]]; then
+    if [[ -n "${BASH_REMATCH[2]}" ]]; then
       continue
     fi
     check_name "${name}"

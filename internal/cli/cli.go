@@ -98,7 +98,7 @@ MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
      client ID and secret (Basic Information) and the refresh token.
 
   workflow refreshes the token before it runs out and keeps each new one in
-  the macOS keychain, or in ` + config.FileName + ` on Linux and Windows.
+  the macOS keychain, or in ` + config.FileName + ` on Linux.
 
   Teams, Discord or a plain webhook: create an incoming webhook in the service,
   set messaging.kind, and put the URL in messaging.webhook_url.

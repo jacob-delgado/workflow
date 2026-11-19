@@ -554,9 +554,8 @@ jobs:
       - run: task release:verify
       # The formula a release fills, written from the binaries this change
       # builds, checksummed with the command release.yml uses: a platform
-      # RELEASE_PLATFORMS gains without a place in the Homebrew formula, or a
-      # name as installed from the release alone, fails the pull request
-      # rather than the release.
+      # RELEASE_PLATFORMS gains without a place in the Homebrew formula fails
+      # the pull request rather than the release.
       - name: Write the Homebrew formula
         run: |
           (cd dist && sha256sum workflow_* >SHA256SUMS)
