@@ -57,12 +57,13 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@eslint/js"
         update-types: ["version-update:semver-major"]
-      # TypeScript stays on 6 until a planned migration to 7, the compiler
-      # rewritten in Go: typescript-eslint, which parses every TypeScript file
-      # the web lint reads, declares TypeScript below 6.1, and a change of
-      # compiler is taken on purpose, with its own changes beside it, rather
-      # than as a pull request of Dependabot's (#138 was one). This lifts with
-      # that migration.
+      # TypeScript stays on 6 while typescript-eslint, which parses every
+      # TypeScript file the web lint reads, declares TypeScript below 6.1; a
+      # change of compiler is taken on purpose, with its own changes beside
+      # it, rather than as a pull request of Dependabot's (#138 was one).
+      # This lifts once typescript-eslint takes 7 and @hey-api/openapi-ts
+      # builds the client without the compiler API 7 no longer exports, as
+      # web/README.md says.
       - dependency-name: "typescript"
         versions: ["7.x"]
       # Playwright 1.65's Firefox crashes the page during the axe scan and
