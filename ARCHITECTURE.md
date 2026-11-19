@@ -412,16 +412,16 @@ erDiagram
   1NF, and so 3NF); it is a parent `issue_cache` row per view — which also lets a
   view that returned *no* issues be recorded as "cached but empty", distinct from
   "never cached" — and one ordered `cached_issue` child per issue.
-  `cached_at` is when the list was read, so a list read earlier never replaces
-  one read later: one wiring's writes keep their read order, and two
-  wirings within one second, two processes or one surface across a
-  directory switch, keep the last written.
+  `cached_at` is when the list was read, to the nanosecond, so a list read
+  earlier never replaces one read later, whichever wiring, process or
+  directory switch wrote it.
 
 Three rules from `internal/store/CLAUDE.md` are visible in the schema:
 
 - **`STRICT` tables** enforce each column's declared type at write time, so
   garbage cannot land through SQLite's default coercion.
-- **Timestamps are RFC3339 UTC text** in `_at` columns — never `DATETIME` or
+- **Timestamps are RFC3339 UTC text** in `_at` columns, every nanosecond
+  digit written so the text sorts as the moments do — never `DATETIME` or
   `CURRENT_TIMESTAMP` (a `STRICT` table has no date type), and the moment is a
   passed-in `now`, keeping the clock a testable seam.
 - **Referential integrity is enforced**: a writing connection sets

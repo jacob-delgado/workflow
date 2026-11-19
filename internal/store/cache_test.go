@@ -63,24 +63,35 @@ func TestReCachingReplacesTheList(t *testing.T) {
 func TestAListReadEarlierDoesNotReplaceOneReadLater(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// Two reads of one view land out of order: the newer list, read a
-	// second after the older, is written first.
-	kept := store.New(t.TempDir(), store.ModeWrites)
-	newer := []store.CachedIssue{issue("NEW-1"), issue("NEW-2")}
-
-	err := kept.CacheIssues(t.Context(), instance, "assigned", newer, theTime().Add(time.Second))
-	if err != nil {
-		t.Fatalf("caching the newer list: %v", err)
+	// Two reads of one view land out of order, the newer list, read this
+	// long after the older, written first.
+	cases := map[string]time.Duration{
+		"a second apart":                  time.Second,
+		"a millisecond apart, one second": time.Millisecond,
 	}
 
-	// Act
-	err = kept.CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{issue("OLD-1")}, theTime())
+	for name, apart := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	got, _, readErr := kept.CachedIssues(t.Context(), instance, "assigned")
-	if err != nil || readErr != nil || !slices.Equal(got, newer) {
-		t.Errorf("CachedIssues = %v (%v, %v); want the list read later, %v", got, err, readErr, newer)
+			// Arrange
+			kept := store.New(t.TempDir(), store.ModeWrites)
+			newer := []store.CachedIssue{issue("NEW-1"), issue("NEW-2")}
+
+			err := kept.CacheIssues(t.Context(), instance, "assigned", newer, theTime().Add(apart))
+			if err != nil {
+				t.Fatalf("caching the newer list: %v", err)
+			}
+
+			// Act
+			err = kept.CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{issue("OLD-1")}, theTime())
+
+			// Assert
+			got, _, readErr := kept.CachedIssues(t.Context(), instance, "assigned")
+			if err != nil || readErr != nil || !slices.Equal(got, newer) {
+				t.Errorf("CachedIssues = %v (%v, %v); want the list read later, %v", got, err, readErr, newer)
+			}
+		})
 	}
 }
 

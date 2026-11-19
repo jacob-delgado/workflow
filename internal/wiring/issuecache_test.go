@@ -4,7 +4,6 @@
 package wiring_test
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"testing"
@@ -136,7 +135,8 @@ func TestACachedListOfOnlyForgeRowsReadsAsNotCached(t *testing.T) {
 func TestAListReadLaterWithinTheSameSecondIsKeptOverOneReadBefore(t *testing.T) {
 	// Arrange
 	// Two reads of one view half a second apart, within one second, whose
-	// writes land out of order: the later read's first.
+	// writes land out of order: the later read's first. The store tells them
+	// apart by their nanoseconds.
 	deps := wired(t, cachedJiraConfig(t), wiring.Workspace{Root: t.TempDir()}, nil)
 	earlier := time.Date(2026, time.November, 17, 9, 0, 0, 100*int(time.Millisecond), time.UTC)
 	newer := []jira.Issue{{Key: "PROJ-11", Summary: "read later"}}
@@ -153,32 +153,6 @@ func TestAListReadLaterWithinTheSameSecondIsKeptOverOneReadBefore(t *testing.T) 
 	cached, found := deps.Store.CachedIssues(t.Context(), "assigned")
 	if err != nil || !found || len(cached) != 1 || cached[0].Key != newer[0].Key {
 		t.Errorf("CachedIssues = %v, %v (%v); want %s, the list read later", cached, found, err, newer[0].Key)
-	}
-}
-
-func TestAListWhoseWriteFailedDoesNotKeepOneReadBeforeItOut(t *testing.T) {
-	// Arrange
-	// The list read later fails to land, its asker gone, so the list read
-	// half a second before it is the newest there is to keep.
-	deps := wired(t, cachedJiraConfig(t), wiring.Workspace{Root: t.TempDir()}, nil)
-	earlier := time.Date(2026, time.November, 17, 9, 0, 0, 100*int(time.Millisecond), time.UTC)
-	before := []jira.Issue{{Key: "PROJ-10", Summary: "read before"}}
-	gone, cancel := context.WithCancel(t.Context())
-	cancel()
-
-	err := deps.Store.CacheIssues(gone, "assigned", []jira.Issue{{Key: "PROJ-11", Summary: "read later"}},
-		earlier.Add(500*time.Millisecond))
-	if err == nil {
-		t.Fatal("caching the list read later for an asker gone returned nil, want it to fail")
-	}
-
-	// Act
-	err = deps.Store.CacheIssues(t.Context(), "assigned", before, earlier)
-
-	// Assert
-	cached, found := deps.Store.CachedIssues(t.Context(), "assigned")
-	if err != nil || !found || len(cached) != 1 || cached[0].Key != before[0].Key {
-		t.Errorf("CachedIssues = %v, %v (%v); want %s, the only list written", cached, found, err, before[0].Key)
 	}
 }
 

@@ -59,15 +59,20 @@ const dbName = "workflow.db"
 // the file as SQLite's user_version. Bump it whenever a CREATE TABLE changes: a
 // file at another version is discarded whole and made again, so there are no
 // migrations to write.
-const schemaVersion = 3
+const schemaVersion = 4
 
 // ErrNoDir reports that no OS-native data directory could be determined.
 var ErrNoDir = errors.New("could not determine a data directory for the store")
 
+// timestampLayout is RFC3339 with every nanosecond digit written, so two
+// moments within one second differ and the text sorts as the moments do.
+const timestampLayout = "2006-01-02T15:04:05.000000000Z07:00"
+
 // timestamp formats a moment as the RFC3339 UTC string the store's _at columns
 // hold, so a STRICT table keeps them as TEXT rather than a forbidden DATETIME.
+// Its fixed width is what lets SQL compare two of them as text.
 func timestamp(now time.Time) string {
-	return now.UTC().Format(time.RFC3339)
+	return now.UTC().Format(timestampLayout)
 }
 
 // LastScope is the commit scope last recorded for repo, and whether one was. A

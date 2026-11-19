@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -50,7 +49,6 @@ func storeDeps(kept store.Store, cfg config.Config, where Workspace) seams.Store
 	repo := repoKey(where)
 	instance := instanceKey(cfg.Jira.BaseURL)
 	claims := announceClaims{kept: kept, repo: repo}
-	order := &issueCacheOrder{lock: sync.Mutex{}, written: map[string]time.Time{}}
 
 	return bindKept(kept, where, seams.Store{
 		LastScope: func(ctx context.Context) (string, bool) {
@@ -82,45 +80,9 @@ func storeDeps(kept store.Store, cfg config.Config, where Workspace) seams.Store
 				return nil
 			}
 
-			return order.write(view, readAt, func() error {
-				return kept.CacheIssues(ctx, instance, view, toCachedIssues(rows), readAt)
-			})
+			return kept.CacheIssues(ctx, instance, view, toCachedIssues(rows), readAt)
 		},
 	})
-}
-
-// issueCacheOrder writes one wiring's issue lists in the order they were
-// read: a list of a view read before the one last written for it is dropped,
-// and each is written while the order is held, so two writes landing within
-// one second, which the store's seconds cannot tell apart, still keep the
-// list read later. A directory switch wires the surface again, which then
-// orders its own lists: a write of the wiring before it, still landing,
-// meets them only in the store, as another process's does.
-type issueCacheOrder struct {
-	lock sync.Mutex
-	// written is when the list last written for each view was read.
-	written map[string]time.Time
-}
-
-// write writes the list of view read at readAt through cache, unless a list
-// of view read later was written already. A write that failed leaves the
-// order as it was.
-func (o *issueCacheOrder) write(view string, readAt time.Time, cache func() error) error {
-	o.lock.Lock()
-	defer o.lock.Unlock()
-
-	if readAt.Before(o.written[view]) {
-		return nil
-	}
-
-	err := cache()
-	if err != nil {
-		return err
-	}
-
-	o.written[view] = readAt
-
-	return nil
 }
 
 // announceClaims are the store's claims on announcements in one repository,

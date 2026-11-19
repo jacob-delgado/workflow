@@ -13,7 +13,7 @@ import (
 )
 
 // storedTime is a claim time as a row on disk holds it.
-const storedTime = "2026-09-22T12:00:00Z"
+const storedTime = "2026-09-22T12:00:00.000000000Z"
 
 // ready is the announcement the claim tests post: #42, ready for review.
 func ready() store.Announce {
