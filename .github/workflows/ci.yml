@@ -71,7 +71,7 @@ jobs:
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
-          install_args: go task golangci-lint shellcheck shfmt typos actionlint hadolint taplo zizmor node jq
+          install_args: go task golangci-lint shellcheck shfmt typos actionlint hadolint taplo zizmor rumdl node jq
       # yamllint and markdownlint-cli2 are pinned outside mise.toml, each one's
       # whole tree by hash: `task tools` installs them into tmp/tools/bin, and
       # the path is added for the steps below, not left to mise.toml's [env].
@@ -79,27 +79,8 @@ jobs:
         run: |
           task tools
           echo "${GITHUB_WORKSPACE}/tmp/tools/bin" >>"${GITHUB_PATH}"
-      # A pull request lints its Markdown only when it changes Markdown, docs/,
-      # the markdownlint config, build/markdownlint/, which pins the linter, or
-      # mise.toml, which pins the node it runs under; a push to main lints all
-      # of it, and a change that cannot be compared with its base is linted
-      # too.
-      - name: Decide whether the Markdown needs linting
-        id: markdown
-        run: |
-          lint=true
-          if [ "${GITHUB_EVENT_NAME}" = pull_request ]; then
-            status=0
-            scripts/markdown-changed.sh "origin/${GITHUB_BASE_REF}" || status=$?
-            if [ "${status}" -eq 1 ]; then
-              lint=false
-            fi
-          fi
-          echo "lint=${lint}" >>"${GITHUB_OUTPUT}"
-      - run: task lint LINT_MARKDOWN="${LINT_MARKDOWN}"
+      - run: task lint
         if: needs.changes.outputs.docs != 'true'
-        env:
-          LINT_MARKDOWN: ${{ steps.markdown.outputs.lint }}
       - run: task lint:docs
         if: needs.changes.outputs.docs == 'true'
       # The week-long age gate, for every version a pull request adds to

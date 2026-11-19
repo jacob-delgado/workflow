@@ -6,9 +6,9 @@
 # (scripts/tool-versions.sh), all but the two linters' and its own Go. Its
 # Go is decided by its base image's digest, and the image build fails unless
 # that is the Go pinned below. A tool the image downloads (node, shellcheck,
-# jq, lefthook, typos, hadolint, taplo, zizmor) also carries its SHA-256s in
-# build/tool-checksums.txt, so a bump here replaces its lines there; `task
-# lint` names any that are missing.
+# jq, lefthook, typos, hadolint, taplo, zizmor, rumdl) also carries its
+# SHA-256s in build/tool-checksums.txt, so a bump here replaces its lines
+# there; `task lint` names any that are missing.
 #
 # yamllint and markdownlint-cli2 are pinned under build/ instead, every package
 # of each one's tree by version and hash: build/yamllint/requirements.txt by
@@ -66,6 +66,12 @@ taplo = "0.10.0"         # TOML lint + format
 # valid; zizmor checks that it is safe — script injection, over-broad
 # permissions, a mutable action reference.
 zizmor = "1.30.1"
+# Markdown lint and format, reading markdownlint's rule IDs, in a single
+# binary: mise installs it through the aqua backend, which checks each
+# download against the SHA-256 its release publishes and its GitHub artifact
+# attestation, and the image and the cloud setup against the line in
+# build/tool-checksums.txt. 0.3.3 was published 2026-11-10, past the age gate.
+rumdl = "0.3.3"
 # node is the runtime the npm: tool below and markdownlint-cli2 need. mise
 # installs an npm: tool but not a node to run it under, so a clean machine that
 # relied on an ambient node would run `task lint` against a different one than

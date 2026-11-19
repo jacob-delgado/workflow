@@ -43,7 +43,7 @@ mise_pin() {
 toolchain_pins() {
   # Named apart from the sourcing script's own, which may be readonly.
   local -a pinned_tools=(go node shellcheck jq lefthook typos hadolint taplo
-    zizmor task golangci-lint shfmt actionlint
+    zizmor rumdl task golangci-lint shfmt actionlint
     go:golang.org/x/vuln/cmd/govulncheck go:github.com/zricethezav/gitleaks/v8
     go:github.com/rillig/gobco go:golang.org/x/tools/cmd/deadcode)
   local mise_text pinned_tool pinned_file

@@ -39,9 +39,9 @@ drifts from it. `task setup` installs the other two (`task tools`) into
 yamllint needs a `python3` from 3.10 to 3.14 with `venv`. Run `task tools` again
 after a pull that changes either file. The install is per checkout, so a new
 clone, or a worktree made with `git worktree add`, runs `task tools` before its
-first commit, or the yamllint and markdownlint pre-commit hooks cannot find
-their linter. A worktree shares the clone's git hooks, so it needs `task
-tools`, not all of `task setup`.
+first commit, or the yamllint pre-commit hook cannot find its linter. A
+worktree shares the clone's git hooks, so it needs `task tools`, not all of
+`task setup`.
 
 Two alternatives, if you would rather not install a toolchain:
 
@@ -81,7 +81,7 @@ task check:docs    # the gate for a change to the docs alone
 
 A change to the docs alone, which `scripts/docs-only.sh` decides (every file it
 changes is Markdown outside `web/`, whose prettier check reads it, the site's
-configuration and module files under `docs/`, or `.markdownlint-cli2.yaml` or
+configuration and module files under `docs/`, or `.rumdl.toml` or
 `_typos.toml`), runs `task check:docs` instead: `task lint:docs`, every lint
 gate that reads a file such a change can touch plus `docs:check` and
 `test:docs`, the Go tests that hold the contract pages to the code, and then
@@ -100,12 +100,7 @@ frontend alone, and then the page served by the binary `task build` makes,
 staging, committing and pushing through it. Chromium, Firefox and WebKit each
 run every spec, so they need all three browsers, installed once with
 `yarn playwright install chromium firefox webkit` in `web/`; run them for a
-change under `web/` or `internal/webserver`. One gate is narrower in CI: a pull
-request that changes no Markdown file, nothing under `docs/`, not
-`.markdownlint-cli2.yaml`, nothing under `build/markdownlint/`, which pins the
-Markdown linter, and not `mise.toml`, which pins the node it runs under, skips
-the Markdown lint (`scripts/markdown-changed.sh` decides); a push to
-`main` always runs it, and `task lint` locally always does.
+change under `web/` or `internal/webserver`.
 
 The documentation's images, the terminal's recording and the web page's
 screenshots, are made by `task docs:media`, on Linux with Chromium and ffmpeg,

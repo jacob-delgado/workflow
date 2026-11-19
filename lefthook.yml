@@ -74,9 +74,9 @@ pre-commit:
             run: shfmt -i 2 -ci -bn -w {staged_files}
             stage_fixed: true
 
-          - name: markdownlint
+          - name: rumdl
             glob: "*.md"
-            run: markdownlint-cli2 --fix {staged_files}
+            run: rumdl check --fix {staged_files}
             stage_fixed: true
 
           - name: taplo

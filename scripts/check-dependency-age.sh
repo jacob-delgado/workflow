@@ -209,6 +209,7 @@ release_repository() {
     hadolint) echo hadolint/hadolint ;;
     taplo) echo tamasfe/taplo ;;
     zizmor) echo zizmorcore/zizmor ;;
+    rumdl) echo rvben/rumdl ;;
     jq) echo jqlang/jq ;;
     hugo-extended) echo gohugoio/hugo ;;
     air) echo air-verse/air ;;

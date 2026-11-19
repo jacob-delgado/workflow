@@ -115,14 +115,14 @@ placed="${workdir}/placed"
 repo "${placed}"
 installed "${placed}.prefix"
 rm "${placed}.prefix/stamps/"{node@24.21.0,shellcheck@0.11.0,jq@1.8.2,lefthook@2.2.1}
-rm "${placed}.prefix/stamps/"{typos@1.51.1,hadolint@2.15.1,taplo@0.10.0,zizmor@1.30.1}
+rm "${placed}.prefix/stamps/"{typos@1.51.1,hadolint@2.15.1,taplo@0.10.0,zizmor@1.30.1,rumdl@0.3.3}
 packed="${workdir}/packed"
 # Each pair is where a tool goes under the prefix and where it is in the
 # release.
 releases='node/bin/node:node-v24.21.0-linux-x64/bin/node
 bin/shellcheck:shellcheck-v0.11.0/shellcheck bin/typos:typos/typos
-bin/zizmor:zizmor/zizmor bin/jq:jq bin/hadolint:hadolint bin/lefthook:lefthook
-bin/taplo:taplo'
+bin/zizmor:zizmor/zizmor bin/rumdl:rumdl/rumdl bin/jq:jq bin/hadolint:hadolint
+bin/lefthook:lefthook bin/taplo:taplo'
 for pair in ${releases}; do
   mkdir -p "$(dirname "${packed}/${pair#*:}")"
   printf '#!/bin/sh\n# %s\n' "${pair#*:}" >"${packed}/${pair#*:}"
@@ -133,6 +133,7 @@ tar -cJf "${served}/node-v24.21.0-linux-x64.tar.xz" -C "${packed}" node-v24.21.0
 tar -cJf "${served}/shellcheck-v0.11.0.linux.x86_64.tar.xz" -C "${packed}" shellcheck-v0.11.0
 tar -czf "${served}/typos-v1.51.1-x86_64-unknown-linux-musl.tar.gz" -C "${packed}/typos" ./typos
 tar -czf "${served}/zizmor-x86_64-unknown-linux-gnu.tar.gz" -C "${packed}/zizmor" zizmor
+tar -czf "${served}/rumdl-v0.3.3-x86_64-unknown-linux-musl.tar.gz" -C "${packed}/rumdl" rumdl
 cp "${packed}/jq" "${served}/jq-linux-amd64"
 cp "${packed}/hadolint" "${served}/hadolint-Linux-x86_64"
 gzip -c "${packed}/lefthook" >"${served}/lefthook_2.2.1_Linux_x86_64.gz"
@@ -141,6 +142,7 @@ pin_checksum "${placed}" node 24.21.0 "${served}/node-v24.21.0-linux-x64.tar.xz"
 pin_checksum "${placed}" shellcheck 0.11.0 "${served}/shellcheck-v0.11.0.linux.x86_64.tar.xz"
 pin_checksum "${placed}" typos 1.51.1 "${served}/typos-v1.51.1-x86_64-unknown-linux-musl.tar.gz"
 pin_checksum "${placed}" zizmor 1.30.1 "${served}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+pin_checksum "${placed}" rumdl 0.3.3 "${served}/rumdl-v0.3.3-x86_64-unknown-linux-musl.tar.gz"
 pin_checksum "${placed}" jq 1.8.2 "${served}/jq-linux-amd64"
 pin_checksum "${placed}" hadolint 2.15.1 "${served}/hadolint-Linux-x86_64"
 pin_checksum "${placed}" lefthook 2.2.1 "${served}/lefthook_2.2.1_Linux_x86_64.gz"

@@ -134,6 +134,7 @@ typos_version="$(pin typos)"
 hadolint_version="$(pin hadolint)"
 taplo_version="$(pin taplo)"
 zizmor_version="$(pin zizmor)"
+rumdl_version="$(pin rumdl)"
 task_version="$(pin task)"
 golangci_lint_version="$(pin golangci-lint)"
 shfmt_version="$(pin shfmt)"
@@ -328,6 +329,12 @@ install_zizmor() {
   tar -xzf "${work}/zizmor.tar.gz" -C "${prefix}/bin" --no-same-owner zizmor
 }
 
+install_rumdl() {
+  fetch_verified "https://github.com/rvben/rumdl/releases/download/v${rumdl_version}/rumdl-v${rumdl_version}-x86_64-unknown-linux-musl.tar.gz" \
+    rumdl.tar.gz rumdl "${rumdl_version}"
+  tar -xzf "${work}/rumdl.tar.gz" -C "${prefix}/bin" --no-same-owner rumdl
+}
+
 # go_install builds a Go tool with the pinned Go into the prefix, in a build
 # cache of its own.
 #   go_install <module path>@<version>
@@ -405,6 +412,7 @@ ensure typos "${typos_version}" install_typos
 ensure hadolint "${hadolint_version}" install_hadolint
 ensure taplo "${taplo_version}" install_taplo
 ensure zizmor "${zizmor_version}" install_zizmor
+ensure rumdl "${rumdl_version}" install_rumdl
 ensure task "${task_version}+${built_by}" go_install "github.com/go-task/task/v3/cmd/task@v${task_version}"
 ensure golangci-lint "${golangci_lint_version}+${built_by}" \
   go_install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v${golangci_lint_version}"

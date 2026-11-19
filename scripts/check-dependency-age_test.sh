@@ -189,6 +189,7 @@ mise_tools() {
   pin_tool node 24.22.0
   pin_tool go:github.com/rillig/gobco 1.4.0
   pin_tool shellcheck 0.12.0
+  pin_tool rumdl 0.3.3
 }
 
 go_old="$(repo go-old require_go example.com/old v1.2.0)"

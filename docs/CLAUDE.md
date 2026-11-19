@@ -94,10 +94,7 @@ the page, then write the page. Each of those tests is a black-box test marked
 
 ## Lint
 
-`markdownlint-cli2` (`.markdownlint-cli2.yaml`) and `typos` run on every page
-in `task lint` and on commit; the generated reference pages are left out of
-the Markdown lint, since autofixing them would make `task docs:check` fail. CI
-skips the Markdown lint on a pull request that changes no Markdown, nothing
-under `docs/` or `build/markdownlint/`, which pins the linter, and neither
-`.markdownlint-cli2.yaml` nor `mise.toml`, which pins the node it runs under
-(`scripts/markdown-changed.sh`); a push to `main` always runs it.
+`rumdl` (`.rumdl.toml`), which reads markdownlint's rule IDs, and `typos` run
+on every page in `task lint`, in CI and on commit; the generated reference
+pages are left out of the Markdown lint, since autofixing them would make
+`task docs:check` fail.

@@ -24,7 +24,7 @@ fi
 readonly checksums="build/tool-checksums.txt"
 readonly dockerfile="build/Dockerfile"
 readonly mise_toml="mise.toml"
-readonly downloaded="node shellcheck jq lefthook typos hadolint taplo zizmor"
+readonly downloaded="node shellcheck jq lefthook typos hadolint taplo zizmor rumdl"
 readonly arches="amd64 arm64"
 
 for source in "${checksums}" "${dockerfile}" "${mise_toml}"; do
