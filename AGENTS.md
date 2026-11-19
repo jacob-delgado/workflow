@@ -67,9 +67,9 @@ worktree of its own. The `cloud-lanes` skill holds the detail; in brief:
   where the session-start hook linked it, and otherwise (an agent other than
   Claude Code, or a session older than the hook) the worktree's own
   `bash scripts/gate-as-dev.sh <worktree>`, never another worktree's copy.
-  Without the hook, export `PLAYWRIGHT_CHROMIUM_EXECUTABLE`,
-  `COREPACK_NPM_REGISTRY` and `ZIZMOR_OFFLINE=true` yourself in each shell
-  that builds, tests or commits (the skill gives their values and why).
+  Without the hook, export `PLAYWRIGHT_CHROMIUM_EXECUTABLE` and
+  `COREPACK_NPM_REGISTRY` yourself in each shell that builds, tests or
+  commits (the skill gives their values and why).
   Report the gate's last lines as they are; when it refuses to start under
   8 GB free, report and stop. When it refuses with "run setup for this
   worktree", your commit pins tools other than the ones installed: run your

@@ -96,13 +96,17 @@ count_case
 if [[ "${handed}" != "runuser -u dev -- env -i "* ]]; then
   fail_case "the gate user's environment" "it is not built from nothing: ${handed}"
 fi
-for wanted in ZIZMOR_OFFLINE=true GOTOOLCHAIN=local HOME=/home/dev \
+for wanted in GOTOOLCHAIN=local HOME=/home/dev \
   COREPACK_NPM_REGISTRY=https://registry.npmjs.org "PATH=${stub_bin}:${PATH}" "${handed_on[@]}"; do
   count_case
   if [[ " ${handed} " != *" ${wanted} "* ]]; then
     fail_case "the gate user's environment" "it lacks ${wanted}"
   fi
 done
+count_case
+if [[ "${handed}" == *ZIZMOR* ]]; then
+  fail_case "the gate user's environment" "it hands zizmor a setting: ${handed}"
+fi
 count_case
 if [[ "${handed}" == *GITHUB_TOKEN* ]]; then
   fail_case "the gate user's environment" "root's GitHub token reached it"

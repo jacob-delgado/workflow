@@ -30,14 +30,12 @@ lane rules in brief for other agents: a change to one of them changes
   or by a line in the session's `CLAUDE_ENV_FILE`, which the hook writes.
 - **A session older than the hook.** A session that started before the hook
   reached main, or whose hook did not run, has none of the variables it
-  writes, and exports three itself in each shell that needs them:
+  writes, and exports two itself in each shell that needs them:
   - `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, the image's Chromium (below), without
     which every e2e test fails to launch a browser;
   - `COREPACK_NPM_REGISTRY=https://registry.npmjs.org`, without which
     corepack fetches Yarn from `repo.yarnpkg.com`, which is refused, once its
-    cache does not hold the Yarn `web/package.json` names;
-  - `ZIZMOR_OFFLINE=true`, without which zizmor, in the pre-commit hook and
-    in `task lint`, fails its online audits with a 401.
+    cache does not hold the Yarn `web/package.json` names.
 
   `gate-as-dev` is not on its PATH either: it runs the worktree's own
   `bash scripts/gate-as-dev.sh <worktree>`.
@@ -95,7 +93,7 @@ lane rules in brief for other agents: a change to one of them changes
 | `proxy.golang.org`, `sum.golang.org` | reachable | Go, the Go tools, every module |
 | `registry.npmjs.org`, `pypi.org` | reachable | Yarn (with `COREPACK_NPM_REGISTRY`), npm packages, yamllint |
 | `api.github.com` | the session's own repositories only | a third-party repository answers 403 and names `add_repo`: mise's aqua backend and `task deps:age`'s dating of a GitHub-released mise tool or of mise's `min_version` fail |
-| `github.com` over git | refuses the session's token for a third-party repository, with 401 | zizmor's online audits, which run whenever a GitHub token is in their environment (offline here) |
+| `github.com` over git | refuses the session's token for a third-party repository, with 401 | zizmor's online audits, which the task and the hook turn off with `--offline`, so it judges a workflow the same here as in CI |
 | `go.dev` | refused | mise's Go install; Go comes from the `golang.org/toolchain` module instead |
 | `vuln.go.dev` | refused | `task vuln`; the local gate leaves it to CI |
 | `repo.yarnpkg.com` | refused | corepack's default Yarn source; the hook points corepack at the npm registry |

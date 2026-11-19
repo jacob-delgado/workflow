@@ -9,7 +9,7 @@
 # or without one; its time limit for the setup is under the one
 # .claude/settings.json gives the hook, so that line still reaches the
 # session; and it gives the session's commands, once each, the link
-# directory on PATH, zizmor offline, corepack's registry and, for Playwright,
+# directory on PATH and corepack's registry, and, for Playwright,
 # the newest of the image's Chromium headless shells, or its full Chromium
 # where it has no shell, quoted as the shell reads it, keeping whatever else
 # the environment file holds. The setup it runs is a stand-in.
@@ -98,12 +98,18 @@ fi
 expect_exit pass "a second start of the same session" start "${ready}" CLAUDE_CODE_REMOTE=true
 # shellcheck disable=SC2016 # the lines as the hook writes them, unexpanded
 for line in 'export SOMETHING_ELSE=kept' 'export PATH="${HOME}/.local/bin:${PATH}"' \
-  'export ZIZMOR_OFFLINE=true' 'export COREPACK_NPM_REGISTRY=https://registry.npmjs.org'; do
+  'export COREPACK_NPM_REGISTRY=https://registry.npmjs.org'; do
   count_case
   if [[ "$(grep -cxF "${line}" "${ready}.env")" != 1 ]]; then
     fail_case "the session's environment" "it does not hold ${line} once: $(grep -cxF "${line}" "${ready}.env")"
   fi
 done
+# zizmor's own --offline, in the task and the hook, keeps it offline for
+# everyone, so the session needs no setting of its own.
+count_case
+if grep -q ZIZMOR "${ready}.env"; then
+  fail_case "the session's environment" "it hands zizmor a setting: $(grep ZIZMOR "${ready}.env")"
+fi
 
 count_case
 if grep -q PLAYWRIGHT_CHROMIUM_EXECUTABLE "${ready}.env"; then

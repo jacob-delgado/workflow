@@ -131,10 +131,10 @@ pre-commit:
 
           # actionlint (above) checks that a workflow is valid; zizmor checks
           # that it is safe — script injection, over-broad permissions,
-          # mutable action refs.
+          # mutable action refs. Offline, as `task lint:actions` runs it.
           - name: zizmor
             glob: ".github/workflows/*.{yml,yaml}"
-            run: zizmor --no-progress {staged_files}
+            run: zizmor --offline --no-progress {staged_files}
 
           # Secret scan of the staged diff. This repo's whole subject is API
           # tokens, so catching one before it enters a commit is worth the
