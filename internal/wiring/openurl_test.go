@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 
@@ -23,7 +22,7 @@ import (
 )
 
 // recordingOpeners installs a stand-in for every platform browser opener —
-// open, xdg-open and rundll32 — on PATH, each recording the arguments it was
+// open and xdg-open — on PATH, each recording the arguments it was
 // handed, and returns the path they record to. Whichever opener this platform
 // reaches, the test can then see what OpenURL passed it.
 func recordingOpeners(t *testing.T) string {
@@ -41,7 +40,7 @@ func recordingOpeners(t *testing.T) string {
 func installOpeners(t *testing.T, dir, script string) {
 	t.Helper()
 
-	for _, name := range []string{"open", "xdg-open", "rundll32"} {
+	for _, name := range []string{"open", "xdg-open"} {
 		write(t, filepath.Join(dir, name), script, 0o755)
 	}
 
@@ -113,10 +112,6 @@ func TestBrowserCommandRunsEachPlatformsOwnOpener(t *testing.T) {
 	}{
 		"darwin": {goos: "darwin", want: proc.Command{Name: "open", Args: []string{checkURL}}},
 		"linux":  {goos: "linux", want: proc.Command{Name: "xdg-open", Args: []string{checkURL}}},
-		"windows": {
-			goos: "windows",
-			want: proc.Command{Name: "rundll32", Args: []string{"url.dll,FileProtocolHandler", checkURL}},
-		},
 	}
 
 	for name, tt := range cases {
@@ -129,23 +124,5 @@ func TestBrowserCommandRunsEachPlatformsOwnOpener(t *testing.T) {
 				t.Errorf("BrowserCommand(%q, %q) = %+v, want %+v", tt.goos, checkURL, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestBrowserCommandHandsWindowsTheWholeURLAsOneArgument(t *testing.T) {
-	// Arrange
-	target := "https://ci.example.com/checks?a=1&b=2^3|4"
-
-	// Act
-	got := wiring.BrowserCommand("windows", target)
-
-	// Assert
-	program, _ := strings.CutSuffix(strings.ToLower(got.Name), ".exe")
-	if program == "cmd" {
-		t.Errorf("BrowserCommand(windows) runs %q; want an opener other than cmd", got.Name)
-	}
-
-	if !slices.Contains(got.Args, target) {
-		t.Errorf("BrowserCommand(windows) args = %q; want %q whole, as one argument", got.Args, target)
 	}
 }

@@ -7,8 +7,7 @@ package config_test
 
 // A configuration file is taken only when no one but the user could have
 // written it: it is the user's own, and neither others nor a group the user
-// does not have to themselves may write it. Windows keeps no such bits, so
-// these hold on Unix alone.
+// does not have to themselves may write it.
 
 import (
 	"errors"

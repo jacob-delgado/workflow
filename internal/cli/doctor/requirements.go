@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -245,7 +244,7 @@ func taskwarriorProbe(ctx context.Context, process wiring.Environment, settings 
 		return false, "disabled by taskwarrior.disabled"
 	}
 
-	candidates := taskwarrior.Candidates(process.Getenv("PATH"), runtime.GOOS)
+	candidates := taskwarrior.Candidates(process.Getenv("PATH"))
 
 	install, err := taskwarrior.Detect(ctx, settings.Program, candidates, process.CaptureWithin)
 	if err != nil {

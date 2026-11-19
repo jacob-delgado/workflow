@@ -98,7 +98,7 @@ func TestTemplatesAreReadOnlyFromInsideTheRepository(t *testing.T) {
 
 			// Arrange
 			root := t.TempDir()
-			inside, link := filepath.Join(root, filepath.FromSlash(tt.inside)), filepath.Join(root, filepath.FromSlash(tt.link))
+			inside, link := filepath.Join(root, tt.inside), filepath.Join(root, tt.link)
 
 			for _, dir := range []string{filepath.Dir(inside), filepath.Dir(link)} {
 				err := os.MkdirAll(dir, 0o750)

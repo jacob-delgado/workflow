@@ -1350,7 +1350,7 @@ announce` posts it again without asking. No favorites are kept:
 
 `workflow doctor` names the store's directory on its `Store` row — or says
 it is off, because of `store.disabled` or because no data directory could be
-found (no home directory, and no `XDG_STATE_HOME` or `AppData` to stand in),
+found (no home directory, and no `XDG_STATE_HOME` to stand in),
 in which case the store keeps nothing and says nothing.
 
 ## Keeping the tokens safe

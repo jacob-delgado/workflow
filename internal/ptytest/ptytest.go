@@ -3,9 +3,9 @@
 
 // Package ptytest opens a pseudo-terminal for a test: the side the test types
 // into, and the terminal the code under test reads from, which only a
-// pseudo-terminal can stand in for. Each system makes one its own way, so the
-// way lives here, in files of their own, and the tests that type at a
-// terminal build on every system. Only tests import this package.
+// pseudo-terminal can stand in for. Linux and macOS each make one their own
+// way, so each way lives here, in a file of its own. Only tests import this
+// package.
 package ptytest
 
 import (
@@ -15,7 +15,7 @@ import (
 )
 
 // errNoPseudoTerminal is a system on which no pseudo-terminal can be opened,
-// whether it makes them some other way or the test runs without any.
+// as one the test runs on without any.
 var errNoPseudoTerminal = errors.New("no pseudo-terminal to open here")
 
 // Open opens a pseudo-terminal: the side that types into it, and the terminal

@@ -250,7 +250,7 @@ func placeLabel(deps Deps) string {
 
 	path, err := filepath.Rel(here.Root, here.Dir)
 	if err == nil && path != "." {
-		label += "/" + filepath.ToSlash(path)
+		label += "/" + path
 	}
 
 	return sanitize.Line(label)

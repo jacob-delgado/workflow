@@ -43,7 +43,7 @@ const (
 var errSlackSaysNo = errors.New("invalid_refresh_token")
 
 // fileKeepingSlack is a configuration file that keeps the user token's
-// secrets itself, as on Linux and Windows, and the configuration read from it.
+// secrets itself, as on Linux, and the configuration read from it.
 func fileKeepingSlack(t *testing.T) config.Config {
 	t.Helper()
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -119,16 +118,10 @@ func FromWorkingDir(cmd *cobra.Command, path string) (string, error) {
 	return filepath.Join(dir, path), nil
 }
 
-// relativeToWorkingDir reports that path leads from the working directory. An
-// absolute path does not, and on Windows neither does one rooted on the
-// current drive (\logs) nor one relative to another drive's own directory
-// (D:logs): the operating system reads those from elsewhere.
+// relativeToWorkingDir reports that path leads from the working directory, as
+// every path but an absolute one does.
 func relativeToWorkingDir(path string) bool {
-	rooted := path != "" && os.IsPathSeparator(path[0])
-
-	// No CI job sees the volume clause or the rooted one false; elsewhere a
-	// path names no volume, and a rooted path is absolute.
-	return !filepath.IsAbs(path) && filepath.VolumeName(path) == "" && !rooted
+	return !filepath.IsAbs(path)
 }
 
 // LoadFromEnvironment loads the configuration that applies where cmd runs,

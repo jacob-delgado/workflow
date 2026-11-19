@@ -14,7 +14,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 )
 
 // ErrChangedOnDisk is a save's refusal: the files are no longer at the
@@ -281,12 +280,6 @@ const othersMask os.FileMode = 0o077
 // SharedMode reports the permissions of a file that someone other than its owner
 // can read or write, which a file holding credentials must not be.
 func SharedMode(path string) (os.FileMode, bool) {
-	// Windows keeps no such bits, and Go reports 0666 for every file there,
-	// which says nothing about who can read it. No CI job takes this branch.
-	if runtime.GOOS == "windows" {
-		return 0, false
-	}
-
 	info, err := os.Stat(path)
 	if err != nil {
 		return 0, false

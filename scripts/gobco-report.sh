@@ -65,14 +65,11 @@
 #      its own file and the output directory is wiped first.
 #
 #   4. IT IGNORES BUILD TAGS, with no flag to change that: it type-checks every
-#      file in a directory together, so a package of build-tagged twins — a
-#      _unix.go and its !unix half, an embed and its stub — redeclares itself
-#      and cannot be read whole. Its single-file mode reads one file alone,
-#      and runs the package's tests as the build takes it. So a package whose
-#      build leaves a source file out on this platform is measured a file at a
-#      time, over each file the build takes, and each of those must stand
-#      alone: declare what it uses, not lean on a sibling. One that cannot be
-#      read alone fails the run by name, like a package that cannot be read.
+#      file in a directory together, so a package whose build leaves a source
+#      file out on some platform cannot be read whole, and fails the run by
+#      name like any package it cannot read. The module keeps none: a file
+#      only one platform builds lives in a package without tests, as
+#      internal/ptytest's do.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -256,19 +253,6 @@ echo
 
 unexpected=""
 
-# twin_files prints the source files the build takes for a package, when it
-# leaves one out on this platform (point 4 above); nothing otherwise.
-#   twin_files <package dir>
-twin_files() {
-  local ignored
-  for ignored in $(go list -f '{{join .IgnoredGoFiles " "}}' "./$1"); do
-    if [[ "${ignored}" != *_test.go ]]; then
-      go list -f '{{join .GoFiles " "}}' "./$1"
-      return
-    fi
-  done
-}
-
 # Each package's statistics are named for its path with every slash a %,
 # which no import path holds, so the name reads back as the path: an
 # underscore, which one may hold, read back as a slash would name another
@@ -276,38 +260,21 @@ twin_files() {
 for package in ${packages}; do
   rel="${package#"${module}"/}"
   slug="${rel//\//%}"
-  files="$(twin_files "${rel}")"
 
   # gobco's per-condition output is the worklist — print it, since a percentage
   # alone tells nobody which test to write next. A condition it lists as seen
   # one way stays the worklist here, unless it is an error check whose error
   # arm went unseen or it lies on a line this change touched; those, and a
   # condition never evaluated, fail below.
-  if [[ -z "${files}" ]]; then
-    gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1 || unexpected="${unexpected} ${rel}"
-    continue
-  fi
-
-  # Each file's statistics apart, since gobco checks a -stats file it reuses
-  # (point 3), then merged as the package's once every file was read.
-  read_alone="${unexpected}"
-  mkdir -p "${out_dir}/files/${slug}"
-  for file in ${files}; do
-    gobco -stats "${out_dir}/files/${slug}/${file%.go}.json" -test=-vet=off "./${rel}/${file}" 2>&1 \
-      || unexpected="${unexpected} ${rel}/${file}"
-  done
-
-  if [[ "${unexpected}" == "${read_alone}" ]]; then
-    jq -s 'add' "${out_dir}/files/${slug}"/*.json >"${out_dir}/${slug}.json"
-  fi
+  gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1 || unexpected="${unexpected} ${rel}"
 done
 
 if [[ -n "${unexpected}" ]]; then
   echo >&2
   echo "gobco could not read:${unexpected}" >&2
   echo "The measured percentage would silently cover less code than it claims," >&2
-  echo "so this fails. Fix the cause: a file of build-tagged twins must stand" >&2
-  echo "alone, since gobco reads each one on its own." >&2
+  echo "so this fails. Fix the cause: gobco reads every file of a package" >&2
+  echo "together, whatever its build tags." >&2
   exit 1
 fi
 

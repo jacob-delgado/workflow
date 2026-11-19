@@ -124,15 +124,14 @@ func Check(dir string) error {
 }
 
 // Resolve is the directory typed names: from the root as written, from your
-// home after a ~, and from base otherwise; blank, it is base. A ~ is followed
-// by either separator, so ~/src reads the same on Windows.
+// home after a ~/, and from base otherwise; blank, it is base.
 func Resolve(typed, base, home string) string {
 	typed = strings.TrimSpace(typed)
 
 	switch {
 	case typed == "~":
 		return filepath.Clean(home)
-	case strings.HasPrefix(typed, "~/") || strings.HasPrefix(typed, "~"+string(filepath.Separator)):
+	case strings.HasPrefix(typed, "~/"):
 		return filepath.Join(home, typed[2:])
 	case filepath.IsAbs(typed):
 		return filepath.Clean(typed)
@@ -158,7 +157,7 @@ func Shown(dir, home string) string {
 		return "~"
 	}
 
-	return "~/" + filepath.ToSlash(within)
+	return "~/" + within
 }
 
 // Same reports one and other the same directory however each is written, a

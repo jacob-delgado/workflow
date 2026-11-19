@@ -178,7 +178,6 @@ func TestInvocationOpensAtALineWhereTheEditorCan(t *testing.T) {
 	}{
 		"vim":            {editor: vim, line: 12, want: []string{"+12", sourceFile}},
 		"neovim on path": {editor: "/usr/local/bin/nvim", line: 12, want: []string{"+12", sourceFile}},
-		"windows neovim": {editor: `C:\tools\nvim.exe`, line: 12, want: []string{"+12", sourceFile}},
 		nano:             {editor: nano, line: 12, want: []string{"+12", sourceFile}},
 		"emacs client":   {editor: "emacsclient -t", line: 12, want: []string{"-t", "+12", sourceFile}},
 		"vs code":        {editor: "code --wait", line: 12, want: []string{"--wait", "--goto", sourceAtLine}},

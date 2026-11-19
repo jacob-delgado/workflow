@@ -72,7 +72,7 @@ func originOnDisk(t *testing.T, repo string) string {
 	t.Helper()
 
 	bare := t.TempDir()
-	address := "file://github.com" + filepath.ToSlash(bare)
+	address := "file://github.com" + bare
 	clitest.Git(t, bare, "init", "--bare", "--quiet")
 	clitest.Git(t, repo, "remote", "set-url", "origin", address)
 	clitest.Git(t, repo, "push", "--quiet", "origin", "main")

@@ -13,16 +13,12 @@ import (
 
 // The platforms Dir is asked about, by their GOOS names.
 const (
-	darwin  = "darwin"
-	windows = "windows"
-	linux   = "linux"
+	darwin = "darwin"
+	linux  = "linux"
 )
 
-// The variables Dir reads a directory from.
-const (
-	appData      = "AppData"
-	xdgStateHome = "XDG_STATE_HOME"
-)
+// xdgStateHome is the variable Dir reads a directory from.
+const xdgStateHome = "XDG_STATE_HOME"
 
 func TestDirIsOSNative(t *testing.T) {
 	t.Parallel()
@@ -36,10 +32,6 @@ func TestDirIsOSNative(t *testing.T) {
 	}{
 		"macOS uses Application Support": {
 			goos: darwin, want: filepath.Join(home, "Library", "Application Support", "workflow"),
-		},
-		"Windows uses AppData": {
-			goos: windows, env: map[string]string{appData: `C:\Users\dev\AppData\Roaming`},
-			want: filepath.Join(`C:\Users\dev\AppData\Roaming`, "workflow"),
 		},
 		"Linux prefers XDG_STATE_HOME": {
 			goos: linux, env: map[string]string{xdgStateHome: "/home/dev/.state"},
@@ -85,10 +77,6 @@ func TestDirNeedsSomewhereToPutIt(t *testing.T) {
 		env  map[string]string
 	}{
 		"macOS with no home":                 {goos: darwin, env: nil},
-		"Windows with no AppData":            {goos: windows, env: nil},
-		"Windows with an empty AppData":      {goos: windows, env: map[string]string{appData: ""}},
-		"Windows with a relative AppData":    {goos: windows, env: map[string]string{appData: `Roaming`}},
-		"Windows with a drive-relative one":  {goos: windows, env: map[string]string{appData: `C:Roaming`}},
 		"Linux with a relative one":          {goos: linux, env: map[string]string{xdgStateHome: "state"}},
 		"Linux with no XDG_STATE_HOME":       {goos: linux, env: nil},
 		"Linux with an empty XDG_STATE_HOME": {goos: linux, env: map[string]string{xdgStateHome: ""}},

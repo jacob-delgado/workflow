@@ -350,22 +350,21 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 		webtest.StreamOnce(t, webtest.Serve(t, webserver.Deps{}, config.Default()), "/api/events").Body.String()
 
 	// Assert
-	path := filepath.FromSlash(goldenFrames)
 	if *updateGolden {
-		err := os.WriteFile(path, []byte(frames), 0o644)
+		err := os.WriteFile(goldenFrames, []byte(frames), 0o644)
 		if err != nil {
-			t.Fatalf("writing %s: %v", path, err)
+			t.Fatalf("writing %s: %v", goldenFrames, err)
 		}
 	}
 
-	want, err := os.ReadFile(path)
+	want, err := os.ReadFile(goldenFrames)
 	if err != nil {
-		t.Fatalf("reading %s: %v; %s", path, err, regenerateFrames)
+		t.Fatalf("reading %s: %v; %s", goldenFrames, err, regenerateFrames)
 	}
 
 	if string(want) != frames {
 		t.Errorf("the stream's frames differ from %s, which the web client's test reads; %s\n got: %s\nwant: %s",
-			path, regenerateFrames, frames, want)
+			goldenFrames, regenerateFrames, frames, want)
 	}
 }
 

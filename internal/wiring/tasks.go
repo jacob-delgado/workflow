@@ -5,7 +5,6 @@ package wiring
 
 import (
 	"context"
-	"runtime"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -23,7 +22,7 @@ func (e Environment) taskDeps(settings config.Taskwarrior) seams.Tasks {
 		return seams.Tasks{}
 	}
 
-	candidates := taskwarrior.Candidates(e.Getenv("PATH"), runtime.GOOS)
+	candidates := taskwarrior.Candidates(e.Getenv("PATH"))
 	if settings.Program == "" && len(candidates) == 0 {
 		return seams.Tasks{}
 	}

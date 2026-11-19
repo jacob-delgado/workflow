@@ -5,7 +5,6 @@ package webtest
 
 import (
 	"context"
-	"runtime"
 	"testing/fstest"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
@@ -47,7 +46,7 @@ func Surveyed(found []hooks.GitHook, configured bool) hooks.Setup {
 		repo["lefthook.yml"] = &fstest.MapFile{Data: []byte(PreCommitHook + ":\n"), Mode: 0o644}
 	}
 
-	return hooks.Survey(hooksDir, repo, runtime.GOOS)
+	return hooks.Survey(hooksDir, repo)
 }
 
 // runnableMode is a hook git runs.

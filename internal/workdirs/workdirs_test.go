@@ -7,7 +7,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"testing"
@@ -390,7 +389,7 @@ func TestADirectoryThatCannotBeReadIsNotListed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+	if os.Geteuid() == 0 {
 		t.Skip("a directory's mode does not keep this user from listing it here")
 	}
 

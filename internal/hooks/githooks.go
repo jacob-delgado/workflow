@@ -64,14 +64,13 @@ func handedByGit() map[string]string {
 
 // existingHooks finds the hooks git would run from a hooks directory, in git's
 // order: files named for a hook, runnable as one, that are not lefthook's own
-// shim. Whether a file is runnable is decided by goos, since Windows has no
-// executable bit to check.
-func existingHooks(hooksDir fs.FS, goos string) []GitHook {
+// shim.
+func existingHooks(hooksDir fs.FS) []GitHook {
 	var found []GitHook
 
 	for _, name := range gitHookNames() {
 		info, err := fs.Stat(hooksDir, name)
-		if err != nil || info.IsDir() || !runnableHook(info.Mode(), goos) {
+		if err != nil || info.IsDir() || !runnableHook(info.Mode()) {
 			continue
 		}
 
@@ -110,14 +109,13 @@ type Setup struct {
 }
 
 // Survey reads how a repository stands for setting lefthook up, from its hooks
-// directory and its root. goos decides what a runnable hook is, since Windows
-// has no executable bit to check.
-func Survey(hooksDir, repo fs.FS, goos string) Setup {
+// directory and its root.
+func Survey(hooksDir, repo fs.FS) Setup {
 	if HasConfig(repo) {
 		return Setup{offering: OfferingConfigured, hooks: nil}
 	}
 
-	found := existingHooks(hooksDir, goos)
+	found := existingHooks(hooksDir)
 	if len(found) == 0 {
 		return Setup{offering: OfferingNothing, hooks: nil}
 	}
@@ -150,13 +148,8 @@ func lefthooksShim(script string) bool {
 	return false
 }
 
-// runnableHook reports whether git would run a file as a hook: executable on
-// Unix, and any regular file on Windows, where Go reports no executable bit
-// (0666 or 0444 for every file) so the bit cannot be the test.
-func runnableHook(mode fs.FileMode, goos string) bool {
-	if goos == "windows" {
-		return true
-	}
-
+// runnableHook reports whether git would run a file as a hook: one with an
+// executable bit.
+func runnableHook(mode fs.FileMode) bool {
 	return mode.Perm()&executableBits != 0
 }

@@ -155,7 +155,7 @@ func placeDTO(place seams.Place, home string) api.Place {
 
 		within, err := filepath.Rel(place.Root, place.Dir)
 		if err == nil && within != "." {
-			dto.Within = filepath.ToSlash(within)
+			dto.Within = within
 		}
 	}
 

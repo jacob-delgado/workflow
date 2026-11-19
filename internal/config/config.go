@@ -120,8 +120,8 @@ type Messaging struct {
 	ClientID string `json:"client_id"`
 	// ClientSecret, RefreshToken, AccessToken and ExpiresAt are the Slack user
 	// token's rotating credentials when this file is where they are kept — on
-	// Linux and Windows, or on macOS once they are put here — rather than in
-	// the keychain. workflow rewrites the last three after every refresh. The
+	// Linux, or on macOS once they are put here — rather than in the
+	// keychain. workflow rewrites the last three after every refresh. The
 	// access token starts "xoxe.xoxp-", the refresh token "xoxe-1-"; ExpiresAt
 	// is RFC 3339 UTC.
 	ClientSecret Secret `json:"client_secret"`

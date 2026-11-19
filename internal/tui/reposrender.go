@@ -155,7 +155,7 @@ func within(place seams.Place) string {
 		return "the repository's root"
 	}
 
-	return sanitize.Line(filepath.ToSlash(path))
+	return sanitize.Line(path)
 }
 
 // origin is a place's origin as a forge host and path.

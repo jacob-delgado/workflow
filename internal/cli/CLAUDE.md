@@ -186,15 +186,7 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   the root declares workflow's. Its `TestMain` clears git's variables as this
   package's does, with a proof of its own. The kit's tests reach each of its
   conditions both ways, since the condition gate measures a package by its
-  own tests alone, but for the two Windows clauses of `relativeToWorkingDir`
-  (`cmdkit/environment.go`): only
-  `cmdkit/environment_windows_test.go` sees them false, and only a Windows
-  `go test` runs it. gobco lists the two as seen one way, which fails
-  nothing while their lines stand: the gate fails a condition no test
-  evaluated, an error check whose error arm none reached, and a condition seen
-  one way on a line the change touches. A change that touches either line
-  fails it on Linux, so it takes a line of `scripts/gobco-allowlist.txt`
-  keeping that condition on the systems that see it one way.
+  own tests alone.
 - **A terminal** is a pseudo-terminal from `internal/ptytest`, as
   `help_terminal_test.go` and `prompt_terminal_test.go` use it.
 - **Test files near the ceiling.** A test file fails past 700 lines, and

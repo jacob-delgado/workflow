@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -157,12 +156,11 @@ func sealed(t *testing.T, dir string) {
 }
 
 // restricted gives dir mode for the test's end, skipping as root, which reads
-// and writes whatever a mode says, and on Windows, whose directories keep no
-// such bits.
+// and writes whatever a mode says.
 func restricted(t *testing.T, dir string, mode os.FileMode) {
 	t.Helper()
 
-	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+	if os.Geteuid() == 0 {
 		t.Skip("a directory's mode does not keep this user from reading or writing it here")
 	}
 

@@ -141,13 +141,11 @@ func (RefusingOutput) Write([]byte) (int, error) { return 0, ErrOutputClosed }
 // IsolatedEnvironment is the environment every run gets, so nothing of the
 // developer's own decides a result or is touched by one: the home is the
 // test's — a ~/.workflow.json would stand in for a missing file — and the store
-// is kept under it, in $XDG_STATE_HOME only where the test chose one, never in
-// %AppData%, where the developer's own store is.
+// is kept under it, in $XDG_STATE_HOME only where the test chose one.
 func IsolatedEnvironment(where Place) map[string]string {
 	return map[string]string{
 		"HOME":           where.Home,
 		"XDG_STATE_HOME": where.State,
-		"AppData":        filepath.Join(where.Home, "AppData"),
 	}
 }
 

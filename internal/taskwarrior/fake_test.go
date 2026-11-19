@@ -153,13 +153,6 @@ func exited(t *testing.T, code int, stderr string) error {
 	return err
 }
 
-// linux is the system Candidates is asked about where a file's execute bit
-// counts, and windows the one where a PATH entry can be quoted.
-const (
-	linux   = "linux"
-	windows = "windows"
-)
-
 // What a file on the PATH list is.
 const (
 	plainFile = iota

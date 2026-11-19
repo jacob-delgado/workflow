@@ -52,7 +52,7 @@ func awayFromHome() string {
 	}
 
 	isolated := map[string]string{
-		"HOME": home, "XDG_STATE_HOME": "", "XDG_CONFIG_HOME": "", "AppData": filepath.Join(home, "AppData"),
+		"HOME": home, "XDG_STATE_HOME": "", "XDG_CONFIG_HOME": "",
 	}
 
 	err = gittest.Configure(home, os.Setenv)
@@ -103,16 +103,11 @@ func withoutTaskPrograms() []string {
 	return shadows
 }
 
-// holdsTaskProgram reports a directory with a task or task.exe in it.
+// holdsTaskProgram reports a directory with a task in it.
 func holdsTaskProgram(dir string) bool {
-	for _, name := range []string{"task", "task.exe"} {
-		_, err := os.Stat(filepath.Join(dir, name)) //nolint:gosec // a directory of this process's own PATH
-		if err == nil {
-			return true
-		}
-	}
+	_, err := os.Stat(filepath.Join(dir, "task")) //nolint:gosec // a directory of this process's own PATH
 
-	return false
+	return err == nil
 }
 
 // linksToAllButTask is a new directory linking to every entry of dir but its
@@ -129,7 +124,7 @@ func linksToAllButTask(dir string) string {
 	}
 
 	for _, entry := range entries {
-		if strings.EqualFold(entry.Name(), "task") || strings.EqualFold(entry.Name(), "task.exe") {
+		if entry.Name() == "task" {
 			continue
 		}
 
