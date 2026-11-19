@@ -10,14 +10,15 @@
 # when VHS fetched a browser into ~/.cache/rod, though not over one an earlier
 # run left there; and it asks for Chromium without its sandbox as root alone.
 # A VHS missing or at another version is built at the pin, in a build cache
-# removed after, whether the build succeeds or not. A ttyd is hashed before
-# anything runs it: one on PATH, or behind a mise shim, that matches its
-# pinned SHA-256 is used; one that does not is refused by name, never run; a
-# copy an earlier run kept that no longer matches is downloaded again; and
-# with none, ttyd is downloaded for this machine, x86_64 or aarch64, and must
-# match its pin, refused on a machine ttyd has no build for or with no curl.
-# Each failed step fails the run by name: the demo's build, VHS's build or
-# its version, ttyd's download or its version, the screenshots and the
+# removed after, whether the build succeeds or not. ttyd is the one version
+# docs/media/tool-checksums.txt pins, refused when it pins none or two, and
+# the script runs only a ttyd of its own, hashed before anything runs it: a
+# ttyd elsewhere on PATH is never run; a copy an earlier run kept is used
+# while it matches its pinned SHA-256 and downloaded again once it does not;
+# and with none, ttyd is downloaded for this machine, x86_64 or aarch64, and
+# must match its pin, refused on a machine ttyd has no build for or with no
+# curl. Each failed step fails the run by name: the demo's build, VHS's build
+# or its version, ttyd's download or its version, the screenshots and the
 # recording; and so does a mise.toml that pins no VHS. The GIF must run as
 # long as its tape takes shown, its sleeps and its typing at the tape's speed
 # or VHS's own, within a second either way; a tape line of no length to read
@@ -25,7 +26,7 @@
 # change git has not committed to the demo, the tape or the web app, or a
 # checkout git does not know, stops the run before anything is built; a
 # change to a page no image shows does not. Stand-ins for go, corepack, vhs,
-# ttyd, mise, ffmpeg, ffprobe, curl, uname and id say what they were asked,
+# ttyd, ffmpeg, ffprobe, curl, uname and id say what they were asked,
 # so nothing is built, filmed or fetched.
 #
 # Usage:
@@ -63,9 +64,9 @@ expect_output pass "the chromium on PATH, with no Chromium named" \
 expect_output 2 "no Chromium to film with" "no Chromium" media "${root}" "${all}"
 expect_output 2 "a Chromium named that is not there" "no Chromium" \
   media "${root}" "${all}" "PLAYWRIGHT_CHROMIUM_EXECUTABLE=${workdir}/browsers/missing"
-expect_output 2 "no ffmpeg" "no ffmpeg on PATH" media "${root}" "stubs curl vhs ttyd" "${with_browser}"
+expect_output 2 "no ffmpeg" "no ffmpeg on PATH" media "${root}" "stubs curl vhs" "${with_browser}"
 expect_output 2 "an ffmpeg without its ffprobe" "no ffprobe on PATH" \
-  media "${root}" "stubs curl vhs ttyd ffmpeg-alone" "${with_browser}"
+  media "${root}" "stubs curl vhs ffmpeg-alone" "${with_browser}"
 expect_output 2 "an argument" "Usage:" "${script}" extra
 
 root="$(fixture at-budget)"
@@ -158,17 +159,17 @@ cache_removed() {
 root="$(fixture no-vhs)"
 expect_output pass "no VHS, built at the pin in a cache removed after" \
   "go install github.com/charmbracelet/vhs@v0.12.1 into ${root}/tmp/docs-media/bin" \
-  cache_removed "${root}" "stubs curl ttyd ffmpeg" "${with_browser}"
+  cache_removed "${root}" "stubs curl ffmpeg" "${with_browser}"
 root="$(fixture old-vhs)"
 expect_output pass "a VHS at another version, built at the pin" \
   "go install github.com/charmbracelet/vhs@v0.12.1 into ${root}/tmp/docs-media/bin" \
-  cache_removed "${root}" "stubs curl old-vhs ttyd ffmpeg" "${with_browser}"
+  cache_removed "${root}" "stubs curl old-vhs ffmpeg" "${with_browser}"
 root="$(fixture vhs-build-fails)"
 expect_output 1 "VHS that does not build, its cache removed" "could not build VHS v0.12.1" \
-  cache_removed "${root}" "stubs curl ttyd ffmpeg" "${with_browser}" FAKE_INSTALL_FAIL=1
+  cache_removed "${root}" "stubs curl ffmpeg" "${with_browser}" FAKE_INSTALL_FAIL=1
 root="$(fixture vhs-built-wrong)"
 expect_output 1 "a VHS built that reports another version" "the VHS on PATH is not v0.12.1" \
-  media "${root}" "stubs curl ttyd ffmpeg" "${with_browser}" FAKE_VHS_VERSION=0.11.0
+  media "${root}" "stubs curl ffmpeg" "${with_browser}" FAKE_VHS_VERSION=0.11.0
 
 # not_downloaded runs the script and fails when it downloaded ttyd, keeping
 # its exit status otherwise.
@@ -180,8 +181,8 @@ not_downloaded() {
   status=$?
   set -e
   cat "${out}"
-  if grep -q 'downloading ttyd' "${out}" || [[ -e "$1/tmp/docs-media/bin/ttyd" ]]; then
-    echo "ttyd was downloaded although one that matches its pin is on PATH"
+  if grep -q 'downloading ttyd' "${out}"; then
+    echo "ttyd was downloaded although the copy an earlier run kept matches its pin"
     exit 9
   fi
   exit "${status}"
@@ -204,20 +205,14 @@ never_ran() {
   exit "${status}"
 }
 
-root="$(fixture verified-ttyd)"
-expect_output pass "a ttyd on PATH that matches its pin, used as it is" "ok    terminal.gif" \
+root="$(fixture kept-ttyd)"
+mkdir -p "${root}/tmp/docs-media/bin"
+cp "${payload}" "${root}/tmp/docs-media/bin/ttyd"
+expect_output pass "a ttyd an earlier run kept that matches its pin, used as it is" "ok    terminal.gif" \
   not_downloaded "${root}" "${all}" "${with_browser}"
-root="$(fixture shimmed-ttyd)"
-expect_output pass "a ttyd behind a mise shim, hashed as the file mise runs, and used" "ok    terminal.gif" \
-  not_downloaded "${root}" "stubs curl vhs shim ffmpeg" "${with_browser}" "FAKE_MISE_TTYD=${workdir}/ttyd/ttyd"
-root="$(fixture unverified-ttyd)"
-expect_output 1 "a ttyd at the pin on PATH that does not match it, refused by name and never run" \
-  "the ttyd on PATH, ${workdir}/other-ttyd/ttyd, is not ttyd 1.7.7 as released" \
-  never_ran "${root}" "stubs curl vhs other-ttyd ffmpeg" "${with_browser}"
-root="$(fixture unverified-shimmed-ttyd)"
-expect_output 1 "a mise shim to a ttyd that does not match, refused naming the file mise runs" \
-  "the ttyd on PATH, ${workdir}/other-ttyd/ttyd, is not" \
-  never_ran "${root}" "stubs curl vhs shim ffmpeg" "${with_browser}" "FAKE_MISE_TTYD=${workdir}/other-ttyd/ttyd"
+root="$(fixture ttyd-on-path)"
+expect_output pass "a ttyd elsewhere on PATH, never run, and one of its own downloaded" \
+  "downloading ttyd 1.7.7" never_ran "${root}" "stubs curl vhs other-ttyd ffmpeg" "${with_browser}"
 root="$(fixture tampered-ttyd)"
 mkdir -p "${root}/tmp/docs-media/bin"
 cp "${workdir}/other-ttyd/ttyd" "${root}/tmp/docs-media/bin/ttyd"
@@ -259,10 +254,10 @@ root="$(fixture failed-download)"
 expect_output 1 "a ttyd download that fails, not kept" "could not download ttyd 1.7.7" \
   not_kept "${root}" "stubs curl vhs ffmpeg" "${with_browser}" FAKE_CURL_FAIL=1
 root="$(fixture wrong-ttyd)"
-expect_output 1 "a ttyd downloaded that reports another version" "the ttyd on PATH is not 1.7.7" \
+expect_output 1 "a ttyd downloaded that reports another version" "is not ttyd 1.7.7" \
   media "${root}" "stubs curl vhs ffmpeg" "${with_browser}" FAKE_DOWNLOADED_VERSION=1.7.6
 root="$(fixture longer-ttyd)"
-expect_output 1 "a ttyd downloaded at a longer version that begins with the pin" "the ttyd on PATH is not 1.7.7" \
+expect_output 1 "a ttyd downloaded at a longer version that begins with the pin" "is not ttyd 1.7.7" \
   media "${root}" "stubs curl vhs ffmpeg" "${with_browser}" FAKE_DOWNLOADED_VERSION=1.7.70
 root="$(fixture mac)"
 expect_output 2 "ttyd needed on a machine it has no build for" "ttyd 1.7.7 publishes no build for Darwin arm64" \
@@ -278,8 +273,18 @@ root="$(fixture no-recording)"
 expect_output 1 "VHS fails to record" "VHS could not record docs/media/terminal.tape" \
   media "${root}" "${all}" "${with_browser}" FAKE_VHS_FAIL=1
 root="$(fixture unpinned)"
-printf '[tools]\nttyd = "1.7.7"\n' >"${root}/mise.toml"
+printf '[tools]\n' >"${root}/mise.toml"
 expect_output 2 "mise.toml pins no VHS" "mise.toml pins no version of vhs" \
   media "${root}" "${all}" "${with_browser}"
+root="$(fixture no-ttyd-pin)"
+printf '# no ttyd\n' >"${root}/docs/media/tool-checksums.txt"
+git -C "${root}" -c user.name=fixture -c user.email=fixture@example.com commit -qam 'no ttyd'
+expect_output 2 "a checksums file that pins no ttyd" "docs/media/tool-checksums.txt pins no single version of ttyd" \
+  media "${root}" "${all}" "${with_browser}"
+root="$(fixture two-ttyd-pins)"
+printf 'ttyd 1.7.8 x86_64 %s\n' "${payload_sha}" >>"${root}/docs/media/tool-checksums.txt"
+git -C "${root}" -c user.name=fixture -c user.email=fixture@example.com commit -qam 'two ttyd'
+expect_output 2 "a checksums file that pins two versions of ttyd" \
+  "docs/media/tool-checksums.txt pins no single version of ttyd" media "${root}" "${all}" "${with_browser}"
 
 finish_tests

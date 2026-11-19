@@ -46,19 +46,17 @@
 # bytes depend on the machine's fonts, Chromium and ffmpeg; this checks their
 # sizes, and the reviewer of the commit looks at them.
 #
-# VHS and ttyd are the versions mise.toml pins. A VHS already on PATH at its
-# pin, as mise installs it once its release's checksums match, is used;
-# otherwise, as in a Claude Code cloud session, where mise cannot install
-# either, it is built by `go install`, which sum.golang.org verifies. Every
-# ttyd is hashed against the SHA-256 docs/media/tool-checksums.txt pins for
-# it before anything runs it, since mise knows no checksum for ttyd and
-# installs it unchecked: one on PATH, or behind a mise shim, that matches is
-# used, one that does not stops the run, and with none it is downloaded from
-# its release and must match. Both go into tmp/docs-media/bin and are used
-# again by the next run, and a ttyd kept there that no longer matches is
-# downloaded again. ttyd publishes Linux builds alone. check-media-checksums.sh
-# (`task lint`) holds the checksums to mise.toml's pin of ttyd and to the
-# machines provide_ttyd matches below.
+# VHS is the version mise.toml pins. A VHS already on PATH at its pin, as mise
+# installs it once its release's checksums match, is used; otherwise, as in a
+# Claude Code cloud session, where mise cannot install it, it is built by
+# `go install`, which sum.golang.org verifies. ttyd is pinned by
+# docs/media/tool-checksums.txt alone, its version and the SHA-256 of each
+# build, and not in mise.toml: mise knows no checksum for ttyd and would
+# install it unchecked. So this runs only a ttyd of its own, downloaded from
+# its release and hashed before anything runs it; a ttyd elsewhere on PATH is
+# never run. Both go into tmp/docs-media/bin and are used again by the next
+# run, and a ttyd kept there that no longer matches is downloaded again. ttyd
+# publishes Linux builds alone.
 #
 # VHS reads no browser setting: it takes the first Chromium go-rod finds on
 # PATH and, finding none, downloads one, unpinned, into ~/.cache/rod. So this
@@ -78,7 +76,8 @@
 # line of the tape has no length to read, the WebP is not the film, or a gate
 # or a Playwright run is going as the recordings end; and 2
 # when it is given an argument, a tool it needs is missing, ffmpeg cannot
-# write an animated WebP, mise.toml pins no VHS or ttyd, ttyd publishes no
+# write an animated WebP, mise.toml pins no VHS, docs/media/tool-checksums.txt
+# pins no single version of ttyd, ttyd publishes no
 # build for the machine, the checkout is not git's or has changes not
 # committed to what the images show, the tape waits on the screen while
 # shown, or the machine is busy.
@@ -187,17 +186,15 @@ provide_vhs() {
   fi
 }
 
-# ttyd_file prints the file the ttyd on PATH runs, the one behind a mise shim
-# rather than mise, or nothing when PATH has none.
-ttyd_file() {
-  local found
-  found="$(command -v ttyd || true)"
-  [[ -n "${found}" ]] || return 0
-  found="$(readlink -f "${found}")"
-  if [[ "${found##*/}" == mise ]]; then
-    found="$("${found}" which ttyd 2>/dev/null || true)"
+# ttyd_pin prints the one version of ttyd the checksums file pins, or refuses
+# to run.
+ttyd_pin() {
+  local versions
+  versions="$(awk '$1 == "ttyd" && !seen[$2]++ { print $2 }' "${checksums}" 2>/dev/null || true)"
+  if [[ -z "${versions}" || "${versions}" == *$'\n'* ]]; then
+    refuse "${checksums#"${root}/"} pins no single version of ttyd"
   fi
-  printf '%s' "${found}"
+  printf '%s' "${versions}"
 }
 
 # download_ttyd downloads ttyd's release for this machine into tools/bin,
@@ -219,14 +216,12 @@ download_ttyd() {
   mv "${download}" "${tools}/bin/ttyd"
 }
 
-# provide_ttyd leaves on PATH a ttyd whose bytes are the release its pin
-# names, hashed before anything runs it: the one PATH has when it matches,
-# and otherwise one downloaded, in place of a copy an earlier run kept that
-# no longer matches; a ttyd elsewhere on PATH that does not match stops the
-# run.
+# provide_ttyd leaves in tools/bin, first on PATH, a ttyd whose bytes are the
+# release its pin names, hashed before anything runs it: the copy an earlier
+# run kept while it matches, and otherwise one downloaded.
 provide_ttyd() {
-  local version machine wanted found kept="${tools}/bin/ttyd"
-  version="$(pin ttyd)"
+  local version machine wanted kept="${tools}/bin/ttyd"
+  version="$(ttyd_pin)"
   wanted="$(version_pattern "${version}")"
   machine="$(uname -m)"
   if [[ "$(uname -s)" != Linux || ! "${machine}" =~ ^(x86_64|aarch64)$ ]]; then
@@ -236,15 +231,11 @@ provide_ttyd() {
     echo "docs-media: ${kept} is not ttyd ${version} as released; downloading it again"
     rm -f "${kept}"
   fi
-  found="$(ttyd_file)"
-  if [[ -z "${found}" ]]; then
+  if [[ ! -e "${kept}" ]]; then
     download_ttyd "${version}" "${machine}"
-    found="${kept}"
-  elif ! "${here}/verify-download.sh" "${checksums}" "${found}" ttyd "${version}" "${machine}"; then
-    fail "the ttyd on PATH, ${found}, is not ttyd ${version} as released: remove it or take it off PATH, and this downloads its own"
   fi
-  if [[ ! "$("${found}" --version 2>/dev/null || true)" =~ ${wanted} ]]; then
-    fail "the ttyd on PATH is not ${version}"
+  if [[ ! "$("${kept}" --version 2>/dev/null || true)" =~ ${wanted} ]]; then
+    fail "${kept} is not ttyd ${version}"
   fi
 }
 

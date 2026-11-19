@@ -178,7 +178,7 @@ not_built() {
 # so the load refused is other work's, not the script's.
 root="$(fixture busy-no-vhs)"
 expect_output 2 "a busy machine refused before VHS is built" "the machine is busy" \
-  not_built "${root}" "stubs curl ttyd ffmpeg" "${with_browser}" "DOCS_MEDIA_LOADAVG=${workdir}/busy-load"
+  not_built "${root}" "stubs curl ffmpeg" "${with_browser}" "DOCS_MEDIA_LOADAVG=${workdir}/busy-load"
 printf '3.00 2.00 1.00 1/100 1\n' >"${workdir}/full-load"
 expect_exit pass "a load of all but one of the machine's processors" media "${root}" "${all}" "${with_browser}" \
   "DOCS_MEDIA_LOADAVG=${workdir}/full-load"
