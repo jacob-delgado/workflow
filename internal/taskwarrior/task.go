@@ -51,17 +51,16 @@ type Task struct {
 }
 
 // Active reports a pending task that has been started, as Taskwarrior counts
-// it whatever its wait: its clock runs until it is stopped, so what writes to
-// Taskwarrior — a start or stop, a switch — asks this. What a list shows asks
-// Started.
-//
-// A started task with a wait still ahead shows waiting while its clock runs;
-// only a write, a switch's stop among them, reads this.
+// it whatever its wait: its clock runs until it is stopped. What writes to
+// Taskwarrior — a start or stop, a switch — asks this; what a list shows asks
+// Started, which reads the same.
 func (t Task) Active() bool {
 	return t.Status == Pending && !t.Start.IsZero()
 }
 
-// Waiting reports a task hidden until a date still after now.
+// Waiting reports a task hidden until a date still after now, whether or not
+// it was started: the date alone. Whether a list shows it waiting is State's,
+// which reads a started task started whatever its wait.
 func (t Task) Waiting(now time.Time) bool {
 	return t.Status == Waiting || (t.Status == Pending && t.Wait.After(now))
 }

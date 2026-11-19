@@ -223,6 +223,25 @@ func TestTheListOffersEveryValueInItsOrder(t *testing.T) {
 	}
 }
 
+func TestTheListOffersTheValuesOfAStartedTaskThatWaits(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	started := taskwarrior.Task{
+		UUID: "s1", ID: 5, Description: "Ship it", Status: taskwarrior.Pending,
+		Start: orderNow().Add(-time.Hour), Wait: orderNow().Add(time.Hour), Project: "release",
+	}
+
+	// Act
+	offered := taskwarrior.OfferedFacets([]taskwarrior.Task{started}, orderNow())
+
+	// Assert
+	project := taskwarrior.Facet{Kind: taskwarrior.FacetProject, Value: "release"}
+	if !slices.Contains(offered, project) {
+		t.Errorf("offered %v, want %v: a started task is listed whatever its wait", offered, project)
+	}
+}
+
 func TestAPickedValueTheListNoLongerOffersComesLastAtZero(t *testing.T) {
 	t.Parallel()
 

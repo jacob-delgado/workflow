@@ -12,16 +12,13 @@ type WithStart = Task & { start: string }
 
 // isActive reports a task Taskwarrior counts started, whatever its wait:
 // pending, with a start. Its clock runs until it is stopped, so what writes — a
-// start or a stop — asks this; what the page shows asks isStarted. A started
-// task with a wait still ahead shows waiting while its clock runs, so its
-// detail offers to stop it.
+// start or a stop — asks this; what the page shows asks isStarted.
 export function isActive(task: Task): task is WithStart {
   return task.status === 'pending' && task.start !== undefined
 }
 
 // isStarted reports a task that stands started, as the server words it: one
-// active and not waiting. A started task with a wait still ahead stands
-// waiting.
+// active, whatever its wait.
 export function isStarted(task: Task): task is WithStart {
   return task.state === 'started' && isActive(task)
 }

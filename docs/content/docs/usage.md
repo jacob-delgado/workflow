@@ -884,11 +884,10 @@ names each task it stops first and the one it then starts, or, for an issue no
 task tracks, stops them and then opens the track line. `s` in the Tasks pane,
 and **Start** on the web, start a task without stopping any other; with more
 than one started, the top row shows the first. A started task whose wait is
-still ahead is shown waiting, as the Tasks list words it: its issue is not
-marked started, the top row leaves it out, and the list and the detail mark it
-not started. Taskwarrior still counts it started, its clock running, so `s` on
-it stops it, and a switch stops it too, naming it and the date it waits until:
-`Stop task 12 'PROJ-412: Fix token redaction' (waiting until 2026-09-18)`. No
+still ahead is shown started, as Taskwarrior counts it, its clock running: its
+issue is marked started, the top row and the Tasks list show it, and neither
+the waiting count nor the waiting filter holds it; `s` on it stops it, and a
+switch stops it too. No
 start is offered for an issue whose own task is already started, and nothing is
 offered before Taskwarrior has answered, or without it. Until the read after a
 done answers, the task just marked done is offered nothing — no start, no note,

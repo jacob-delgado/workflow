@@ -2808,7 +2808,7 @@ type Task struct {
 	// Start When the task was started; present only while it is.
 	Start *time.Time `json:"start,omitempty"`
 
-	// State Where the task stands as the list words it, when the server read it: started for a pending task begun, waiting for a pending one whose wait is still ahead, else its status. A wait passing changes it with no write, so a page holding the list reads it again once the earliest wait still ahead has passed.
+	// State Where the task stands as the list words it, when the server read it: started for a pending task begun, whatever its wait, since its clock runs; waiting for a pending one not begun whose wait is still ahead; else its status. A wait passing changes it with no write, so a page holding the list reads it again once the earliest wait still ahead has passed.
 	State  TaskState  `json:"state"`
 	Status TaskStatus `json:"status"`
 	Tags   []string   `json:"tags"`
@@ -2826,7 +2826,7 @@ type Task struct {
 	Wait *time.Time `json:"wait,omitempty"`
 }
 
-// TaskState Where the task stands as the list words it, when the server read it: started for a pending task begun, waiting for a pending one whose wait is still ahead, else its status. A wait passing changes it with no write, so a page holding the list reads it again once the earliest wait still ahead has passed.
+// TaskState Where the task stands as the list words it, when the server read it: started for a pending task begun, whatever its wait, since its clock runs; waiting for a pending one not begun whose wait is still ahead; else its status. A wait passing changes it with no write, so a page holding the list reads it again once the earliest wait still ahead has passed.
 type TaskState string
 
 // TaskStatus defines model for Task.Status.
