@@ -12,7 +12,8 @@ import (
 
 // State is where a task stands, as the Tasks list words and orders it. It is
 // not Taskwarrior's status alone: a pending task that has been started is
-// started, and a pending one with a wait still ahead waits.
+// started, whatever its wait, since its clock runs, and any other pending one
+// with a wait still ahead waits.
 type State int
 
 // The states, in the order ByState lists them.
@@ -67,20 +68,20 @@ func (t Task) State(now time.Time) State {
 	}
 }
 
-// Started reports a task the lists show started at now: one Active and not
-// waiting. A started task with a wait still ahead is waiting there.
+// Started reports a task the lists show started at now: one Active, whatever
+// its wait.
 func (t Task) Started(now time.Time) bool {
 	return t.State(now) == StateStarted
 }
 
-// pendingState is where a pending task stands at now: hidden until a date
-// still ahead, started, or neither.
+// pendingState is where a pending task stands at now: started, whatever its
+// wait, hidden until a date still ahead, or neither.
 func (t Task) pendingState(now time.Time) State {
 	switch {
-	case t.Waiting(now):
-		return StateWaiting
 	case t.Active():
 		return StateStarted
+	case t.Waiting(now):
+		return StateWaiting
 	default:
 		return StatePending
 	}

@@ -584,9 +584,9 @@ tag* or *no priority* for a task with none. **Search** keeps the tasks whose
 description, project, `+tag`, issue key or `#id` holds what you type, and the
 **Filter** chips narrow the list by state, priority, project, tag and whether
 a task has an issue, each with its count; pressing **waiting** lists the
-waiting tasks. A started task whose wait is still ahead is waiting there, and
-marked not started, while Taskwarrior still counts it started: its detail
-offers **Stop**, and it is not the started task the track shows. A value picked
+waiting tasks. A started task whose wait is still ahead is started, as
+Taskwarrior counts it, its clock running: it is marked started, its detail
+offers **Stop**, and the track shows it. A value picked
 stays on offer, at zero, once no task holds it, so it can be unpicked, and a
 named project or tag, or a named priority other than H, M and L, that no task
 holds any longer comes last; a waiting task counts toward its state alone. The

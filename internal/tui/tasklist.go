@@ -166,7 +166,7 @@ func (s tasksState) groupsBy(listing taskListing, issues issueList, now time.Tim
 		switch {
 		case !narrowing.Matches(task, now):
 			continue
-		case task.Waiting(now) && !narrowing.ListsWaiting():
+		case task.State(now) == taskwarrior.StateWaiting && !narrowing.ListsWaiting():
 			groups.waiting++
 		case task.Linked() && listed:
 			groups.forIssues = append(groups.forIssues, task)
@@ -318,16 +318,16 @@ func (s tasksState) listedTracking(issueKey jira.Key, groups taskGroups) (taskwa
 
 // unlistedBecause is why the Tasks pane does not list a task still to do:
 // the list with nothing narrowing it, unnarrowed, holds it, so the filter
-// hides it; it waits, until a day in the clock's zone; it is the template a
-// recurring task's instances are made from; a track has just added it, and
-// no read since has held it; the active context hides it; or, with no
-// context to hide it, it changed between the pending read and the linked
-// one, which reading them again settles.
+// hides it; it waits, not started, until a day in the clock's zone; it is
+// the template a recurring task's instances are made from; a track has just
+// added it, and no read since has held it; the active context hides it; or,
+// with no context to hide it, it changed between the pending read and the
+// linked one, which reading them again settles.
 func (s tasksState) unlistedBecause(keys keyMap, unnarrowed taskGroups, task taskwarrior.Task, now time.Time) string {
 	switch {
 	case unnarrowed.lists(task.UUID):
 		return "which the Tasks pane's filter hides; " + keys.filterTasks.Help().Key + " there changes it"
-	case task.Waiting(now):
+	case task.State(now) == taskwarrior.StateWaiting:
 		return "which waits until " + task.Wait.In(now.Location()).Format(time.DateOnly)
 	case task.Status == taskwarrior.Recurring:
 		return "a recurring template"

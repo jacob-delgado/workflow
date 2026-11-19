@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -164,7 +163,7 @@ func offerSwitch(
 
 	return offering(lastLook{
 		title: "Switch the task", verb: verbSwitch, doing: "switching",
-		body: "Stop " + eachTask(started, describedStarted(deps.now())) + " and start task " + describedTask(task) + "?",
+		body: "Stop " + eachTask(started, describedTask) + " and start task " + describedTask(task) + "?",
 	}, "stop "+eachTask(started, taskName)+" and start task "+taskName(task), func() taskActed {
 		// The task is started only once every other has stopped, so a refusal never
 		// leaves two started; tried again after the start was refused, each finds
@@ -187,7 +186,7 @@ func offerSwitch(
 // line, whose own dry run says what it would add.
 func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) waitingOffer {
 	ctx, stop, track := m.session, m.deps.Tasks.Stop, m.offerTrackAndStart(issue)
-	stopping := eachTask(started, describedStarted(m.deps.now()))
+	stopping := eachTask(started, describedTask)
 	look := lastLook{
 		title: "Switch the task", verb: verbSwitch, doing: "stopping",
 		body: "Stop " + stopping + ", then track and start " + shownKey(issue.Key) + "?",
@@ -435,19 +434,6 @@ func (m Model) answerLook(round int, err error) Model {
 // describedTask names a task and quotes what it is: 3 'PROJ-42: Fix it'.
 func describedTask(task taskwarrior.Task) string {
 	return taskName(task) + " '" + task.Description + "'"
-}
-
-// describedStarted names a started task as a switch's last look does: as
-// describedTask does, and, for one the lists show waiting at now, until when,
-// since no list shows it while the switch still stops it.
-func describedStarted(now time.Time) func(taskwarrior.Task) string {
-	return func(task taskwarrior.Task) string {
-		if !task.Waiting(now) {
-			return describedTask(task)
-		}
-
-		return describedTask(task) + " (waiting until " + task.Wait.In(now.Location()).Format(time.DateOnly) + ")"
-	}
 }
 
 // shownID is a task's id where the screen names the task by one, and zero where

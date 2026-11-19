@@ -329,8 +329,8 @@ func (h *Handlers) tasksSummaryDTO(pending, linked []taskwarrior.Task, now time.
 // terminal's spine shows it, ranked among the list that holds it: your pending
 // tasks, as the Tasks list ranks it, or the linked ones, given here as
 // linkedDTO, when the active context hides it from the pending. It is nil when
-// none is started; a started task with a wait still ahead is waiting, not
-// started, as the list words it.
+// none is started; a started task with a wait still ahead is started, as the
+// list words it, since its clock runs.
 func (h *Handlers) activeTask(pending, linked []taskwarrior.Task, linkedDTO []api.Task, now time.Time) *api.Task {
 	startedNow := func(task taskwarrior.Task) bool { return task.Started(now) }
 

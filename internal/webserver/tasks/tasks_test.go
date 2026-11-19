@@ -378,11 +378,11 @@ func activeUUID(summary api.TasksSummary) string {
 	return summary.Active.UUID
 }
 
-func TestTheSnapshotsActiveTaskIsNeverOneThatWaits(t *testing.T) {
+func TestTheSnapshotsActiveTaskIsAStartedOneWhateverItsWait(t *testing.T) {
 	t.Parallel()
 
-	// A started task whose wait is still ahead is waiting, as the list words
-	// it, though Taskwarrior still counts it started.
+	// A started task whose wait is still ahead is started, as the list words
+	// it: Taskwarrior counts it started, and its clock runs.
 	now := webtest.TaskDay().Add(2 * time.Hour)
 	startedWaits := webtest.PlainTask()
 	startedWaits.Start, startedWaits.Wait = webtest.TaskDay(), now.Add(48*time.Hour)
@@ -391,12 +391,14 @@ func TestTheSnapshotsActiveTaskIsNeverOneThatWaits(t *testing.T) {
 		wantActive      string
 	}{
 		"the only started task waits": {
-			pending: []taskwarrior.Task{startedWaits}, linked: []taskwarrior.Task{webtest.DoneTask()}, wantActive: "",
+			pending:    []taskwarrior.Task{startedWaits},
+			linked:     []taskwarrior.Task{webtest.DoneTask()},
+			wantActive: startedWaits.UUID,
 		},
-		"a started task that waits gives way to one that does not": {
+		"a pending started task that waits comes before a linked one": {
 			pending:    []taskwarrior.Task{startedWaits},
 			linked:     []taskwarrior.Task{webtest.StartedTask(), webtest.DoneTask()},
-			wantActive: webtest.StartedUUID,
+			wantActive: startedWaits.UUID,
 		},
 	}
 
@@ -414,7 +416,7 @@ func TestTheSnapshotsActiveTaskIsNeverOneThatWaits(t *testing.T) {
 
 			// Assert
 			if got := activeUUID(webtest.FirstSnapshot(t, body).Tasks); got != tt.wantActive {
-				t.Errorf("active = %q, want %q: a started task that waits is not the active one", got, tt.wantActive)
+				t.Errorf("active = %q, want %q: a started task that waits is started", got, tt.wantActive)
 			}
 		})
 	}

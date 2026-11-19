@@ -154,6 +154,16 @@ func TestTrackOnAnIssueWhoseTaskIsNotListedSaysWhy(t *testing.T) {
 			},
 			want: untrackedIssue + " is tracked by task 44, which waits until 2026-10-02", refuse: "2026-10-01",
 		},
+		// Started, so listed whatever its wait, were the context not hiding it.
+		"it is started and waits, outside the active context": {
+			arrange: func(repo *world, task taskwarrior.Task) {
+				task.Start = testNow().Add(-time.Hour)
+				task.Wait = testNow().Add(48 * time.Hour)
+				repo.tasks.context = "home"
+				repo.tasks.linked = append(repo.tasks.linked, task)
+			},
+			want: untrackedIssue + " is tracked by task 44, outside context home", refuse: "waits until",
+		},
 		// Pending, yet not among the pending tasks read: the context hides it.
 		"it is outside the active context": {
 			arrange: func(repo *world, task taskwarrior.Task) {

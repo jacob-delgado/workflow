@@ -63,8 +63,8 @@ test.each([
   ],
   [
     'a started task with a wait still ahead',
-    taskStanding(makeTask(), { start: before(10), wait: before(-60) }, standing.waiting),
-    'not-started',
+    taskStanding(makeTask(), { start: before(10), wait: before(-60) }, standing.started),
+    'in-flight',
   ],
   ['a task not started', makeTask(), 'not-started'],
   [

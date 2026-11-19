@@ -209,16 +209,22 @@ func TestActiveWaitingAndStartedReadTheDates(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "a pending task waiting until tomorrow, never started, is not started as the lists show it",
+			task: taskwarrior.Task{Status: taskwarrior.Pending, Wait: now.AddDate(0, 0, 1)},
+			read: started,
+			want: false,
+		},
+		{
 			name: "a started task waiting until tomorrow is active",
 			task: taskwarrior.Task{Status: taskwarrior.Pending, Start: now.Add(-time.Hour), Wait: now.AddDate(0, 0, 1)},
 			read: taskwarrior.Task.Active,
 			want: true,
 		},
 		{
-			name: "a started task waiting until tomorrow is not started as the lists show it",
+			name: "a started task waiting until tomorrow is started as the lists show it",
 			task: taskwarrior.Task{Status: taskwarrior.Pending, Start: now.Add(-time.Hour), Wait: now.AddDate(0, 0, 1)},
 			read: started,
-			want: false,
+			want: true,
 		},
 		{
 			name: "a waiting task is waiting",

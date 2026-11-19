@@ -244,13 +244,13 @@ func OfferedFacets(tasks []Task, now time.Time) []Facet {
 }
 
 // heldCounts is how many of the tasks hold each value at now, a waiting task
-// counted for its state alone.
+// counted for its state alone; a started one is listed, whatever its wait.
 func heldCounts(tasks []Task, now time.Time) map[Facet]int {
 	counts := map[Facet]int{}
 
 	for _, task := range tasks {
 		for _, facet := range task.Facets(now) {
-			if !task.Waiting(now) || facet.Kind == FacetState {
+			if task.State(now) != StateWaiting || facet.Kind == FacetState {
 				counts[facet]++
 			}
 		}

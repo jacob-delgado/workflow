@@ -5039,8 +5039,9 @@ components:
           enum: [started, pending, waiting, recurring, completed, deleted, unknown]
           description: >-
             Where the task stands as the list words it, when the server read
-            it: started for a pending task begun, waiting for a pending one
-            whose wait is still ahead, else its status. A wait passing changes
+            it: started for a pending task begun, whatever its wait, since
+            its clock runs; waiting for a pending one not begun whose wait is
+            still ahead; else its status. A wait passing changes
             it with no write, so a page holding the list reads it again once
             the earliest wait still ahead has passed.
         project:
