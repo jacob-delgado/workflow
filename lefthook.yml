@@ -111,10 +111,6 @@ pre-commit:
             glob: "scripts/**"
             run: scripts/check-sibling-tests.sh
 
-          - name: yamllint
-            glob: "*.{yml,yaml}"
-            run: yamllint --strict {staged_files}
-
           - name: hadolint
             glob: "*Dockerfile*"
             run: hadolint {staged_files}

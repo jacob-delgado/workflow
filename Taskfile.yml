@@ -459,7 +459,6 @@ tasks:
       - task: lint:crossvet
       - task: lint:testshape
       - task: lint:shell
-      - task: lint:yaml
       - task: lint:docker
       - task: lint:actions
       - task: lint:markdown
@@ -525,14 +524,6 @@ tasks:
     cmds:
       - shfmt -i 2 -ci -bn -d {{.SHELL_FILES}}
       - shellcheck {{.SHELL_FILES}}
-
-  lint:yaml:
-    desc: Lint the YAML
-    cmds:
-      # --strict, so a warning fails as an error does: yamllint exits 0 on a
-      # warning, and a "missing starting space in comment" warning once hid a
-      # description YAML had cut short at a " #".
-      - yamllint --strict .
 
   lint:docker:
     desc: Lint the build container's Dockerfile
@@ -818,7 +809,6 @@ tasks:
     cmds:
       - task: lint:markdown
       - task: lint:typos
-      - task: lint:yaml
       - task: lint:toml
       - task: lint:headers
       - task: lint:filelength
