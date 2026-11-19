@@ -21,10 +21,9 @@ readonly linux_sum="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 readonly windows_sum="cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 readonly other_sum="dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 
-# The three binaries, as `sha256sum workflow_*` lists them in dist/.
+# The two binaries, as `sha256sum workflow_*` lists them in dist/.
 binaries="${macos_sum}  workflow_darwin_arm64
-${linux_sum}  workflow_linux_amd64
-${windows_sum}  workflow_windows_amd64.exe"
+${linux_sum}  workflow_linux_amd64"
 readonly binaries
 
 # What release.yml publishes: it writes each binary's .sha256 first, so its
@@ -32,9 +31,7 @@ readonly binaries
 release_sums="${macos_sum}  workflow_darwin_arm64
 ${other_sum}  workflow_darwin_arm64.sha256
 ${linux_sum}  workflow_linux_amd64
-${other_sum}  workflow_linux_amd64.sha256
-${windows_sum}  workflow_windows_amd64.exe
-${other_sum}  workflow_windows_amd64.exe.sha256"
+${other_sum}  workflow_linux_amd64.sha256"
 readonly release_sums
 
 # sums writes a checksums file for a case and prints its path.
@@ -190,14 +187,6 @@ expect_file "writes the formula for a release" Formula/workflow.rb "${formula}"
 expect_exit pass "reads the binaries' checksums alone, as CI writes them" generate v1.4.0 "$(sums "${binaries}")"
 expect_file "reads the binaries' checksums alone, as CI writes them" Formula/workflow.rb "${formula}"
 
-expect_exit pass "writes nothing for Windows, which installs from the release" \
-  generate v1.4.0 "$(sums "${release_sums}")"
-written="$(cd "${workdir}/out${cases}" && find . -type f)"
-count_case
-if [[ "${written}" != "./Formula/workflow.rb" ]]; then
-  fail_case "writes nothing for Windows, which installs from the release" "it wrote $(tr '\n' ' ' <<<"${written}")"
-fi
-
 expect_exit pass "a release's formula keeps the rules brew style and brew audit --strict hold" \
   generate v1.4.0 "$(sums "${release_sums}")"
 expect_brew_accepts "a release's formula keeps the rules brew style and brew audit --strict hold"
@@ -223,13 +212,17 @@ for tag in 1.4.0 v1.4 v1.4.0/nested "v1.4.0 and more" v1.4.0-; do
 done
 
 refuses "a platform with no place is refused" \
-  "workflow_linux_arm64 has no place in the Homebrew formula, nor is it named as installed from the release" \
+  "workflow_linux_arm64 has no place in the Homebrew formula; give it one" \
   v1.4.0 "$(sums "${release_sums}
 ${other_sum}  workflow_linux_arm64")"
 
-refuses "a missing platform is refused" "no checksum for workflow_linux_amd64" \
-  v1.4.0 "$(sums "${macos_sum}  workflow_darwin_arm64
+refuses "a Windows binary is refused, since no release builds one" \
+  "'${windows_sum}  workflow_windows_amd64.exe' is not a checksum line" \
+  v1.4.0 "$(sums "${release_sums}
 ${windows_sum}  workflow_windows_amd64.exe")"
+
+refuses "a missing platform is refused" "no checksum for workflow_linux_amd64" \
+  v1.4.0 "$(sums "${macos_sum}  workflow_darwin_arm64")"
 
 refuses "a platform listed twice is refused" "workflow_linux_amd64 is listed twice" \
   v1.4.0 "$(sums "${release_sums}
@@ -241,8 +234,7 @@ ${other_sum:1}  workflow_linux_arm64")"
 
 refuses "a binary-mode checksum line is refused" "not a checksum line" \
   v1.4.0 "$(sums "${macos_sum} *workflow_darwin_arm64
-${linux_sum}  workflow_linux_amd64
-${windows_sum}  workflow_windows_amd64.exe")"
+${linux_sum}  workflow_linux_amd64")"
 
 refuses "an empty checksums file is refused" "no checksum for workflow_darwin_arm64" \
   v1.4.0 "$(sums "")"

@@ -292,28 +292,6 @@ Impact: low · Effort: medium
 - Done when: the Sprint view (`jira.views`, `internal/config/config.go:90`)
   renders its issues under status headings.
 
-## Build and platform
-
-Mac and Linux are the primary targets and Windows is secondary, run as the
-cross-compiled binary rather than through an installer, so what is open here
-cannot be exercised from a developer's own machine.
-
-### FEAT-73 Windows as a tested target
-
-Impact: low · Effort: medium
-
-- Why: the code carries Windows branches — a plain file counts as a runnable
-  hook, the editor falls back to `notepad`, a `C:\` path is read as one place,
-  and the process group has a no-op twin where a Unix session does not apply —
-  but none runs on Windows, so each branch is tested only from one machine by
-  its GOOS. The process-group kill has no Windows job-object twin.
-- Touches: `.github/workflows/ci.yml` (a Windows leg), `internal/proc/pgroup`
-  (a job-object `Isolate`), and whatever the first real run turns up.
-- Constraints: a Windows leg must be watched and iterated on a real runner, not
-  added blind where it would sit red.
-- Done when: the suite runs on a Windows runner in CI, and stopping a run kills
-  its child processes there as it does on Unix.
-
 ## Ideas that would reopen a settled decision
 
 Each of these is a reasonable thing to want. Each also needs one of the

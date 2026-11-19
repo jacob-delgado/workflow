@@ -162,8 +162,8 @@ jobs:
             ## Install
 
             Download the binary for your platform from the assets below, each
-            named `workflow_<os>_<arch>` (`.exe` on Windows), verify it against
-            its checksum, make it executable, and move it onto your `PATH`.
+            named `workflow_<os>_<arch>`, verify it against its checksum, make
+            it executable, and move it onto your `PATH`.
             There is no archive to unpack.
 
             ```sh

@@ -175,7 +175,7 @@ refused]({{< relref "/docs/faq#when-the-configuration-file-is-refused" >}}).
 | `issues.forge` | no | List the issues assigned to you on this repository's own GitHub or GitLab project beside Jira's, at the head of the first issue list. Set it in the repository's file, over your home file's default. With no `jira.base_url` the forge's issues are the whole list whatever it says. Defaults to `false`. Saved from the web's Settings, a change waits for `workflow --web` to restart or switch directory, as a change to the first view does for these issues; see [Where it looks](#where-it-looks-and-what-wins). |
 | `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`, spelled in lowercase; any other value is refused when the file loads. It decides the message body and link markup. |
 | `messaging.client_id` | for a Slack user token | Your Slack app's client ID, which its rotating user token is refreshed with. Not a secret; `workflow slack login` writes it. Slack only, and never together with `messaging.webhook_url`. |
-| `messaging.client_secret`, `messaging.refresh_token`, `messaging.access_token`, `messaging.expires_at` | written by workflow | The user token's rotating credentials, when this file keeps them — on Linux and Windows, or on macOS once they are here — rather than the keychain. workflow rewrites the last three on every refresh. All but `expires_at` are **credentials**. |
+| `messaging.client_secret`, `messaging.refresh_token`, `messaging.access_token`, `messaging.expires_at` | written by workflow | The user token's rotating credentials, when this file keeps them — on Linux, or on macOS once they are here — rather than the keychain. workflow rewrites the last three on every refresh. All but `expires_at` are **credentials**. |
 | `messaging.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. The only transport for Teams, Discord and a plain webhook; for Slack, set it or a user token, never both. |
 | `messaging.channel` | with a Slack user token | Channel to post in, e.g. `#dev-workflow`. You must be in it. A webhook carries its own. `workflow announce --channel` and `workflow summary --post --channel` post one message elsewhere instead. |
 | `messaging.channels` | no | Further channels a user-token announcement can go to, for a change that concerns another team, e.g. `["#platform"]`. The announcement preview offers them after `messaging.channel`, which is always a choice; you must be in each. A webhook carries its own channel and offers none. |
@@ -455,7 +455,7 @@ Where the token is kept:
 
 - **macOS**: in the keychain, under `workflow-slack`, so the file holds no
   secret. If the file already holds the token's secrets, it stays there.
-- **Linux and Windows**: in the configuration file, which workflow rewrites
+- **Linux**: in the configuration file, which workflow rewrites
   after every refresh — the file is written readable only by you, as `config
   init` writes it.
 
@@ -1237,7 +1237,6 @@ in two small SQLite databases under your platform's data directory:
 
 - macOS — `~/Library/Application Support/workflow`
 - Linux — `$XDG_STATE_HOME/workflow`, or `~/.local/state/workflow`
-- Windows — `%AppData%\workflow`
 
 `workflow.db` is the cache: the conveniences above, which a session makes
 again. `kept.db`, beside it, is what you decided — the people and group

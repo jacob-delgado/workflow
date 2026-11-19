@@ -1244,8 +1244,9 @@ appears when `lefthook` is installed.
 ## Editor
 
 Commit bodies, pull request descriptions and announcements — and a comment,
-when `ctrl+o` hands it over — are written in `$GIT_EDITOR`, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad`
-on Windows) — git's own order, though git's `core.editor` setting is not read.
+when `ctrl+o` hands it over — are written in `$GIT_EDITOR`, else `$VISUAL`,
+else `$EDITOR`, else `vi` — git's own order, though git's `core.editor` setting
+is not read.
 Everything below the scissors line (a `>8` cut mark) is help and is not kept.
 An editor that has to be told to wait needs saying so, in whichever of those
 variables names it: `EDITOR="code --wait"`, or `VISUAL="code --wait"` when

@@ -118,11 +118,11 @@ vars:
   # the release notes name a platform only as an example, such as
   # workflow_darwin_arm64, and point at the release's assets for the rest.
   # scripts/release/package-manifests.sh is the one other place a platform is
-  # spelled: it gives each binary its place in the Homebrew formula, or names
-  # it as installed from the release alone, and fails for one it has no place
-  # for, which CI's Cross-compile job checks on every change.
+  # spelled: it gives each binary its place in the Homebrew formula, and fails
+  # for one it has no place for, which CI's Cross-compile job checks on every
+  # change.
   RELEASE_PLATFORMS: >-
-    darwin/arm64 linux/amd64 windows/amd64
+    darwin/arm64 linux/amd64
 
 tasks:
   default:
@@ -486,11 +486,10 @@ tasks:
       - golangci-lint run
 
   # golangci-lint vets the build of the system it runs on, and every CI job
-  # runs on Linux, so the code only a macOS or a Windows build holds, and the
-  # tests only they compile, would meet no compiler before a user of that
-  # system did. This vets every release platform's build, tests and all,
-  # compiling each without running it: it compiles that code, and nothing here
-  # runs it.
+  # runs on Linux, so the code only a macOS build holds, and the tests only
+  # it compiles, would meet no compiler before a user of macOS did. This vets
+  # every release platform's build, tests and all, compiling each without
+  # running it: it compiles that code, and nothing here runs it.
   lint:crossvet:
     desc: Vet every release platform's build, tests and all, compiled but not run
     cmds:
@@ -923,12 +922,10 @@ tasks:
           platform="{{.PLATFORM}}"
           goos="${platform%%/*}"
           goarch="${platform##*/}"
-          ext=""
-          [ "$goos" = "windows" ] && ext=".exe"
-          echo "Building dist/{{.BINARY}}_${goos}_${goarch}${ext}"
+          echo "Building dist/{{.BINARY}}_${goos}_${goarch}"
           CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
             go build -trimpath -ldflags="-s -w" \
-            -o "dist/{{.BINARY}}_${goos}_${goarch}${ext}" {{.PKG}}
+            -o "dist/{{.BINARY}}_${goos}_${goarch}" {{.PKG}}
 
   release:verify:
     desc: Fail unless dist/ holds one binary per release platform and none with an empty platform
@@ -942,9 +939,7 @@ tasks:
           platform="{{.PLATFORM}}"
           goos="${platform%%/*}"
           goarch="${platform##*/}"
-          ext=""
-          [ "$goos" = "windows" ] && ext=".exe"
-          binary="dist/{{.BINARY}}_${goos}_${goarch}${ext}"
+          binary="dist/{{.BINARY}}_${goos}_${goarch}"
           test -f "$binary" || { echo "missing release binary: $binary"; exit 1; }
           echo "ok: $binary"
       # And none built with an empty platform, which is what dist/{{.BINARY}}__

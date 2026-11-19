@@ -47,9 +47,6 @@ release's checksum, or says so on a platform no release is built for. It comes
 with completions for bash, zsh and fish, and `brew upgrade workflow` brings the
 next release.
 
-On Windows, download the release's binary instead, as
-[From a release](#from-a-release) says.
-
 ## With Go
 
 If you have Go installed:
@@ -81,22 +78,14 @@ go install github.com/jacob-delgado/workflow/cmd/workflow@v0.14.0
 ## From a release
 
 Each [release](https://github.com/jacob-delgado/workflow/releases/latest)
-lists a binary for every platform it is built for, named `workflow_<os>_<arch>`
-— with `.exe` on Windows — as `workflow_darwin_arm64` is for Apple Silicon
-macOS. Download the one for your platform, along with `SHA256SUMS`, then verify
-and install it:
+lists a binary for every platform it is built for, named `workflow_<os>_<arch>`,
+as `workflow_darwin_arm64` is for Apple Silicon macOS. Download the one for
+your platform, along with `SHA256SUMS`, then verify and install it:
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
 chmod +x workflow_darwin_arm64
 mv workflow_darwin_arm64 /usr/local/bin/workflow
-```
-
-On Windows, compare the hash PowerShell gives with the binary's line in
-`SHA256SUMS`, then rename it `workflow.exe` in a directory on your `PATH`:
-
-```powershell
-(Get-FileHash workflow_windows_amd64.exe -Algorithm SHA256).Hash.ToLower()
 ```
 
 Every binary is built by GitHub Actions and carries a provenance attestation, so

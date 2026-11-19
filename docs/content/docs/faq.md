@@ -97,23 +97,15 @@ Fields]({{< relref "/docs/configuration#fields" >}}).
 
 ## Installing
 
-### Which platforms is there a release binary for, and does workflow run on Windows?
+### Which platforms is there a release binary for?
 
 Each [release](https://github.com/jacob-delgado/workflow/releases/latest) lists
-a binary for every platform it is built for, named `workflow_<os>_<arch>` (with
-`.exe` on Windows), and `brew install jacob-delgado/tap/workflow` says so on a
-platform no release is built for; there, `go install
-github.com/jacob-delgado/workflow/cmd/workflow@latest` builds it with Go alone,
-no C toolchain or Node needed. Windows is a secondary target: download its
-binary from the release (Homebrew is for macOS and Linux) and rename it
-`workflow.exe` in a directory on your `PATH`. CI compiles and vets the Windows
-build on every change but never runs it, so a Windows-only bug is worth
-reporting. A few things differ there: as on Linux, workflow drives no keychain
-([Does workflow use the keychain on Linux or
-Windows?](#does-workflow-use-the-keychain-on-linux-or-windows)), so the Slack
-user token's credentials stay in the configuration file, and the file-ownership
-and permission checks refuse nothing, since Windows keeps no Unix owner or mode
-bits. See [Install: From a
+a binary for every platform it is built for, named `workflow_<os>_<arch>`:
+macOS on Apple Silicon and Linux on x86-64. `brew install
+jacob-delgado/tap/workflow` says so on a platform no release is built for;
+there, `go install github.com/jacob-delgado/workflow/cmd/workflow@latest`
+builds it with Go alone, no C toolchain or Node needed. workflow runs on macOS
+and Linux; it is not built for Windows. See [Install: From a
 release]({{< relref "/docs/install#from-a-release" >}}) and [Install: With
 Go]({{< relref "/docs/install#with-go" >}}).
 
@@ -293,12 +285,12 @@ repository's file by hand and keep that file out of git. See [Configuration:
 Where it looks, and what
 wins]({{< relref "/docs/configuration#where-it-looks-and-what-wins" >}}).
 
-### Does workflow use the keychain on Linux or Windows?
+### Does workflow use the keychain on Linux?
 
 No. workflow drives only the macOS keychain, through the built-in `security`
 tool. It keeps the Jira token there in a generic password item named
 `workflow-jira <jira.base_url>`, and `config init` offers to store it there. On
-Linux and Windows, `config init` makes no keychain offer, and `"keychain": true`
+Linux, `config init` makes no keychain offer, and `"keychain": true`
 gives no token: Jira calls fail with `workflow drives no keychain on this
 system: jira.keychain reads none here`. On Linux, store the token with your own
 tool and set `jira.token_command` in `~/.workflow.json`, for example
@@ -769,11 +761,11 @@ sessions]({{< relref "/docs/configuration#what-is-kept-between-sessions" >}}).
 
 On macOS, it is kept in the login keychain as a generic password named
 `workflow-slack`, so the configuration file holds no Slack secret. To check it's
-there, run `security find-generic-password -s workflow-slack`. On Linux and
-Windows, where workflow drives no keychain ([Does workflow use the keychain on
-Linux or Windows?](#does-workflow-use-the-keychain-on-linux-or-windows)), it is
-kept in the configuration file (your home `.workflow.json` unless another file
-already holds it). workflow rewrites `messaging.refresh_token`,
+there, run `security find-generic-password -s workflow-slack`. On Linux,
+where workflow drives no keychain ([Does workflow use the keychain on
+Linux?](#does-workflow-use-the-keychain-on-linux)), it is kept in the
+configuration file (your home `.workflow.json` unless another file already
+holds it). workflow rewrites `messaging.refresh_token`,
 `messaging.access_token` and `messaging.expires_at` after every refresh, and
 writes the file readable only by you. If the file on macOS already holds the
 token's secrets, they stay in the file. `workflow doctor --online` prints which
@@ -985,7 +977,7 @@ Repositories]({{< relref "/docs/usage#repositories" >}}).
 ### Why does the wrong editor open, or my commit message come back empty because the editor returned at once?
 
 workflow picks the editor in git's order: `$GIT_EDITOR`, then `$VISUAL`, then
-`$EDITOR`, and finally `vi` (`notepad` on Windows). git's `core.editor` setting
+`$EDITOR`, and finally `vi`. git's `core.editor` setting
 is not read, so set one of those variables. A GUI editor that returns before you
 close the file needs to be told to wait, in the first of those variables that
 is set, such as `EDITOR="code --wait"`; one that returns within about a second
@@ -1161,7 +1153,7 @@ error]({{< relref "/docs/scripting#standard-output-and-standard-error" >}}) and
 
 It keeps two small SQLite files in your platform's data directory:
 `~/Library/Application Support/workflow` on macOS, `$XDG_STATE_HOME/workflow` or
-`~/.local/state/workflow` on Linux, and `%AppData%\workflow` on Windows.
+`~/.local/state/workflow` on Linux.
 `workflow.db` is a cache (the last commit scope, what you have announced, the
 last issue list of each view) that a session rebuilds. `kept.db` holds what you
 decided: whom each code owner is on Slack, the Slack user groups each repository
