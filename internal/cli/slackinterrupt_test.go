@@ -233,17 +233,14 @@ func holdsTheNewPair(t *testing.T, path string) {
 	}
 }
 
-func TestACtrlCStopsASlackLoginsRefresh(t *testing.T) {
+func TestACtrlCDuringASlackLoginsRefreshStillKeepsThePair(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A login's refresh and keep end with the command, as every renewal's
-	// do: a Ctrl+C once Slack has taken the refresh token typed can lose the
-	// pair it gives, rather than leave a hung Slack holding the Ctrl+C.
 	command, interrupt := context.WithCancel(t.Context())
 	defer interrupt()
 
-	slack := interruptingSlack(t, slackRefresh, interrupt)
+	slack := interruptingThenAnsweringSlack(t, slackRefresh, interrupt)
 	dir := t.TempDir()
 	contents := `{` + patientTiming + `,"messaging": {"kind": "slack", "client_id": "` + clitest.SlackClientID +
 		`", "client_secret": "client-secret-old", "channel": "#dev"}}`
@@ -273,9 +270,9 @@ func TestACtrlCStopsASlackLoginsRefresh(t *testing.T) {
 	select {
 	case <-returned:
 	case <-time.After(signalPatience):
-		t.Fatalf("slack login ran on %v after it was interrupted, want it stopped", signalPatience)
+		t.Fatalf("slack login ran on %v after it was interrupted, want it ended once the pair was kept", signalPatience)
 	}
 
 	wantExit(t, err, 130)
-	unchanged(t, path, contents)
+	holdsTheNewPair(t, path)
 }
