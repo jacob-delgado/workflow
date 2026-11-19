@@ -32,8 +32,8 @@ export function HereBadge() {
   )
 }
 
-// baseName is a path's last part, after either separator, so a Windows
-// path is named too.
+// baseName is a path's last part, after its last slash: the server runs on
+// macOS or Linux, where a backslash is part of a name.
 function baseName(path: string): string {
-  return path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1) || path
+  return path.slice(path.lastIndexOf('/') + 1) || path
 }
