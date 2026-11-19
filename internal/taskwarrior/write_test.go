@@ -237,8 +237,8 @@ func TestAWriteTaskwarriorDeclinesIsNothingChanged(t *testing.T) {
 	}
 }
 
-// Taskwarrior 3.4 ends a write a hook refuses with exit status 4, not the 1 it
-// gives for nothing to change, so the hook's words reach the user.
+// Taskwarrior 3.5.0 ends a write a hook refuses with exit status 4, not the 1
+// it gives for nothing to change, so the hook's words reach the user.
 func TestAWriteAHookRefusesIsARefusalInTheHooksWords(t *testing.T) {
 	t.Parallel()
 
