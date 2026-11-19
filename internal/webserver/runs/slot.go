@@ -4,10 +4,12 @@
 package runs
 
 import (
+	"errors"
 	"slices"
 	"sync"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // runSlot is the one git run going, if any: POST /api/runs claims it before it
@@ -98,14 +100,14 @@ func (s runState) wrote(line string) runState {
 
 // ended records how the run ended — stopped, refused or passed — and answers
 // it whole. Only a run started, going or stopping, ends. A run asked to stop
-// was stopped only when its program did not pass: a stop kills it, which no
-// program passes through, so one that passed had ended before the stop
-// reached it; any stage but runStopping reads its exit alone.
+// was stopped only when its program neither passed nor failed with a status
+// of its own: a stop kills the program's whole group, so it ends on a
+// signal, never with proc.ErrExitStatus, and one that passed or failed so
+// had ended before the stop reached it. Any stage but runStopping reads its
+// exit alone.
 func (s runState) ended(planned plannedRun, exit error) (runState, api.Run) {
 	switch {
-	// A program that failed on its own and was stopped before its exit was read
-	// reads as stopped, since proc cannot say whether the stop killed it.
-	case s.stage == runStopping && exit != nil:
+	case s.stage == runStopping && exit != nil && !errors.Is(exit, proc.ErrExitStatus):
 		s.run.State, s.run.Outcome = api.RunStateStopped, "Stopped "+planned.title+"."
 	case exit != nil:
 		s.run.State, s.run.Outcome = api.RunStateRefused, planned.refused

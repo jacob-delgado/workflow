@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -40,8 +41,12 @@ const (
 	runningAt = "/api/runs/current"
 )
 
-// errExit is a program that ended with a failure status.
-var errExit = errors.New("exit status 1")
+// errExit is a program that ended with a failure status of its own, as a
+// refused hook does, and errKilled one a stop killed, which has none.
+var (
+	errExit   = fmt.Errorf("lefthook: %w", proc.ErrExitStatus)
+	errKilled = errors.New("lefthook: signal: killed")
+)
 
 // finished is a run's output that has already been written in full, ending as
 // exit says.
