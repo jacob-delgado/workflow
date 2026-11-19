@@ -60,8 +60,8 @@ link and the `:focus-visible` ring, and de-emphasize with color rather than
 through `src/lib/baseui`, whose `CSPProvider` keeps them from writing the
 `<style>` the server's content policy refuses; ScrollArea and Select, the only
 parts that write one, are not used, and a choice from a fixed list is a native
-`<select>` (TRADE-50), in whose own shadow tree WebKit writes the one inline
-style attribute the policy allows, by its hash (TRADE-55).
+`<select>`, in whose own shadow tree WebKit writes the one inline style
+attribute the policy allows, by its hash.
 `e2e/server/policy.spec.ts` holds the page the binary serves to that real
 content policy while it opens Settings' Tabs, the tag picker's Combobox and
 the directory picker's Autocomplete, in its Dialog.
@@ -143,9 +143,13 @@ one fails.
 - The week-old age gate has two lists for an npm version: a waiver or a CVE
   fix goes in `web/.yarnrc.yml`'s `npmPreapprovedPackages`, which yarn's own
   gate reads at install, and in `scripts/dependency-age-exceptions.txt`.
-- The kept trade-offs that bind here: TRADE-3 (read-only under `--dry-run`),
-  TRADE-4 (`staleTime: Infinity`, the event stream the sole freshness
-  source), TRADE-8 (v8's branch count), TRADE-48 (a latin-only face),
-  TRADE-49 (at most 200 rows in the directory picker), TRADE-50, TRADE-51
-  (Settings checks a few settings the server checks again) and TRADE-55 (the
-  one inline style the policy allows, WebKit's for a native `<select>`).
+- The trade-offs that bind here, each explained in a comment at its code:
+  the page is read-only under `--dry-run` (the server's
+  `refuseWritesInDryRun`); `staleTime: Infinity`, the event stream the sole
+  freshness source (`src/queryClient.ts`, `src/api/snapshot.ts`); v8's
+  branch count (`vitest.config.ts`); a latin-only face (`src/index.css`); at
+  most 200 rows in the directory picker (`DirectoryDialog.tsx`); no Base UI
+  ScrollArea or Select (`CSPProvider.tsx`); Settings checking a few settings
+  the server checks again (`settingsRules.ts`); and the one inline style the
+  policy allows, WebKit's for a native `<select>` (the server's
+  `contentPolicy`).

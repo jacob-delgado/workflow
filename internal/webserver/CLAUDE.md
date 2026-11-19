@@ -52,11 +52,13 @@ writes queue for.
 outside:
 
 1. `withPolicyHeaders` (`edge/guard.go`): the content policy,
-   `default-src 'self'` with no nonce (TRADE-50) and one inline style
-   attribute allowed by its hash, the one WebKit writes on a slot of each
-   native `<select>` (TRADE-55), and `X-Frame-Options: DENY`.
+   `default-src 'self'` with no nonce, so the page keeps off the Base UI
+   parts that write a `<style>`, and one inline style attribute allowed by
+   its hash, the one WebKit writes on a slot of each native `<select>`, and
+   `X-Frame-Options: DENY`.
 2. `guardLoopback`: a non-loopback Host, or a cross-origin write, is refused.
-3. `refuseWritesInDryRun`: every write is refused under `--dry-run` (TRADE-3).
+3. `refuseWritesInDryRun`: every write is refused under `--dry-run`, one
+   gate over every write rather than a simulation of each.
 4. Under `/api/`, the contract validator (`edge/validator.go`), admitting
    only a request that presents the session, then the `edge.OperationServer`
    it was handed, `worlds.serve`. Every other path is the embedded app
@@ -73,10 +75,11 @@ schemes say, a bearer token or, for the event stream, a query parameter.
 
 `worlds.serve` gives each request the server's lifetime; runs every write
 under a context that outlasts its page and ends only when the server stops
-(`outlivingItsPage`, TRADE-37); holds the write gate shared for every write
-but an `x-switch` one, which takes it alone and is refused while a write is in
-flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
-(`HereHeader`) names another directory than the one served.
+(`outlivingItsPage`), so a closed tab never cuts a write in half; holds the
+write gate shared for every write but an `x-switch` one, which takes it alone
+and is refused while a write is in flight; and refuses, as `conflict`, a write
+whose `Workflow-Here` header (`HereHeader`) names another directory than the
+one served.
 
 ## Errors are RFC 9457 problem details
 
@@ -93,9 +96,11 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
 - **The `detail` never leaks a secret or an internal host.** Tokens are
   redacted before an error forms, and an unreachable upstream is genericized
   through `fault` precisely because its error carries the host. A write's
-  refusal may still carry git's or the forge's own reason, so the user can act
-  (TRADE-9). The test that an unreachable service's detail omits its host is
-  part of the change, as `TestUnreachableJiraDetailOmitsItsHost`
+  refusal may still carry git's or the forge's own reason, so the user can
+  act; a bare host name git prints in it is kept, since it names the user's
+  own remote, shown only to the page that pushed. The test that an
+  unreachable service's detail omits its host is part of the change, as
+  `TestUnreachableJiraDetailOmitsItsHost`
   (`issuewrite_test.go`) is.
 - `codeMeaning` (`problem/problem.go`) is a map, not a switch, so gobco sees
   no arm it can never reach, and `exhaustive` keeps it complete.

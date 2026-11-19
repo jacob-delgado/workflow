@@ -127,7 +127,7 @@ so it sits below the surfaces and above `internal/loop`.
   and opens the next interface, handing it what of the session the switch
   carried. A switch that cannot be made reopens the interface where it was. So
   a bundle is still built once per interface, never rewired under a running
-  one (TRADE-34).
+  one, which would be a second construction path.
 
 A seam speaks the interface's own domain types, and wiring translates at the
 boundary. The store seam is the clearest example: `seams.Store.CachedIssues`
@@ -164,7 +164,7 @@ clock and `armed.Drive` carries out for the command line. It hears only the
 read asked last in its round, so a slow read never steps it back past a later
 one. The hold finds its pull request by the branch it was armed on, reads CI
 at the commit the forge says it is at, waits past failures for
-`armed.UnheardPatience` (TRADE-59), naming what it last failed at, a read or
+`armed.UnheardPatience`, naming what it last failed at, a read or
 its post, as an `armed.Attempt`, and counts no-check patience by
 `armed.CIWatch`. `internal/armed` sits above `internal/loop` and below the
 surfaces, which an `armed-below-the-surfaces` rule in `.golangci.yml` holds.
@@ -407,8 +407,8 @@ erDiagram
   its post surely not gone, and such a row reads as no claim. `posted_at`
   stays NULL until the post is confirmed, so a claim whose post began and was
   never seen to finish reads as unconfirmed rather than posted.
-  The claim lives in this discardable file, TRADE-60. No chat is read back; the
-  tool records only its own posts.
+  The claim lives in this discardable file, since a claim is not a decision.
+  No chat is read back; the tool records only its own posts.
 - **`issue_cache` + `cached_issue`** — the repeating group done in normal form.
   A **cached issue list is not a JSON blob in one cell** (a list in a cell fails
   1NF, and so 3NF); it is a parent `issue_cache` row per view — which also lets a
@@ -417,7 +417,7 @@ erDiagram
   `cached_at` is when the list was read, so a list read earlier never replaces
   one read later: one wiring's writes keep their read order, and two
   wirings within one second, two processes or one surface across a
-  directory switch, keep the last written (TRADE-70).
+  directory switch, keep the last written.
 
 Three rules from `internal/store/CLAUDE.md` are visible in the schema:
 
@@ -446,8 +446,8 @@ whichever build made it, and a `kept.db` another build's schema made as empty.
 Neither file has migrations, each for its own reason: `workflow.db` holds only
 what a session can see again, so a change to it is a `CREATE TABLE` edit and a
 bump of `schemaVersion`, and a file at another version is made anew; `kept.db`
-going without one is a kept trade-off, TRADE-25, which says what a change to a
-kept table costs and when that decision reopens. A `schemaVersion` bump never
+goes without one too, and a change to a kept table costs the answers it holds,
+as `keptSchemaVersion`'s comment says. A `schemaVersion` bump never
 touches `kept.db`.
 
 ## Trust boundaries and data flow

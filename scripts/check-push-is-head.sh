@@ -20,8 +20,9 @@
 # file, staged or not, or a file git does not ignore, which `go test` would
 # compile though the push carries none of it, listed even where git is set to
 # hide untracked files from its status. Given no lines, as a run of the
-# hook by hand is (TRADE-39), it passes and looks at nothing: the checks then
-# judge the working tree, which is what the next commit and push carry.
+# hook by hand is, git handing it nothing, it passes and looks at nothing:
+# the checks then judge the working tree, which is what the next commit and
+# push carry.
 #
 # lefthook.yml runs this as pre-push's first job, and its refusal stops the
 # hook before any other check.

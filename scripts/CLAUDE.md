@@ -51,8 +51,8 @@ the skips it allows to them.
   `finish_tests` ends the run with its summary. A test that outgrows its file
   keeps `<name>_test.sh` and moves a behavior's cases to a
   `<name>_<behavior>_test.sh` beside it, the two sharing their fixtures in
-  `lib/<name>-fixtures.sh`, as `check-tech-debt-paths.sh`'s do and
-  `check-layout.sh`'s, whose `check-layout_runs_test.sh`,
+  `lib/<name>-fixtures.sh`, as `check-layout.sh`'s do, whose
+  `check-layout_runs_test.sh`,
   `check-layout_depguard_test.sh` and `check-layout_yaml_test.sh` share
   `lib/check-layout-fixtures.sh`.
 - **`hook-environment_test.sh` is the one runner** (`task test:scripts`): it

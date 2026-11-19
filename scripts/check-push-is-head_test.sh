@@ -146,11 +146,11 @@ if command -v lefthook >/dev/null; then
     hook "refs/heads/other ${other} refs/heads/other ${zeros}"
 
   # A refused push stops the hook before its other checks: the repository
-  # holds none of the four whole-tree scripts, so a run of one would name it.
+  # holds neither of the two whole-tree scripts, so a run of one would name it.
   expect_output fail "the whole pre-push, a push of another branch from main" "refs/heads/other" \
     whole_hook "refs/heads/other ${other} refs/heads/other ${zeros}"
   count_case
-  if grep -qE "check-(file-length|package-size|tradeoffs|tech-debt-paths)[.]sh" "${case_output}"; then
+  if grep -qE "check-(file-length|package-size)[.]sh" "${case_output}"; then
     fail_case "the whole pre-push, a push of another branch from main" "a check ran after the push was refused"
   fi
 

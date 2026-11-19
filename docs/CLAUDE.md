@@ -47,7 +47,8 @@ among them. Those files are never edited or replaced by hand:
 change the tape, the demo or the screen and commit it, since the task
 refuses to run over changes not committed to what the images show; run the
 task on an idle machine, since it fails a recording that lost time; and look
-at each image before committing it, since nothing compares them (TRADE-56).
+at each image before committing it, since nothing compares them: their bytes
+depend on the machine's fonts, Chromium and ffmpeg.
 
 ## Contract pages
 
@@ -61,8 +62,8 @@ the page in the same commit:
   breaking change.
 - `usage.md`: the terminal's keys and promises, which UX.md audits;
   `configuration.md`: every key of `.workflow.json`, the rebindable actions
-  among them; `web.md`: the `--web` page, a write running to its end
-  (TRADE-37) among its promises.
+  among them; `web.md`: the `--web` page, a write running to its end, though
+  its page closes, among its promises.
 
 ## Tests: red, green, refactor
 

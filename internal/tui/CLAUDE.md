@@ -29,9 +29,10 @@ action keeps one name through its flow, and a new word comes from that table.
   something of its own in each stage keys a map by it, as `drawRead` does,
   which `exhaustive` checks.
 - **Text typed into a form is a `quietinput.Input`** (`quietinput/`), a Huh
-  field of our own whose cursor never blinks (TRADE-46), never `huh.Input`. The
-  accessible mode hands the terminal to Huh's prompts (`promptedForm`,
-  `huhform.go`, TRADE-47).
+  field of our own whose cursor never blinks, never `huh.Input`, whose blink
+  waits half a second of real time that a test pays at every key. The
+  accessible mode hands the whole terminal to Huh's prompts, which ask line by
+  line (`promptedForm`, `huhform.go`).
 - `layout/` places each region per terminal size and `frame/` draws a titled
   box; 80 by 24 is the size a terminal opens at: the rail keeps its 24 columns
   and the detail loses its border (`eighty_test.go`).
@@ -65,7 +66,7 @@ rest).
 - Every outside call is a function field of `Deps` (`deps.go`), grouped as
   `internal/seams` declares them, so the model holds no credential and a test
   hands it canned answers. `EditorDeps` stays here, not in `seams`, since it
-  speaks Bubble Tea's messages (TRADE-11).
+  speaks Bubble Tea's messages.
 - **A load the interface starts by itself is skipped when its function is
   nil**, so a test supplies only what it exercises; an action is offered only
   once the model has what it acts on.
@@ -74,8 +75,9 @@ rest).
   `WithLifetime` wraps each write in `outlasting` (`deps.go`), over the
   wrappers in `internal/lifetime/outlasting.go`: it goes on past a quit, so
   git is never stopped midway with its index locked, is counted in flight by
-  name, and ends only when the program's lifetime does, on SIGINT or SIGTERM
-  (TRADE-38). A new write seam joins `outlasting`.
+  name, and ends only when the program's lifetime does, on SIGINT or SIGTERM.
+  Leaving a view cancels nothing: a late answer is dropped by its read's count
+  or view. A new write seam joins `outlasting`.
 - **What leaves the machine waits on a last look** (`lastLook`, `lastlook.go`):
   a push, a post, a merge, a Taskwarrior sync and the rest UX.md's principle 2
   names. A reversible local toggle acts at once.

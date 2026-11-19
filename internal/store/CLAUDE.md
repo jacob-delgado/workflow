@@ -10,8 +10,8 @@ holds here alone.
   scope, the announcements, the issue cache. Its tables are `createSchema` in
   `store.go`. The announcements are also the claim each post takes before it
   goes, so one is posted once across processes; keeping that claim in a file
-  `db-clean` or another build's schema discards is TRADE-60, which says what it
-  costs and when it reopens.
+  `db-clean` or another build's schema discards is on purpose: a claim is not
+  a decision, and a clean that forgets claims is what a clean is for.
 - **`kept.db`**, beside it, holds what the user decided and cannot be seen
   again: whom a forge owner is on Slack, a repository's groups, the directories
   marked as favorites. Its tables are `ownersSchema` (`owners.go`),
@@ -95,21 +95,20 @@ another program could leave there, is neither stamped nor written around:
 the kept data") and the file is left as it was
 (`TestAKeptFileWithATableInTheWayIsReportedAndLeftAlone`). Refusing it as
 `ErrKeptSchemaDiffers` instead would move its problem class and exit status, a
-breaking change kept as TRADE-73 in `TECH_DEBT.md`, which says what would
-reopen it. Neither file has
+breaking change. Neither file has
 **migrations**, each for its own reason. `workflow.db` holds only what a
 session can see again, so a migration for it is YAGNI: change the `CREATE
 TABLE`, bump `schemaVersion`, and a file at another version is made anew and
-refills. `kept.db` holds what the user decided, so going without one is a kept
-trade-off: before changing a kept table, read TRADE-25 in `TECH_DEBT.md`, which
-says why there is none, what a change costs (the answers go unread until the
-user runs `workflow db-clean --all` and gives them again) and when that
-decision reopens. A bump of `schemaVersion` never touches `kept.db`. A
+refills. `kept.db` holds what the user decided, and goes without one too, as
+`keptSchemaVersion`'s comment (`kept.go`) says: a change to a kept table
+costs the answers, which go unread until the user runs
+`workflow db-clean --all` and gives them again. A bump of `schemaVersion`
+never touches `kept.db`. A
 `--dry-run` store's read-only open reads `workflow.db` as it is and a `kept.db`
 at another version as empty, never stamps or changes either file, and never
 makes one that is missing. So until a live open remakes a `workflow.db`
 another build left, a dry run's read of a table the schema change touched
-fails (TRADE-60).
+fails.
 
 ## How a file is opened
 
@@ -129,8 +128,8 @@ fails (TRADE-60).
 - The directory is `0700` and each file `0600` (`dirPerm`, `filePerm`), which
   also covers the `-wal` and `-shm` files beside them.
 - The open detaches from its asker (`context.WithoutCancel` in `open`), so a
-  stamp or a removal fails only when the file changes underneath it
-  (TRADE-16), never because the caller left.
+  stamp or a removal fails only when the file changes underneath it, never
+  because the caller left.
 
 ## Tests: red, green, refactor
 

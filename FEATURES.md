@@ -222,23 +222,24 @@ Impact: medium · Effort: large
   `kept.db` what the user decided (`internal/store/CLAUDE.md`, *Two
   files*); a list of one session's writes is neither, and keeping it would
   be a cache of what Jira's history, git's reflog and Taskwarrior's undo
-  file already hold — TRADE-32's reasoning. An undo also only makes sense
-  close to the act: a move undone tomorrow, after someone else has moved
-  the issue, is a new move, not an undo. So the interface's log ends with
-  the interface, and the web server's with the server, as "one process"
-  settles. The record holds no text a user typed — a comment's body, a
-  commit message — only what it was done to and the link, and no
-  credential, since everything recorded is a credential-free identifier;
-  the test that a token cannot reach a record ships with it. Where it
-  lands is near its file budgets (`scripts/package-size-budgets.txt`,
-  counted by `scripts/check-package-size.sh --list`): `internal/loop` (16
-  of 16), `internal/wiring` (14 of 14), `internal/tui` (91 of 91) and
+  file already hold, as a Summary is read back from its sources each time.
+  An undo also only makes sense close to the act: a move undone tomorrow,
+  after someone else has moved the issue, is a new move, not an undo. So
+  the interface's log ends with the interface, and the web server's with
+  the server, as "one process" settles. The record holds no text a user
+  typed — a comment's body, a commit message — only what it was done to
+  and the link, and no credential, since everything recorded is a
+  credential-free identifier; the test that a token cannot reach a record
+  ships with it. Where it lands is near its file budgets
+  (`scripts/package-size-budgets.txt`, counted by
+  `scripts/check-package-size.sh --list`): `internal/loop` (16 of 16),
+  `internal/wiring` (14 of 14), `internal/tui` (91 of 91) and
   `internal/webserver` (30 of 30) are ratcheted at their counts, so a file
-  added to any of them, the overlay and the handlers among them, comes
-  with a budget bump and its reason, as does `internal/forge` (18 of 18,
-  ratcheted) unless its comment delete lands in a file it has; and
-  `internal/jira` (11) and `web/src/shell` (11), unlisted, answer to the
-  default of 12, so each has room for one more.
+  added to any of them, the overlay and the handlers among them, comes with a
+  budget bump and its reason, as does `internal/forge` (18 of 18, ratcheted)
+  unless its comment delete lands in a file it has; and `internal/jira` (11)
+  and `web/src/shell` (11), unlisted, answer to the default of 12, so each has
+  room for one more.
 - Done when: after a screen test stages a file, comments and moves an
   issue, the overlay lists the three newest first with their links; `u`
   on the comment, after its last look, calls the fake Jira's delete with

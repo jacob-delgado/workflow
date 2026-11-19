@@ -95,9 +95,9 @@ lane rules in brief for other agents: a change to one of them changes
 | `proxy.golang.org`, `sum.golang.org` | reachable | Go, the Go tools, every module |
 | `registry.npmjs.org`, `pypi.org` | reachable | Yarn (with `COREPACK_NPM_REGISTRY`), npm packages, yamllint |
 | `api.github.com` | the session's own repositories only | a third-party repository answers 403 and names `add_repo`: mise's aqua backend and `task deps:age`'s dating of a GitHub-released mise tool or of mise's `min_version` fail |
-| `github.com` over git | refuses the session's token for a third-party repository, with 401 | zizmor's online audits, which run whenever a GitHub token is in their environment (offline here, TRADE-54) |
+| `github.com` over git | refuses the session's token for a third-party repository, with 401 | zizmor's online audits, which run whenever a GitHub token is in their environment (offline here) |
 | `go.dev` | refused | mise's Go install; Go comes from the `golang.org/toolchain` module instead |
-| `vuln.go.dev` | refused | `task vuln`; the local gate leaves it to CI (TRADE-54) |
+| `vuln.go.dev` | refused | `task vuln`; the local gate leaves it to CI |
 | `repo.yarnpkg.com` | refused | corepack's default Yarn source; the hook points corepack at the npm registry |
 | Playwright's download host | refused | the pinned browsers; see *Browsers* |
 | the Actions artifact hosts (`productionresultssa*.blob.core.windows.net`) | refused | traces and reports from CI; read the job's log with the GitHub MCP `get_job_logs` instead |
@@ -209,10 +209,10 @@ Say which host and why, and carry on with what does not need it.
 - **The pre-push hook is part of the gate, not the gate.** It runs
   `task test` (unit-go) and golangci-lint when the push carries a Go change,
   the web's lint, client-drift check and unit tests (web) when it carries a
-  `web/` or API-spec change, and the file-length, package-size, trade-off
-  and `TECH_DEBT.md` path checks on every push. It judges a push by what the
-  checked-out branch changes against `origin/main`, so a branch that changes
-  only the docs or the scripts skips unit-go, golangci-lint and web, and it
+  `web/` or API-spec change, and the file-length and package-size checks on
+  every push. It judges a push by what the checked-out branch changes
+  against `origin/main`, so a branch that changes only the docs or the
+  scripts skips unit-go, golangci-lint and web, and it
   refuses, before any other check runs, a push of a branch at any other
   commit or from a working tree with changes or files git does not ignore
   (push-is-head): push a committed branch from its own worktree.
@@ -227,7 +227,7 @@ Say which host and why, and carry on with what does not need it.
 | typos, markdownlint, shellcheck | the pre-commit hook, `task lint` |
 | the command reference out of date | `task lint` (`docs:check`) |
 | a docs test, any other test | `task test`, which the pre-push hook runs when the branch carries a Go change; a docs-only change's `task check:docs` runs the docs tests (`test:docs`) |
-| a file too long, a package over its budget, a stale trade-off site or `TECH_DEBT.md` path | the pre-push hook on every push, `task lint` |
+| a file too long or a package over its budget | the pre-push hook on every push, `task lint` |
 | the statement coverage floor | `task test:cover` |
 | a condition no test evaluated, or one seen one way on a line the change touched | `task cover:branch`, as dev |
 | golangci-lint against a new Go | the pinned pair from the setup, `task lint:go` |

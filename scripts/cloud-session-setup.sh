@@ -26,7 +26,7 @@
 # are left out.
 #
 # yamllint and markdownlint-cli2 are pinned outside mise.toml, each one's
-# whole tree by hash (Trade-off TRADE-53), and are installed from those files
+# whole tree by hash, and are installed from those files
 # as `task tools` installs them: yamllint into a venv of its own from
 # build/yamllint/requirements.txt, and markdownlint-cli2 by the pinned node's
 # npm ci from a copy of build/markdownlint/package-lock.json, running no
