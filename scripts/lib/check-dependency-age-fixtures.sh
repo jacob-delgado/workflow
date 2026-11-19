@@ -64,6 +64,7 @@ answer "https://proxy.golang.org/github.com/rillig/gobco/@v/v1.4.0.info" "{\"Tim
 answer "https://proxy.golang.org/golang.org/x/vuln/@v/v1.9.0.info" "{\"Time\":\"${young}\"}"
 answer "https://nodejs.org/dist/index.json" '[{"version":"v24.22.0","date":"2026-09-01"}]'
 answer "https://api.github.com/repos/koalaman/shellcheck/releases/tags/v0.12.0" "{\"published_at\":\"${old}\"}"
+answer "https://api.github.com/repos/rvben/rumdl/releases/tags/v0.3.3" "{\"published_at\":\"${old}\"}"
 answer "https://api.github.com/repos/jqlang/jq/releases/tags/jq-1.9.0" "{\"published_at\":\"${young}\"}"
 
 # repo makes a repository whose main branch holds a go.mod, a web/yarn.lock

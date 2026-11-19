@@ -40,6 +40,7 @@ hadolint = "2.14.0"
 "go:github.com/rillig/gobco" = "1.7.0"
 taplo = "0.10.0"
 zizmor = "1.14.2"
+rumdl = "0.3.3"
 TOML
 }
 
@@ -50,6 +51,8 @@ expect pass "a complete mise.toml" "${full}"
 
 # Its output names the build args, so the container gets the pinned versions.
 expect_output pass "output names GO_VERSION" "--build-arg GO_VERSION=1.27.1" \
+  env MISE_TOML="${full}" "${script}"
+expect_output pass "output names RUMDL_VERSION" "--build-arg RUMDL_VERSION=0.3.3" \
   env MISE_TOML="${full}" "${script}"
 
 # A mise.toml missing a pin the script needs fails rather than emitting a blank.

@@ -66,7 +66,7 @@ git -C "${repo}" add -A
 git -C "${repo}" -c user.email=t@example.com -c user.name=t commit -q -m first
 stub "${stub_bin}/golangci-lint" golangci-lint fixer go
 stub "${stub_bin}/shfmt" shfmt fixer sh
-stub "${stub_bin}/markdownlint-cli2" markdownlint-cli2 fixer md
+stub "${stub_bin}/rumdl" rumdl fixer md
 stub "${stub_bin}/taplo" taplo fixer toml
 stub "${stub_bin}/shellcheck" shellcheck check sh
 stub "${stub_bin}/typos" typos check all
@@ -91,7 +91,7 @@ if [[ -s "${marks}/overlaps" ]]; then
   fail_case "the pre-commit hook" "a fixer ran beside what reads or writes its files: $(sort -u "${marks}/overlaps")"
 fi
 for tool in "golangci-lint fmt" "golangci-lint run" license-headers shfmt shellcheck \
-  markdownlint-cli2 taplo typos gitleaks; do
+  rumdl taplo typos gitleaks; do
   count_case
   if ! grep -qx "${tool}" "${marks}/ran"; then
     fail_case "the pre-commit hook" "${tool} did not run: $(tr '\n' ',' <"${marks}/ran")"

@@ -18,7 +18,7 @@ readonly check="${here}/check-tool-checksums.sh"
 source "${here}/lib/testing.sh"
 
 readonly hash="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-readonly tools="node shellcheck jq lefthook typos hadolint taplo zizmor"
+readonly tools="node shellcheck jq lefthook typos hadolint taplo zizmor rumdl"
 
 # tree writes mise.toml, a Dockerfile with one verified download, and a
 # checksums file pinning every tool at version 1.0.0 into a fresh directory.

@@ -562,13 +562,8 @@ tasks:
   lint:markdown:
     desc: Lint the Markdown
     cmds:
-      # CI's Lint job passes LINT_MARKDOWN=false for a pull request that changes
-      # no Markdown, nothing under docs/, not the markdownlint config, nothing
-      # under build/markdownlint/, which pins markdownlint-cli2 and its tree,
-      # and not mise.toml, which pins the node it runs under
-      # (scripts/markdown-changed.sh); everywhere else every file is linted.
-      - >-
-        {{if eq .LINT_MARKDOWN "false"}}echo "Markdown lint skipped: this change touches no Markdown, docs/, its config or its pins"{{else}}markdownlint-cli2{{end}}
+      # .rumdl.toml says which files and rules.
+      - rumdl check .
 
   lint:toml:
     desc: Lint and format-check the TOML
@@ -645,7 +640,7 @@ tasks:
     cmds:
       - golangci-lint fmt
       - shfmt -i 2 -ci -bn -w {{.SHELL_FILES}}
-      - markdownlint-cli2 --fix
+      - rumdl fmt .
       - taplo fmt
       - task: web:fmt
 

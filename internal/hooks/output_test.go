@@ -191,8 +191,8 @@ func TestFailureScanFindsWhereEachToolPoints(t *testing.T) {
 			lines: []string{
 				// golangci-lint and go vet: file:line:column: message.
 				"internal/tui/pane.go:64:1: cyclomatic complexity 12 of func `Update` is high (> 10) (gocyclo)",
-				// markdownlint: file:line:column and a rule.
-				"README.md:12:81 MD013/line-length Line length [Expected: 80; Actual: 96]",
+				// rumdl: file:line:column: and a rule in brackets.
+				"README.md:7:1: [MD042] Empty link found: [link]()",
 				// a compiler: file:line: message, indented.
 				"  cmd/workflow/main.go:9: undefined: run",
 				// shellcheck's default format names the file and line in a sentence.
@@ -207,7 +207,7 @@ func TestFailureScanFindsWhereEachToolPoints(t *testing.T) {
 					File: "internal/tui/pane.go", Line: 64, Column: 1,
 					Message: "cyclomatic complexity 12 of func `Update` is high (> 10) (gocyclo)",
 				},
-				{File: "README.md", Line: 12, Column: 81, Message: "MD013/line-length Line length [Expected: 80; Actual: 96]"},
+				{File: "README.md", Line: 7, Column: 1, Message: "[MD042] Empty link found: [link]()"},
 				{File: "cmd/workflow/main.go", Line: 9, Column: 0, Message: "undefined: run"},
 				{File: "scripts/check.sh", Line: 17, Column: 0, Message: ""},
 				{File: "docs/usage.md", Line: 4, Column: 10, Message: ""},

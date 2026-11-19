@@ -3,7 +3,7 @@
 # Tests for docs-only.sh: it says a change is docs only when every file it
 # changes since the base is Markdown outside web/, the site's configuration and
 # module files under docs/, or the configuration of the two linters that read
-# only prose (.markdownlint-cli2.yaml, _typos.toml); any other file, Markdown
+# only prose (.rumdl.toml, _typos.toml); any other file, Markdown
 # under web/, an image under docs/, a deleted file or a renamed one included,
 # makes it a code change; and when git cannot answer, it says so with a status
 # of its own, so a caller runs every check rather than too few.
@@ -54,7 +54,7 @@ repo_changing site docs/content/page.md docs/hugo.toml docs/go.mod docs/go.sum
 repo_changing webdoc web/README.md
 repo_changing siteimage docs/assets/images/shot.png
 repo_changing sitescript docs/tools/record.sh
-repo_changing linters .markdownlint-cli2.yaml _typos.toml
+repo_changing linters .rumdl.toml _typos.toml
 repo_changing code internal/code.go
 repo_changing mixed README.md internal/code.go
 repo_changing script scripts/gate.sh

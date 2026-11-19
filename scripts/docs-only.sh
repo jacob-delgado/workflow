@@ -4,7 +4,7 @@
 # Go, web and end-to-end suites out: whether every file changed since <base> is
 # Markdown outside web/, the Hugo site's configuration and module files under
 # docs/, or the configuration of the two linters that read only prose,
-# .markdownlint-cli2.yaml and _typos.toml.
+# .rumdl.toml and _typos.toml.
 #
 # The list names what is docs and nothing else, so a path it does not know
 # counts as code and gets every check: an image or a script under docs/ among
@@ -35,7 +35,7 @@ if [[ -z "${changed}" ]]; then
   exit 1
 fi
 
-readonly docs='\.md$|^docs/.*\.toml$|^docs/go\.(mod|sum)$|^\.markdownlint-cli2\.yaml$|^_typos\.toml$'
+readonly docs='\.md$|^docs/.*\.toml$|^docs/go\.(mod|sum)$|^\.rumdl\.toml$|^_typos\.toml$'
 code="$(
   grep -E '^web/' <<<"${changed}"
   grep -v -E "${docs}" <<<"${changed}" | grep -v -E '^web/'

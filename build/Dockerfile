@@ -54,6 +54,7 @@ ARG GITLEAKS_VERSION
 ARG GOBCO_VERSION
 ARG TAPLO_VERSION
 ARG ZIZMOR_VERSION
+ARG RUMDL_VERSION
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -209,6 +210,22 @@ RUN set -eux; \
     tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin zizmor; \
     rm -f /tmp/zizmor.tar.gz; \
     zizmor --version
+
+# rumdl, the Markdown linter, ships a static musl binary per architecture.
+RUN set -eux; \
+    : "${RUMDL_VERSION:?}"; \
+    arch="$(dpkg --print-architecture)"; \
+    case "${arch}" in \
+    amd64) target="x86_64-unknown-linux-musl" ;; \
+    arm64) target="aarch64-unknown-linux-musl" ;; \
+    *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/rvben/rumdl/releases/download/v${RUMDL_VERSION}/rumdl-v${RUMDL_VERSION}-${target}.tar.gz" \
+    -o /tmp/rumdl.tar.gz; \
+    verify-download /usr/local/share/tool-checksums.txt /tmp/rumdl.tar.gz rumdl "${RUMDL_VERSION}" "${arch}"; \
+    tar -xzf /tmp/rumdl.tar.gz -C /usr/local/bin rumdl; \
+    rm -f /tmp/rumdl.tar.gz; \
+    rumdl --version
 
 # markdownlint-cli2 is a Node package, installed from the lock that pins it and
 # every package it needs by each one's sha512, with the npm the node install

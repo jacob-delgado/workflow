@@ -90,6 +90,7 @@ actionlint = "1.7.12"
 hadolint = "2.15.1"
 taplo = "0.10.0"
 zizmor = "1.30.1"
+rumdl = "0.3.3"
 node = "24.21.0"
 jq = "1.8.2"
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
@@ -147,7 +148,7 @@ readonly pins_digest
 # was built with, yamllint's its requirements file, and markdownlint's its lock
 # and the node it was installed under.
 readonly stamps="pins@${pins_digest} go@1.27.2 node@24.21.0 shellcheck@0.11.0 jq@1.8.2 lefthook@2.2.1
-typos@1.51.1 hadolint@2.15.1 taplo@0.10.0 zizmor@1.30.1 yamllint@${requirements_digest}
+typos@1.51.1 hadolint@2.15.1 taplo@0.10.0 zizmor@1.30.1 rumdl@0.3.3 yamllint@${requirements_digest}
 task@3.54.0+go1.27.2 golangci-lint@2.14.0+go1.27.2 shfmt@3.14.1+go1.27.2
 actionlint@1.7.12+go1.27.2 govulncheck@1.9.0+go1.27.2 gitleaks@8.30.1+go1.27.2
 gobco@1.3.4+go1.27.2 deadcode@0.52.0+go1.27.2 markdownlint-cli2@${lock_digest}+node24.21.0"

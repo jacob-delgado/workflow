@@ -81,10 +81,10 @@ fixture built for it: a throwaway repository under `${workdir}`, made with
 or `expect_output` line that runs the script and states what it must answer,
 an exit status and, for a refusal, the words it names: the Act and the Assert
 in one. No gate reads markers in a shell test, and none marks `# Arrange`:
-`markdown-changed_test.sh` and `test-counts_test.sh` mark such a line
-`# Act & Assert`; `go-test-json_test.sh`, `pr-comment_test.sh` and
-`test-summary_test.sh` mark each run `# Act: …` and each check `# Assert`,
-most saying after it what they check; the rest mark nothing. Run it with
+`test-counts_test.sh` marks such a line `# Act & Assert`;
+`go-test-json_test.sh`, `pr-comment_test.sh` and `test-summary_test.sh` mark
+each run `# Act: …` and each check `# Assert`, most saying after it what they
+check; the rest mark nothing. Run it with
 `bash scripts/<name>_test.sh`, watch the new case fail, then change the
 script. `expect_output` lets a refusal's case hold the words it names as well
 as its status, so a gate that fails for the wrong reason fails the test.

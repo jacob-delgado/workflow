@@ -159,7 +159,7 @@ Say which host and why, and carry on with what does not need it.
 - **Hooks on.** The Working agreement's hook rule holds here too, and with the
   toolchain linked nothing in a cloud session needs `LEFTHOOK=0`. Six of the
   20 CI failures on our branches from October 8 to 15 were checks the hooks
-  run: two subjects over 72 characters, a typo, a markdownlint rule, and docs
+  run: two subjects over 72 characters, a typo, a Markdown rule, and docs
   drift twice. Of the 20, 10 were ones the local gate catches as it stands, 5
   more ones it catches with the pinned tools, 4 were flakes or races, and 1
   needed an engine this container lacks.
@@ -198,7 +198,7 @@ Say which host and why, and carry on with what does not need it.
   staged files alone: golangci-lint on the lines the commit changes, the
   license headers of staged Go and the Arrange-Act-Assert markers of each
   staged test's package, shfmt, shellcheck, yamllint, hadolint, typos,
-  markdownlint, taplo and zizmor on what is staged, and gitleaks on the
+  rumdl, taplo and zizmor on what is staged, and gitleaks on the
   staged diff; actionlint and the sibling-test check read the whole tree.
   The commit-msg hook runs `scripts/check-commit-message.sh`. No hook runs
   `docs:check`, the coverage floors, the whole-tree secret scan, govulncheck,
@@ -222,7 +222,7 @@ Say which host and why, and carry on with what does not need it.
 | CI failed on | Caught here by |
 | --- | --- |
 | a commit subject or body | the commit-msg hook, `scripts/check-commit-message.sh` |
-| typos, markdownlint, shellcheck | the pre-commit hook, `task lint` |
+| typos, a Markdown rule, shellcheck | the pre-commit hook, `task lint` |
 | the command reference out of date | `task lint` (`docs:check`) |
 | a docs test, any other test | `task test`, which the pre-push hook runs when the branch carries a Go change; a docs-only change's `task check:docs` runs the docs tests (`test:docs`) |
 | a file too long or a package over its budget | the pre-push hook on every push, `task lint` |
