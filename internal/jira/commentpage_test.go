@@ -4,12 +4,15 @@
 package jira_test
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 func TestIssuePagesTheCommentsPastTheFirstPage(t *testing.T) {
@@ -101,7 +104,7 @@ func TestIssuePagesTheCommentsPastTheFirstPage(t *testing.T) {
 	}
 }
 
-func TestIssueKeepsTheCommentsItHasWhenAPageIsRefused(t *testing.T) {
+func TestAnIssueReadWhoseCommentPageFailsFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -129,15 +132,15 @@ func TestIssueKeepsTheCommentsItHasWhenAPageIsRefused(t *testing.T) {
 	})
 
 	// Act
-	detail, err := client.Issue(t.Context(), "OPS-1")
+	_, err := client.Issue(t.Context(), "OPS-1")
 
 	// Assert
-	if err != nil || len(detail.Comments) != 2 || detail.CommentTotal != 3 {
-		t.Errorf("Issue = %d of %d comments, %v; want the two it has, of three, and no error",
-			len(detail.Comments), detail.CommentTotal, err)
+	if !errors.Is(err, jira.ErrRejected) {
+		t.Errorf("Issue = %v; want the refused comment page's %v, not a read that looks past the cap",
+			err, jira.ErrRejected)
 	}
 
 	if !refusedPageAsked.Load() {
-		t.Error("the page past the two comments was never asked for, so no refusal was kept through")
+		t.Error("the page past the two comments was never asked for, so no refusal was met")
 	}
 }
