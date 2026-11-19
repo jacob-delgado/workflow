@@ -138,7 +138,7 @@ func TestRemoveLocalDataWaitsForAFavoriteUnderWay(t *testing.T) {
 	t.Parallel()
 
 	// Favorites are kept in kept.db too, which a removal of all local data
-	// sets aside: a favorite written between would be lost with it, or make
+	// removes: a favorite written between would be lost with it, or make
 	// the file again halfway through the removal.
 	cases := map[string]struct {
 		method, target, body string

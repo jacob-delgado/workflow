@@ -234,8 +234,9 @@ func TestAFileThatIsNotADatabaseIsListedBySizeAlone(t *testing.T) {
 	}
 }
 
-// leaveAside writes the files an interrupted clean would leave set aside.
-func leaveAside(t *testing.T, dir string, names ...string) {
+// leaveBeside writes files beside the store's own, named as a clean once
+// named what it set aside.
+func leaveBeside(t *testing.T, dir string, names ...string) {
 	t.Helper()
 
 	for _, name := range names {
@@ -246,31 +247,35 @@ func leaveAside(t *testing.T, dir string, names ...string) {
 	}
 }
 
-func TestFilesSetAsideByAnInterruptedCleanAreListed(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	dir := t.TempDir()
-	leaveAside(t, dir, "workflow.db.cleaning", "workflow.db-wal.cleaning")
-
-	// Act
-	files, err := store.Files(t.Context(), dir)
-
-	// Assert
-	want := []store.DataFile{{Name: "workflow.db.cleaning", Kind: store.DataCache, Bytes: 8, Holds: nil}}
-	if err != nil || len(files) != 1 || files[0].Name != want[0].Name || files[0].Kind != want[0].Kind ||
-		files[0].Bytes != want[0].Bytes {
-		t.Errorf("Files = %+v, %v; want %+v", files, err, want)
-	}
-}
-
-func TestTheNextCleanRemovesWhatAnInterruptedOneSetAside(t *testing.T) {
+func TestFilesListsNoNameACleanSetAside(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	dir := t.TempDir()
 	keepBoth(t, dir)
-	leaveAside(t, dir, "workflow.db.cleaning", "workflow.db-shm.cleaning", "kept.db.cleaning")
+	leaveBeside(t, dir, "workflow.db.cleaning", "workflow.db-wal.cleaning", "kept.db.cleaning")
+
+	// Act
+	files, err := store.Files(t.Context(), dir)
+
+	// Assert
+	names := make([]string, 0, len(files))
+	for _, file := range files {
+		names = append(names, file.Name)
+	}
+
+	if want := []string{cacheName, "kept.db"}; err != nil || !slices.Equal(names, want) {
+		t.Errorf("Files listed %q, %v; want %q alone", names, err, want)
+	}
+}
+
+func TestACleanLeavesAFileNamedLikeAnAsideAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	keepBoth(t, dir)
+	leaveBeside(t, dir, "workflow.db.cleaning")
 
 	// Act
 	err := store.Clean(dir, store.CleanCache)
@@ -279,14 +284,12 @@ func TestTheNextCleanRemovesWhatAnInterruptedOneSetAside(t *testing.T) {
 		t.Fatalf("Clean returned %v, want nil", err)
 	}
 
-	for _, name := range []string{cacheName, "workflow.db.cleaning", "workflow.db-shm.cleaning"} {
-		if exists(filepath.Join(dir, name)) {
-			t.Errorf("%s is still there after cleaning the cache", name)
-		}
+	if exists(filepath.Join(dir, cacheName)) {
+		t.Errorf("%s is still there after cleaning the cache", cacheName)
 	}
 
-	if !exists(filepath.Join(dir, "kept.db.cleaning")) {
-		t.Error("cleaning the cache removed what a clean of the kept data set aside")
+	if !exists(filepath.Join(dir, "workflow.db.cleaning")) {
+		t.Error("cleaning the cache removed workflow.db.cleaning, a file not the store's own")
 	}
 }
 
@@ -384,18 +387,6 @@ func TestACleanRefusesWhatIsNotAPlainFileAndRemovesNothing(t *testing.T) {
 			}
 
 			return outside
-		},
-		"a directory where a file is set aside": func(t *testing.T, dir string) string {
-			t.Helper()
-
-			aside := filepath.Join(dir, "kept.db.cleaning")
-
-			err := os.Mkdir(aside, 0o700)
-			if err != nil {
-				t.Fatalf("making the directory: %v", err)
-			}
-
-			return aside
 		},
 		"a directory in a companion's place": func(t *testing.T, dir string) string {
 			t.Helper()

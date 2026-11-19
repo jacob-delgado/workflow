@@ -250,12 +250,12 @@ func TestDBCleanExitsAsRefusedWhenAFileCannotBeRemoved(t *testing.T) {
 
 	// Arrange
 	if os.Geteuid() == 0 {
-		t.Skip("root renames and removes a file whatever its directory's mode, so the clean would succeed")
+		t.Skip("root removes a file whatever its directory's mode, so the clean would succeed")
 	}
 
 	where, dir := storedHome(t)
-	// A directory nothing can be renamed in stands for a file another program
-	// holds open on Windows.
+	// A directory nothing can be removed from keeps the clean from removing
+	// the store's files.
 	err := os.Chmod(dir, 0o500)
 	if err != nil {
 		t.Fatalf("making the store directory read-only: %v", err)

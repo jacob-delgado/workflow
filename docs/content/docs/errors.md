@@ -108,11 +108,9 @@ than overwrite, short of an edit landing between the save's check and its write
 [Taskwarrior](https://taskwarrior.org) answers it too, for a task it changed
 nothing on — already started, not started, or no longer pending — and for an
 undo with nothing to undo. Removing the local data in Settings answers it for a
-database file that could not be removed, as one another program holds open can
-be on Windows. Every file is set aside before any is removed, so a file that
-cannot be set aside leaves them all in place; one that cannot be deleted after
-that may leave others already gone, so the area reads the listing again to show
-what is left. Close other workflow sessions and remove again (the command line's
+database file that could not be removed, as in a directory you may not write.
+The removal goes on with the rest, so others may already be gone, and the area
+reads the listing again to show what is left (the command line's
 `workflow db-clean` exits 4 there).
 
 A git run (`POST /api/runs`) answers it while another run goes, and when
