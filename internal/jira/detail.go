@@ -5,6 +5,7 @@ package jira
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -105,7 +106,7 @@ func (c Client) Issue(ctx context.Context, issueKey Key) (IssueDetail, error) {
 		return IssueDetail{}, err
 	}
 
-	return c.withAllComments(ctx, issueKey, wire.detail()), nil
+	return c.withAllComments(ctx, issueKey, wire.detail())
 }
 
 // commentLoadCap bounds how many comments a single read pages in, so an issue
@@ -115,23 +116,25 @@ func (c Client) Issue(ctx context.Context, issueKey Key) (IssueDetail, error) {
 const commentLoadCap = 1000
 
 // withAllComments fetches any comments past the first page Jira folded into the
-// issue, so the list does not trail CommentTotal. It is best effort: a page that
-// fails to load, or the cap, stops the paging and leaves what arrived, and the
-// "N of Total" heading still says how many of them are shown.
-func (c Client) withAllComments(ctx context.Context, issueKey Key, detail IssueDetail) IssueDetail {
+// issue, so the list does not trail CommentTotal. The paging stops at the cap,
+// or at an empty page from a server whose total runs ahead of its comments,
+// and the "N of Total" heading says how many are shown. A page that cannot
+// be read fails the whole read, as the issue's own request would.
+func (c Client) withAllComments(ctx context.Context, issueKey Key, detail IssueDetail) (IssueDetail, error) {
 	for len(detail.Comments) < detail.CommentTotal && len(detail.Comments) < commentLoadCap {
 		page, err := c.commentPage(ctx, issueKey, len(detail.Comments))
-		// A page that fails ends the paging as the cap does, and nothing tells
-		// the two apart, so a failed page reads as comments not loaded rather
-		// than as a failure.
-		if err != nil || len(page) == 0 {
+		if err != nil {
+			return IssueDetail{}, fmt.Errorf("reading the comments past the first %d: %w", len(detail.Comments), err)
+		}
+
+		if len(page) == 0 {
 			break
 		}
 
 		detail.Comments = append(detail.Comments, page...)
 	}
 
-	return detail
+	return detail, nil
 }
 
 // commentPage reads one page of an issue's comments, starting at startAt.
