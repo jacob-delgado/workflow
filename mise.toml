@@ -1,23 +1,14 @@
 # mise — the toolchain manager (https://mise.jdx.dev).
 #
-# Single source of truth for every tool the build, the gates and CI use but
-# two linters. The Taskfile runs the recipes; mise provisions the binaries they
-# call, and build/Dockerfile reads its versions from this file
-# (scripts/tool-versions.sh), all but the two linters' and its own Go. Its
-# Go is decided by its base image's digest, and the image build fails unless
+# Single source of truth for every tool the build, the gates and CI use. The
+# Taskfile runs the recipes; mise provisions the binaries they call, and
+# build/Dockerfile reads its versions from this file
+# (scripts/tool-versions.sh), all but its own Go. Its Go is decided by its
+# base image's digest, and the image build fails unless
 # that is the Go pinned below. A tool the image downloads (node, shellcheck,
 # jq, lefthook, typos, hadolint, taplo, zizmor, rumdl) also carries its
 # SHA-256s in build/tool-checksums.txt, so a bump here replaces its lines
 # there; `task lint` names any that are missing.
-#
-# yamllint and markdownlint-cli2 are pinned under build/ instead, every package
-# of each one's tree by version and hash: build/yamllint/requirements.txt by
-# each wheel's sha256, build/markdownlint/package-lock.json by each package's
-# sha512. `task tools` installs both into tmp/tools/bin, which [env] puts on
-# PATH below and CI's jobs add to theirs, and the image installs from the
-# same files. A pin here would name the linter alone, and mise would resolve
-# its dependencies afresh at every install, with no hash and outside the age
-# gate. So mise install alone does not provide every linter.
 #
 # After cloning:   mise trust && mise install && task setup
 # Update a pin:    edit below, then `mise install`
@@ -40,9 +31,6 @@ min_version = "2026.10.8"
 # Pin the toolchain so `go build`/`go test` use the Go below rather than
 # silently downloading whatever go.mod's directive resolves to.
 GOTOOLCHAIN = "local"
-# What `task tools` installs from the pin files under build/, ahead of the
-# rest of PATH in any shell mise activates.
-_.path = ["tmp/tools/bin"]
 
 [tools]
 # Language runtime — keep in step with go.mod's `go` directive.
@@ -72,7 +60,7 @@ zizmor = "1.30.1"
 # attestation, and the image and the cloud setup against the line in
 # build/tool-checksums.txt. 0.3.3 was published 2026-11-10, past the age gate.
 rumdl = "0.3.3"
-# node is the runtime the npm: tool below and markdownlint-cli2 need. mise
+# node is the runtime the npm: tool below and the web toolchain need. mise
 # installs an npm: tool but not a node to run it under, so a clean machine that
 # relied on an ambient node would run `task lint` against a different one than
 # CI. Held on the 24.x line — the last the web toolchain (corepack/yarn, Vite,

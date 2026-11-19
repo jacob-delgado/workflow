@@ -1,9 +1,5 @@
 # What the release's SBOM leaves out (.github/workflows/release.yml). It lists
-# the dependencies the binaries are built from, and the linters' pin files and
-# installs are none of them: tmp/ holds what `task tools` installed for the
-# gate, and each pin file under build/ is cataloged on its own. A tool pinned
-# by a file of its own under build/ joins this list.
+# the dependencies the binaries are built from, and tmp/, the scratch the gate
+# that runs before it writes, holds none of them.
 exclude:
   - ./tmp/**
-  - ./build/yamllint/**
-  - ./build/markdownlint/**

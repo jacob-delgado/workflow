@@ -9,33 +9,19 @@
 # CLAUDE.md's age gate: a freshly compromised release is usually caught and
 # yanked within days, so no version is adopted before it is a week old.
 # Dependabot's cooldown holds its own pull requests to that; this holds the
-# rest — a hand-run `go get` or `yarn add`, and mise.toml,
-# docs/media/tool-checksums.txt and build/yamllint/requirements.txt, which
-# Dependabot does not read. It compares the versions go.mod, docs/go.mod,
-# web/yarn.lock, mise.toml, docs/media/tool-checksums.txt (the docs' ttyd) and
-# build/markdownlint/package-lock.json name, a go.mod's replace directives
-# among them, and the files build/yamllint/requirements.txt pins by their
-# sha256, at HEAD with those at the merge base with <base-ref>, and asks where
-# each new one came from when it was published: proxy.golang.org for Go
-# modules and the Go toolchain, the npm registry, PyPI, nodejs.org, and the
-# GitHub release for every other mise tool and the docs' ttyd. A PyPI release
-# takes files for days after its first, so each file is dated by its own
-# upload; a requirement pinned by no hash, whose file cannot be told, fails,
-# and so does any line of the requirements file but a comment, the two options
-# scripts/pin-yamllint.sh writes and a name==version requirement pinned by
-# --hash=sha256 alone, an include or a direct URL among them. A lock entry is
-# read with the tarball it resolves to and its integrity, so a change to
-# either alone is checked as a new pin is: one that does not come from the npm
-# registry under its own name and version, by a sha512, fails, as one whose
-# sha512 the registry does not list does, and so does a lock npm would read
-# other than by its packages map, a lockfileVersion 1 among them, or one that
-# cannot be parsed. A mise tool is read from its version string or an inline
-# table's version key, under a [tools] header however it is spaced, quoted or
+# rest — a hand-run `go get` or `yarn add`, and mise.toml and
+# docs/media/tool-checksums.txt, which Dependabot does not read. It compares
+# the versions go.mod, docs/go.mod, web/yarn.lock, mise.toml and
+# docs/media/tool-checksums.txt (the docs' ttyd) name, a go.mod's replace
+# directives among them, at HEAD with those at the merge base with
+# <base-ref>, and asks where each new one came from when it was published:
+# proxy.golang.org for Go modules and the Go toolchain, the npm registry,
+# nodejs.org, and the GitHub release for every other mise tool and the docs'
+# ttyd. A mise tool is read from its version string or an inline table's
+# version key, under a [tools] header however it is spaced, quoted or
 # commented; one pinned in an inline table naming no version, in a
 # [tools.<name>] table, or by a tools key before any table, whose keys this
-# does not read, fails too. A pin that cannot be dated so fails whatever the
-# exceptions file says, which excuses a version's age alone: an excepted pin's
-# hash is still looked up.
+# does not read, fails, whatever the exceptions file says.
 #
 # A version listed in scripts/dependency-age-exceptions.txt with the advisory
 # it fixes passes at any age: a known-vulnerability fix overrides the wait. So
@@ -74,8 +60,6 @@ readonly day_seconds=$((24 * 60 * 60))
 readonly min_seconds=$((7 * day_seconds))
 readonly exceptions="scripts/dependency-age-exceptions.txt"
 readonly yarnrc="web/.yarnrc.yml"
-readonly requirements="build/yamllint/requirements.txt"
-readonly npm_lock="build/markdownlint/package-lock.json"
 readonly media_checksums="docs/media/tool-checksums.txt"
 readonly goproxy="https://proxy.golang.org"
 readonly npm_registry="https://registry.npmjs.org"
@@ -164,36 +148,6 @@ npm_published() {
   jq -r --arg version "$2" '.time[$version] // empty' <<<"${package}" 2>/dev/null || true
 }
 
-# npm_integrity prints the integrity the npm registry lists for a package
-# version's tarball.
-#   npm_integrity <package> <version>
-npm_integrity() {
-  local package
-  package="$(npm_package "$1")"
-  jq -r --arg version "$2" '.versions[$version].dist.integrity // empty' <<<"${package}" 2>/dev/null || true
-}
-
-# pypi_release prints a PyPI release's JSON, asked for once a run however many
-# of its files are dated.
-#   pypi_release <package> <version>
-pypi_release() {
-  local kept="${answers}/pypi-$1==$2.json"
-  if [[ ! -f "${kept}" ]]; then
-    "${get[@]}" "https://pypi.org/pypi/$1/$2/json" >"${kept}" 2>/dev/null || true
-  fi
-  cat "${kept}"
-}
-
-# pypi_published prints when the file of a PyPI release with the given sha256
-# was uploaded.
-#   pypi_published <package> <version> <sha256>
-pypi_published() {
-  local release
-  release="$(pypi_release "$1" "$2")"
-  jq -r --arg sha256 "$3" 'first(.urls[] | select(.digests.sha256 == $sha256) | .upload_time_iso_8601) // empty' \
-    <<<"${release}" 2>/dev/null || true
-}
-
 # release_repository prints the GitHub repository a mise tool is released
 # from, or nothing for a tool this check has not been told about.
 release_repository() {
@@ -258,14 +212,12 @@ mise_published() {
 }
 
 # published prints when a version of a dependency was published, asking the
-# source its ecosystem names; for PyPI, when the file of it with the sha256
-# given was. npm-lock is an npm lockfile's entry, dated as npm's.
-#   published <go|npm|npm-lock|pypi|mise> <name> <version> [sha256]
+# source its ecosystem names.
+#   published <go|npm|mise> <name> <version>
 published() {
   case "$1" in
     go) go_published "$2" "$3" ;;
-    npm | npm-lock) npm_published "$2" "$3" ;;
-    pypi) pypi_published "$2" "$3" "${4:-}" ;;
+    npm) npm_published "$2" "$3" ;;
     mise) mise_published "$2" "$3" ;;
     *) ;;
   esac
@@ -309,68 +261,11 @@ excused() {
   fi
 }
 
-# npm_lock_refusal prints why an npm lockfile entry cannot be dated, or
-# nothing. npm ci fetches the tarball the entry's resolved names and checks it
-# by the entry's integrity alone, so the gate dates only one from the registry
-# under its own name and version, by the sha512 the registry lists for it.
-#   npm_lock_refusal <name> <version> <resolved> <integrity>
-npm_lock_refusal() {
-  local listed
-  if [[ "$2" == - ]]; then
-    echo "names no version in the lock, so it cannot be dated: re-lock it with task deps:markdownlint"
-  elif [[ "$3" != "${npm_registry}/$1/-/${1#@*/}-$2.tgz" ]]; then
-    echo "does not come from the npm registry under its own name and version (resolved: $3), so it cannot be dated"
-  elif [[ "$4" != sha512-* ]]; then
-    echo "is pinned by no sha512 integrity, so npm ci would take any tarball: re-lock it with task deps:markdownlint"
-  else
-    listed="$(npm_integrity "$1" "$2")"
-    if [[ "${listed}" != "$4" ]]; then
-      echo "is locked by a hash the npm registry does not list for it, so it cannot be dated"
-    fi
-  fi
-}
-
-# refusal prints why a pin cannot be dated whatever the exceptions file says,
-# which excuses a version's age alone, or nothing: a requirement pinned by no
-# hash or by one PyPI gives no upload for, and an npm lockfile entry
-# npm_lock_refusal refuses. So an excepted pin's hash is looked up too.
-#   refusal <ecosystem> <name> <version> [sha256 | resolved integrity]
-refusal() {
-  local uploaded
-  case "$1" in
-    pypi)
-      if [[ -z "${4:-}" ]]; then
-        echo "is pinned by no hash, so no file of it can be dated: pin each one with --hash=sha256:<digest>"
-        return
-      fi
-      uploaded="$(pypi_published "$2" "$3" "$4")"
-      if [[ -z "${uploaded}" ]]; then
-        echo "is pinned by a hash PyPI lists no file of, or PyPI could not be asked, so it cannot be dated"
-      fi
-      ;;
-    npm-lock) npm_lock_refusal "$2" "$3" "${4:-}" "${5:-}" ;;
-    *) ;;
-  esac
-}
-
-# check holds one new version to the age gate, a PyPI file, named by its
-# sha256, to its own age, and an npm lockfile entry, by its integrity, to the
-# registry's tarball of its version. The exceptions file names a version, so
-# it excuses each file of one.
-#   check <ecosystem> <name> <version> [sha256 | resolved integrity]
+# check holds one new version to the age gate.
+#   check <ecosystem> <name> <version>
 check() {
-  local name="$2" version="$3" sha256="" what refused exception reason when epoch
-  if [[ "$1" == pypi ]]; then
-    sha256="${4:-}"
-  fi
-  what="${name} ${version}${sha256:+ (sha256:${sha256})}"
-  refused="$(refusal "$@")"
-  if [[ -n "${refused}" ]]; then
-    echo "FAIL  ${what} ${refused}" >&2
-    failed=1
-    return
-  fi
-
+  local name="$2" version="$3" what exception reason when epoch
+  what="${name} ${version}"
   exception="$(listed_exception "${name}" "${version}")"
   reason="$(excused "${exception}")"
   if [[ -n "${reason}" ]]; then
@@ -383,7 +278,7 @@ check() {
     return
   fi
 
-  when="$(published "$1" "${name}" "${version}" "${sha256}")"
+  when="$(published "$1" "${name}" "${version}")"
   epoch="$(jq -rn --arg time "${when}" '$time | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601' 2>/dev/null || true)"
   if [[ -z "${when}" || -z "${epoch}" ]]; then
     echo "FAIL  cannot tell when ${what} was published; a version that cannot be dated is not adopted" >&2
@@ -396,32 +291,25 @@ check() {
   fi
 }
 
-# refused_file fails a "! why" line a pin file's reader prints in place of its
-# pins: requirements_pins and mise_pins quote the line they refuse, and
-# npm_lock_pins says why it read no pins from the lock at all.
-#   refused_file <pypi|mise|npm-lock> <why>
+# refused_file fails a "! line" mise_pins prints in place of a pin it cannot
+# read a version from, quoting the line.
+#   refused_file <line>
 refused_file() {
-  case "$1" in
-    npm-lock) echo "FAIL  ${npm_lock}: $2, so it cannot be dated: re-lock it with task deps:markdownlint" >&2 ;;
-    mise) echo "FAIL  mise.toml: '$2' cannot be dated: pin each tool under [tools] as name = \"version\" or name = { version = \"version\", ... }" >&2 ;;
-    *) echo "FAIL  ${requirements}: '$2' cannot be dated: pin by name==version and --hash=sha256 only" >&2 ;;
-  esac
+  echo "FAIL  mise.toml: '$1' cannot be dated: pin each tool under [tools] as name = \"version\" or name = { version = \"version\", ... }" >&2
   failed=1
 }
 
-# check_all checks each "name version" line under one ecosystem, each
-# "name version sha256" line naming a PyPI file, and each "name version
-# resolved integrity" line naming an npm lockfile entry, and fails each
-# "! why" line a pin file's reader prints.
+# check_all checks each "name version" line under one ecosystem, and fails
+# each "! line" mise_pins prints.
 #   check_all <ecosystem> <lines>
 check_all() {
-  local line name version first second
+  local line name version
   while read -r line; do
     if [[ "${line}" == "! "* ]]; then
-      refused_file "$1" "${line#! }"
+      refused_file "${line#! }"
     elif [[ -n "${line}" ]]; then
-      read -r name version first second <<<"${line}"
-      check "$1" "${name}" "${version}" ${first:+"${first}"} ${second:+"${second}"}
+      read -r name version <<<"${line}"
+      check "$1" "${name}" "${version}"
     fi
   done <<<"$2"
 }
@@ -519,9 +407,6 @@ check_all npm "$(added "$(at "${base}" web/yarn.lock | yarn_resolutions)" "$(at 
 check_all mise "$(added "$(at "${base}" mise.toml | mise_pins)" "$(at HEAD mise.toml | mise_pins)")"
 check_all mise "$(added "$(at "${base}" "${media_checksums}" | media_pins)" \
   "$(at HEAD "${media_checksums}" | media_pins)")"
-check_all pypi "$(added "$(at "${base}" "${requirements}" | requirements_pins)" \
-  "$(at HEAD "${requirements}" | requirements_pins)")"
-check_all npm-lock "$(added "$(at "${base}" "${npm_lock}" | npm_lock_pins)" "$(at HEAD "${npm_lock}" | npm_lock_pins)")"
 warn_of_waivers
 warn_unlisted_preapprovals
 

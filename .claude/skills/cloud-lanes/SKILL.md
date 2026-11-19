@@ -91,7 +91,7 @@ lane rules in brief for other agents: a change to one of them changes
 | GitHub release downloads | reachable | the setup's binaries |
 | `nodejs.org` | reachable | node |
 | `proxy.golang.org`, `sum.golang.org` | reachable | Go, the Go tools, every module |
-| `registry.npmjs.org`, `pypi.org` | reachable | Yarn (with `COREPACK_NPM_REGISTRY`), npm packages, yamllint |
+| `registry.npmjs.org` | reachable | Yarn (with `COREPACK_NPM_REGISTRY`), npm packages |
 | `api.github.com` | the session's own repositories only | a third-party repository answers 403 and names `add_repo`: mise's aqua backend and `task deps:age`'s dating of a GitHub-released mise tool or of mise's `min_version` fail |
 | `github.com` over git | refuses the session's token for a third-party repository, with 401 | zizmor's online audits, which the task and the hook turn off with `--offline`, so it judges a workflow the same here as in CI |
 | `go.dev` | refused | mise's Go install; Go comes from the `golang.org/toolchain` module instead |
@@ -181,13 +181,12 @@ Say which host and why, and carry on with what does not need it.
   only the next run. There is one toolchain, set up from whichever checkout
   ran the setup last, so the gate refuses, with "run setup for this
   worktree", a commit whose pins are not the ones it was set up from (a
-  version in `mise.toml` of a tool the setup installs, or a linter's pin file
-  under `build/`): run that worktree's `bash scripts/cloud-session-setup.sh`,
-  then the gate. Every other lane on the old pins must then do the same
-  before its own gate run. dev gets a temporary directory of its own under
-  `~/.cache`, since root's tools keep fixed names in `/tmp`: a root
-  golangci-lint's lock there would fail dev's `lint:go` with "parallel
-  golangci-lint is running".
+  version in `mise.toml` of a tool the setup installs): run that worktree's
+  `bash scripts/cloud-session-setup.sh`, then the gate. Every other lane on
+  the old pins must then do the same before its own gate run. dev gets a
+  temporary directory of its own under `~/.cache`, since root's tools keep
+  fixed names in `/tmp`: a root golangci-lint's lock there would fail dev's
+  `lint:go` with "parallel golangci-lint is running".
 - **A worktree is not a clone.** A lane's worktree has a `.git` file; dev's
   gate checkout and CI's checkout have a `.git` directory, of objects and
   git's own sample hooks. So a check that walks hidden files can pass in a
@@ -230,7 +229,7 @@ Say which host and why, and carry on with what does not need it.
 | a condition no test evaluated, or one seen one way on a line the change touched | `task cover:branch`, as dev |
 | golangci-lint against a new Go | the pinned pair from the setup, `task lint:go` |
 | a timing flake | `go test -race -count=20 -run <test> ./<pkg>`; `--repeat-each` for a spec |
-| a dependency under a week old | `task deps:age` in the lane's own worktree, for an npm or Go module, for a `mise.toml` pin of go, node or a `go:` or `npm:` tool, and for each pin a linter's file under `build/` adds; a GitHub-released mise tool, or mise's `min_version`, is dated only in CI; no script dates an Action bump, so check its release date by hand |
+| a dependency under a week old | `task deps:age` in the lane's own worktree, for an npm or Go module, and for a `mise.toml` pin of go, node or a `go:` or `npm:` tool; a GitHub-released mise tool or the docs' ttyd, or mise's `min_version`, is dated only in CI; no script dates an Action bump, so check its release date by hand |
 | a new Go advisory | CI only, while `vuln.go.dev` is refused |
 | an engine other than Chromium | CI only |
 
@@ -316,9 +315,10 @@ A lane, whether a workflow agent, a subagent or a cloud session, starts with
 - **Stopping a run is a cutoff too, and it can break what lanes share.** A
   workflow stopped while one of its agents ran `scripts/cloud-session-setup.sh`
   left `/opt/workflow-tools` half replaced, and the next commit's hook failed
-  with `markdownlint-cli2: not found`. Before stopping a run, read what its
-  agents are running (the newest `agent-*.jsonl` in its transcript
-  directory); after it, run the setup script again if one was mid-install.
+  on a linter the setup had yet to put back: `not found`. Before stopping a
+  run, read what its agents are running (the newest `agent-*.jsonl` in its
+  transcript directory); after it, run the setup script again if one was
+  mid-install.
 - **A harness warning on an agent is a lead, not a verdict.** A verifier was
   once flagged for a destructive git action when its transcript held only
   `git log`, `git show` and `sed`. Read its tool calls (its `agent-*.jsonl`

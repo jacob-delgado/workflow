@@ -72,20 +72,13 @@ jobs:
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task golangci-lint shellcheck shfmt typos actionlint hadolint taplo zizmor rumdl node jq
-      # yamllint and markdownlint-cli2 are pinned outside mise.toml, each one's
-      # whole tree by hash: `task tools` installs them into tmp/tools/bin, and
-      # the path is added for the steps below, not left to mise.toml's [env].
-      - name: Install the linters pinned outside mise
-        run: |
-          task tools
-          echo "${GITHUB_WORKSPACE}/tmp/tools/bin" >>"${GITHUB_PATH}"
       - run: task lint
         if: needs.changes.outputs.docs != 'true'
       - run: task lint:docs
         if: needs.changes.outputs.docs == 'true'
       # The week-long age gate, for every version a pull request adds to
-      # go.mod, docs/go.mod, web/yarn.lock, mise.toml or the two linters' pin
-      # files under build/, Dependabot's or not.
+      # go.mod, docs/go.mod, web/yarn.lock, mise.toml or the docs' ttyd
+      # checksums, Dependabot's or not.
       # Not in `task lint`: it asks the registries, and it needs the base. The
       # token lets it read GitHub release dates without the anonymous limit.
       - name: Check that each new dependency version is a week old

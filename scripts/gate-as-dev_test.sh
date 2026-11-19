@@ -230,7 +230,7 @@ expect_output 2 "no gate user" "no user dev" as_root "${source_repo}" lint
 unset MISSING_USER
 
 # A commit whose pins are not the ones the toolchain was set up from, as a
-# lane's that bumps a tool, or one that no longer has a pin file.
+# lane's that bumps a tool, or one that no longer has its mise.toml.
 repinned="${workdir}/repinned"
 repo "${repinned}"
 printf 'node = "24.22.0"\n' >>"${repinned}/mise.toml"
@@ -253,9 +253,9 @@ printf '# a comment\n[env]\nGOFLAGS = "-mod=mod"\n[tools]\nhugo-extended = "0.16
 git -C "${unmoved}" -c user.email=t@example.com -c user.name=t commit -q -am bump
 expect_exit pass "a commit moving no pin the setup installs from" as_root "${unmoved}" lint
 
-git -C "${repinned}" rm -q build/yamllint/requirements.txt
+git -C "${repinned}" rm -q mise.toml
 git -C "${repinned}" -c user.email=t@example.com -c user.name=t commit -q -m unpin
-expect_output 2 "a commit with a pin file missing" "run setup for this worktree" as_root "${repinned}" lint
+expect_output 2 "a commit with its pins gone" "run setup for this worktree" as_root "${repinned}" lint
 
 # A run that waits on another names no base until it holds the lock, so the
 # base the run going has yet to fetch stays as that run named it, though this

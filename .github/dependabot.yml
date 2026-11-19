@@ -71,24 +71,6 @@ updates:
       - dependency-name: "@playwright/test"
         versions: ["1.65.x"]
 
-  # markdownlint-cli2 and its whole tree (build/markdownlint/package.json and
-  # its package-lock.json), which `task tools` installs with npm ci. A bump
-  # re-resolves the lock, so the age gate dates every package it moves; the
-  # cooldown holds markdownlint-cli2 itself. No pip entry beside it:
-  # build/yamllint/requirements.txt pins every wheel's hash, which Dependabot
-  # is not known to rewrite, so `task deps:yamllint` moves it.
-  - package-ecosystem: npm
-    directory: "/build/markdownlint"
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: build
-    cooldown:
-      default-days: 7
-    groups:
-      markdownlint:
-        update-types: ["minor", "patch"]
-
   # The actions used by CI, all of which are SHA-pinned with a version comment;
   # Dependabot updates both together. Every action waits the full seven days,
   # GitHub's own (actions/*, github/*) as much as a third party's: a first-party

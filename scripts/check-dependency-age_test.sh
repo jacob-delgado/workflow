@@ -22,8 +22,7 @@
 # but fails nothing; one whose week may not be over is not. In GitHub Actions
 # the warning is also a ::warning annotation, which the pull request shows. A
 # pre-approval no line of the exceptions file lists is warned of too, and
-# fails nothing. The linters' pin files are
-# check-dependency-age_pins_test.sh's.
+# fails nothing.
 #
 # The stand-in curl lib/check-dependency-age-fixtures.sh writes answers each
 # registry URL from a fixture file named for it, and fails as curl -f does for
