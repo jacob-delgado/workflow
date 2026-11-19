@@ -754,13 +754,12 @@ settings are changed and not saved — a list counts once, however many of its
 rows changed — with **Discard**, which puts every section back as it was
 read, and **Save changes**, which writes the file; both are held while
 nothing is changed. It says *Saving…*, then *Saved.* A setting refused is
-marked beside itself, with why: a few are checked before anything is sent —
-Jira's address, the branch template's `{key}`, the timings, the issue
-trailer and the counts — and a save the server refuses names the settings
-it refused, which are marked the same way. The bar then says how many are
+marked beside itself, with why: the server checks every setting, and a save
+it refuses names the settings it refused. The bar then says how many are
 left to fix and in which sections, and **Show** opens the first one's section
-with the focus on it. A save held back by those first checks goes to the setting
-it was held back for, and leaves what the server refused marked. Changing a
+with the focus on it. A list's row named as an earlier one is refused before
+anything is sent; a save held back for it goes to that row, and leaves what
+the server refused marked. Changing a
 refused setting takes its refusal away. Going to another section of the page
 while settings are changed and not saved asks *Leave without saving?* first:
 **Leave** drops the changes and goes, **Stay** keeps them.

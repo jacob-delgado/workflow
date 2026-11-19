@@ -1,4 +1,4 @@
-import type { Config } from '../api/generated/types.gen.ts'
+import type { Config, RefusedSetting } from '../api/generated/types.gen.ts'
 
 // The configuration `task web:mockup` shows in Settings, shaped like a real read:
 // secrets already masked (the server never sends them in the clear), collections
@@ -77,4 +77,42 @@ export const mockConfig: Config = {
   issues: {
     forge: false,
   },
+}
+
+// goDuration is what Go's time.ParseDuration reads: numbers, each with its
+// unit, such as "1h30m" or "1.5s", signed or not, or a bare 0. A number's
+// digits match one way only: "\d+\.?\d*" could split "99" as 9 and 9, and a
+// long non-duration would then try every split.
+const goDuration = /^[-+]?(?:0|(?:(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|µs|μs|ms|s|m|h))+)$/
+
+// mockTimingRefusal is the setting a save of config refuses as the server's
+// configuration does, in its words: the first timing that is no duration, or
+// none more than zero; undefined where none is. The mockup checks the timings
+// alone, so Settings' marking of a refused setting shows with no server.
+export function mockTimingRefusal(config: Config): RefusedSetting | undefined {
+  const timings = [
+    { key: 'timing.request_timeout', value: config.timing.request_timeout ?? '' },
+    { key: 'timing.ci_interval', value: config.timing.ci_interval ?? '' },
+  ]
+  for (const { key, value } of timings) {
+    const reason = timingRefusal(value)
+    if (reason !== undefined) {
+      return { key, detail: `invalid timing: ${reason}: ${JSON.stringify(value)}` }
+    }
+  }
+
+  return undefined
+}
+
+// timingRefusal is why the server refuses value as a timing, or undefined: an
+// empty one is the default.
+function timingRefusal(value: string): string | undefined {
+  if (value === '') {
+    return undefined
+  }
+  if (!goDuration.test(value)) {
+    return 'not a duration such as "20s"'
+  }
+
+  return value.startsWith('-') || !/[1-9]/.test(value) ? 'must be more than zero' : undefined
 }

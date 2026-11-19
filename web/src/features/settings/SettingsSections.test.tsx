@@ -22,6 +22,19 @@ async function opened(): Promise<Request[]> {
   return requests
 }
 
+// intervalRefused is why the server refuses a CI interval that is no duration.
+const intervalRefused = 'invalid timing: ci_interval is no duration'
+
+// intervalRefusal is the server's refusal of a CI interval that is no
+// duration, naming the setting.
+const intervalRefusal = {
+  code: 'unprocessable',
+  status: 422,
+  title: 'Unprocessable content',
+  detail: 'the configuration is not valid',
+  fields: [{ key: 'timing.ci_interval', detail: intervalRefused }],
+}
+
 // shown reports that the field labeled label is in the panel shown.
 function shown(label: string): boolean {
   return screen.getByLabelText(label).closest<HTMLElement>('[role="tabpanel"]')?.hidden === false
@@ -103,14 +116,20 @@ test("a section's tab counts its settings changed and not saved", async () => {
 
 test("a section's tab says how many of its settings to fix", async () => {
   // Arrange
-  await opened()
-  await userEvent.click(screen.getByRole('tab', { name: 'Advanced' }))
+  fakeApi({
+    '/api/config': (_at: URL, asked: Request) =>
+      asked.method === 'PUT'
+        ? Response.json(intervalRefusal, { status: 422 })
+        : Response.json(mockConfig, { headers: { ETag: '"read-1"' } }),
+  })
+  renderWithClient(<SettingsPanel />)
+  await userEvent.click(await screen.findByRole('tab', { name: 'Advanced' }))
   await userEvent.type(screen.getByLabelText('CI interval'), 'x')
 
   // Act
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
-  await screen.findByText('A duration such as 20s or 3m.')
+  await screen.findByText(intervalRefused)
   expect(screen.getByRole('tab', { name: 'Advanced' }).textContent).toBe('Advanced1 to fix')
 })

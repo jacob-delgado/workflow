@@ -25,6 +25,28 @@ const refusedViews = {
   fields: [{ key: 'jira.views', detail: 'invalid view: each view needs a name and a jql' }],
 }
 
+// refusing is the problem a save is refused with, naming each setting given
+// with why.
+function refusing(...fields: [key: string, detail: string][]) {
+  return {
+    ...refusedSlugLimit,
+    detail: 'the configuration is not valid',
+    fields: fields.map(([key, detail]) => ({ key, detail })),
+  }
+}
+
+// trailerRefused is the server's refusal of an issue trailer with a colon.
+const trailerRefused: [string, string] = [
+  'commit.refs_trailer',
+  'invalid commit: refs_trailer is one word',
+]
+
+// intervalRefused is the server's refusal of a CI interval that is no duration.
+const intervalRefused: [string, string] = [
+  'timing.ci_interval',
+  'invalid timing: ci_interval is no duration',
+]
+
 // A judge is the server's verdict on a save: the problem it refuses the save
 // with, or null to take it.
 type Judge = (sent: Config, saves: number) => object | null
@@ -78,6 +100,22 @@ async function aView(name: string): Promise<HTMLElement> {
   return row
 }
 
+// prefixTaken is what the form says of a prefix row whose issue type an
+// earlier row has, which it refuses before anything is sent.
+const prefixTaken = 'A prefix of that issue type is already listed.'
+
+// aTakenPrefix adds two prefixes for one issue type in Commits and branches,
+// so the form refuses the second before a save is sent.
+async function aTakenPrefix(): Promise<void> {
+  await inSection('Commits and branches')
+  for (const name of ['Prefix 1', 'Prefix 2']) {
+    await userEvent.click(screen.getByRole('button', { name: 'Add a prefix' }))
+    const row = screen.getByRole('group', { name })
+    await userEvent.type(within(row).getByRole('textbox', { name: 'Issue type' }), 'Bug')
+    await userEvent.type(within(row).getByRole('textbox', { name: 'Prefix' }), 'fix')
+  }
+}
+
 // refusedList is the Views group, once it is described by the server's
 // refusal of the list as a whole.
 function refusedList(): Promise<HTMLElement> {
@@ -85,55 +123,17 @@ function refusedList(): Promise<HTMLElement> {
 }
 
 test.each([
-  ['Jira', 'Base URL', 'jira.example.com', 'An address such as https://jira.example.com.'],
-  ['Commits and branches', 'Name template', 'feature/slug', 'Must contain {key}.'],
-  ['Commits and branches', 'Issue trailer', 'Fixed by', 'A single word, without a colon.'],
-  ['Advanced', 'CI interval', 'soon', 'A duration such as 20s or 3m.'],
-])(
-  'in %s, %s refuses %j beside itself, and nothing is sent',
-  async (section, label, typed, said) => {
-    // Arrange
-    const requests = await opened()
-    await inSection(section)
-    await userEvent.clear(screen.getByLabelText(label))
-    await userEvent.type(screen.getByLabelText(label), typed)
-
-    // Act
-    await save()
-
-    // Assert
-    const field = await screen.findByRole('textbox', {
-      name: label,
-      description: (description) => description.includes(said),
-    })
-    expect(field.getAttribute('aria-invalid')).toBe('true')
-    expect(requests.some((request) => request.method === 'PUT')).toBe(false)
-  },
-)
-
-test.each([
+  { refused: [trailerRefused], said: '1 to fix in Commits and branches' },
   {
-    edits: [['Commits and branches', 'Issue trailer', ':']],
-    said: '1 to fix in Commits and branches',
-  },
-  {
-    edits: [
-      ['Commits and branches', 'Issue trailer', ':'],
-      ['Terminal and keys', 'Comments shown', '-1'],
-    ],
+    refused: [trailerRefused, ['ui.comments_shown', 'invalid ui: comments_shown is negative']],
     said: '2 to fix in Commits and branches, Terminal and keys',
   },
 ])(
   'the bar says how many settings to fix, and in which sections: $said',
-  async ({ edits, said }) => {
+  async ({ refused, said }) => {
     // Arrange
-    await opened()
-    for (const [section = '', label = '', typed = ''] of edits) {
-      await inSection(section)
-      await userEvent.clear(screen.getByLabelText(label))
-      await userEvent.type(screen.getByLabelText(label), typed)
-    }
-    await inSection('Jira')
+    await opened(() => refusing(...(refused as [string, string][])))
+    await anEdit()
 
     // Act
     await save()
@@ -147,10 +147,8 @@ test.each([
 
 test('Show opens the section of the first setting to fix and gives that setting the focus', async () => {
   // Arrange
-  await opened()
-  await inSection('Advanced')
-  await userEvent.type(screen.getByLabelText('CI interval'), 'x')
-  await inSection('Jira')
+  await opened(() => refusing(intervalRefused))
+  await anEdit()
   await save()
 
   // Act
@@ -227,18 +225,18 @@ test('a refusal the fields mark is not said a second time below the bar', async 
 
 test('changing a refused setting takes its refusal away', async () => {
   // Arrange
-  await opened()
-  await inSection('Commits and branches')
-  await userEvent.type(screen.getByLabelText('Issue trailer'), ':')
+  await opened(() => refusing(trailerRefused))
+  await anEdit()
   await save()
-  await screen.findByText('A single word, without a colon.')
+  await inSection('Commits and branches')
+  await screen.findByText(trailerRefused[1])
 
   // Act
-  await userEvent.type(screen.getByLabelText('Issue trailer'), '{Backspace}')
+  await userEvent.type(screen.getByLabelText('Issue trailer'), 'x')
 
   // Assert
   await waitFor(() => {
-    expect(screen.queryByText('A single word, without a colon.')).toBeNull()
+    expect(screen.queryByText(trailerRefused[1])).toBeNull()
   })
   expect(screen.getByLabelText('Issue trailer').hasAttribute('aria-invalid')).toBe(false)
 })
@@ -301,15 +299,14 @@ test('a save refused before it is sent leaves the list the server refused marked
   await anEdit()
   await save()
   await refusedList()
-  await inSection('Advanced')
-  await userEvent.type(screen.getByLabelText('CI interval'), 'x')
+  await aTakenPrefix()
 
   // Act
   await save()
 
   // Assert
   await waitFor(() => {
-    expect(saveBar().textContent).toContain('2 to fix in Jira, Advanced')
+    expect(saveBar().textContent).toContain('2 to fix in Jira, Commits and branches')
   })
   await inSection('Jira')
   expect(await refusedList()).toBeTruthy()
@@ -322,17 +319,15 @@ test('a save refused before it is sent leaves the setting the server refused mar
   await anEdit()
   await save()
   await screen.findByRole('button', { name: 'Show' })
-  await inSection('Advanced')
-  await userEvent.type(screen.getByLabelText('CI interval'), 'x')
+  await aTakenPrefix()
 
   // Act
   await save()
 
   // Assert
   await waitFor(() => {
-    expect(saveBar().textContent).toContain('2 to fix in Commits and branches, Advanced')
+    expect(saveBar().textContent).toContain('2 to fix in Commits and branches')
   })
-  await inSection('Commits and branches')
   expect(
     screen.getByRole('spinbutton', {
       name: 'Slug limit',
@@ -348,16 +343,22 @@ test('a save refused before it is sent gives the setting just refused the focus'
   await anEdit()
   await save()
   await screen.findByRole('button', { name: 'Show' })
-  await inSection('Advanced')
-  await userEvent.type(screen.getByLabelText('CI interval'), 'x')
+  await aTakenPrefix()
+  await inSection('Jira')
 
   // Act
   await save()
 
   // Assert
-  expect(screen.getByRole('tab', { name: 'Advanced' }).getAttribute('aria-selected')).toBe('true')
+  const taken = within(screen.getByRole('group', { name: 'Prefix 2' })).getByRole('textbox', {
+    name: 'Issue type',
+    description: prefixTaken,
+  })
+  expect(
+    screen.getByRole('tab', { name: /^Commits and branches/ }).getAttribute('aria-selected'),
+  ).toBe('true')
   await waitFor(() => {
-    expect(document.activeElement).toBe(screen.getByLabelText('CI interval'))
+    expect(document.activeElement).toBe(taken)
   })
 })
 

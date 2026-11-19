@@ -149,7 +149,6 @@ one fails.
   freshness source (`src/queryClient.ts`, `src/api/snapshot.ts`); v8's
   branch count (`vitest.config.ts`); a latin-only face (`src/index.css`); at
   most 200 rows in the directory picker (`DirectoryDialog.tsx`); no Base UI
-  ScrollArea or Select (`CSPProvider.tsx`); Settings checking a few settings
-  the server checks again (`settingsRules.ts`); and the one inline style the
+  ScrollArea or Select (`CSPProvider.tsx`); and the one inline style the
   policy allows, WebKit's for a native `<select>` (the server's
   `contentPolicy`).

@@ -32,7 +32,7 @@ import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
 import { firstSection, sectionOf, SettingsSections } from './SettingsSections.tsx'
-import { type HeldRefusal, heldRefusals, refusedPaths } from './settingsRules.ts'
+import { type HeldRefusal, heldRefusals, refusedPaths } from './settingsRefusals.ts'
 import { changedPaths, SaveBar } from './SaveBar.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
@@ -171,11 +171,13 @@ function ConfigForm({ read, takesFocus, checking }: ConfigFormProps) {
   const asked = useAskedSave(save.run)
   const refused = refusedPaths(formState.errors)
   const changed = changedPaths(formState.dirtyFields)
-  // Only the server refuses a list as a whole, and no rule here judges one
-  // again: its refusal would hold back every save, so it stands only until
-  // the next save the rules here let through, which the server judges afresh.
-  // A save the rules hold back is never sent, so each setting the server
-  // refused is marked again, though checking the rest took its mark away.
+  // The server judges every setting; the form checks only that a list's rows
+  // are not named twice. Only the server refuses a list as a whole, which the
+  // form does not judge again: its refusal would hold back every save, so it
+  // stands only until the next save the form lets through, which the server
+  // judges afresh. A save the form holds back is never sent, so each setting
+  // the server refused is marked again, though checking the rest took its
+  // mark away.
   const submitted = async () => {
     const standing = heldRefusals(formState.errors).filter(({ type }) => type === serverRefusal)
     if (await form.trigger()) {
@@ -249,8 +251,8 @@ interface ConfigFormProps {
 
 // heldBack marks what a save held back before it was sent leaves refused:
 // each setting the server refused before, as the server judged it, then each
-// the rules here refuse in errors, the order the form now holds them in. It
-// returns the rules' own, which the save was held back for, so the focus goes
+// row the form refuses in errors, the order the form now holds them in. It
+// returns the form's own, which the save was held back for, so the focus goes
 // to what was just refused rather than to a refusal already said.
 function heldBack(
   standing: HeldRefusal[],
