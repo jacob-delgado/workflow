@@ -25,8 +25,13 @@
 # that is not trusted. Nothing else is removed, and no other trust is changed.
 #
 # It says which Homebrew audits before the audit runs, since CI's is whatever
-# the runner image ships (TRADE-42 in TECH_DEBT.md), so a failure names the
-# version that judged it.
+# the runner image ships, unpinned and never updated in the run, so a failure
+# names the version that judged it. That Homebrew is kept rather than pinned
+# through an action to approve: it moves without anyone here deciding it, can
+# fail a pull request over a rule it adds or its own machinery, as 7.0.11's
+# tap trust once did, and needs the network; and on Linux the formula's macOS
+# url and sha256 meet only the cops that read its text. It failed once in a
+# month of runs, while a formula it passes is one the tap can install.
 #
 # Exits 0 when the audit passes; 1 when it fails, when brew is not on PATH or
 # cannot say its version, or when the tap cannot be made or trusted; and 2 for

@@ -132,7 +132,9 @@ image's headless shell, the kind of binary CI runs.
   versions of Chrome, Edge, Firefox and desktop Safari. Its `Safari` is desktop
   Safari alone; iOS Safari, `ios_saf`, is left out because the page is only
   ever served on 127.0.0.1, to a browser on the machine `workflow --web` runs
-  on. `npx browserslist` resolves it to versions (TRADE-33).
+  on. `npx browserslist` resolves it to versions. Desktop Safari lacks
+  Temporal, which is why the calendar's dates are a twin of Go's
+  (`civilDate.ts`) rather than a polyfill.
 
 - **`resolutions` `js-yaml@npm:4.2.0 ^4.3.2`** lifts the js-yaml 4.2.0
   that `@hey-api/json-schema-ref-parser` pins to 4.3.2, which fixes three

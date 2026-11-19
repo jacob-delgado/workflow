@@ -17,8 +17,7 @@
 # PATH below and CI's jobs add to theirs, and the image installs from the
 # same files. A pin here would name the linter alone, and mise would resolve
 # its dependencies afresh at every install, with no hash and outside the age
-# gate. Trade-off TRADE-53: mise install alone no longer provides every
-# linter.
+# gate. So mise install alone does not provide every linter.
 #
 # After cloning:   mise trust && mise install && task setup
 # Update a pin:    edit below, then `mise install`
@@ -101,7 +100,7 @@ air = "1.67.4"
 # runs, and mise knows no checksum for it, so the release workflows, which
 # install every other pin, leave both out (MISE_DISABLE_TOOLS), and the task
 # hashes every ttyd it runs, this one included, against
-# docs/media/tool-checksums.txt (TRADE-56). VHS v0.12.1 was published 2026-09-24
+# docs/media/tool-checksums.txt. VHS v0.12.1 was published 2026-09-24
 # and ttyd 1.7.7 on 2024-03-30, both past the age gate above.
 vhs = "0.12.1"
 ttyd = { version = "1.7.7", os = ["linux"] }

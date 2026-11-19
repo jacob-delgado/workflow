@@ -250,9 +250,10 @@ explicitly asks for something different.
   command line `cmd.Context()`, the terminal its session's — and the wiring
   never keeps a context past the call that handed it one. What must outlive its
   asker detaches where the work is done, each case written down once:
-  `Execute`'s doc comment (`internal/cli/cli.go`), TRADE-37 and TRADE-38,
-  and `internal/lifetime`. `internal/seams`' test holds the rule and names
-  the exceptions.
+  `Execute`'s doc comment (`internal/cli/cli.go`), the terminal's
+  `outlasting` (`internal/tui/deps.go`), the web's `worlds.outlivingItsPage`
+  (`internal/webserver/world.go`), and `internal/lifetime`.
+  `internal/seams`' test holds the rule and names the exceptions.
 
 - **File length — 500-line soft target, 800-line hard ceiling, 700 for a
   test**, gated by `scripts/check-file-length.sh` (`--list` for the
@@ -478,7 +479,7 @@ tests are failing — say what's broken and why instead.
 
 - **Tool versions are exact, and they live in `mise.toml`**, whose header says
   how `build/Dockerfile` and CI read them. yamllint and markdownlint-cli2 are
-  the named exception (TRADE-53): a pin in `mise.toml` would name the linter
+  the named exception: a pin in `mise.toml` would name the linter
   alone and leave its dependencies to resolve afresh at every install, so a
   file under `build/` pins each one's whole tree instead, every package by
   version and hash: `build/yamllint/requirements.txt` by each wheel's sha256,
@@ -493,7 +494,7 @@ tests are failing — say what's broken and why instead.
   in `build/tool-checksums.txt` (`task lint:checksums`), the docs' ttyd's
   in `docs/media/tool-checksums.txt` (`task lint:mediachecksums`), and
   Playwright's in the image the end-to-end jobs run in
-  (`scripts/check-playwright-image.sh`, TRADE-58). A floating
+  (`scripts/check-playwright-image.sh`). A floating
   `latest` changes what the gate accepts without anyone deciding to.
 
 - **The `--web` API is spec first.** Change `api/openapi.yaml`, then run `task
@@ -507,11 +508,13 @@ tests are failing — say what's broken and why instead.
   a command or flag change runs `task docs:gen` in the same commit, and
   `task docs:check` fails when the two disagree.
 
-- **Kept trade-offs live in `TECH_DEBT.md`'s register**: an entry headed
-  `### TRADE-n <title>` with **Decided.**, **Cost.** and **Reopen when.**
-  paragraphs, and a `Trade-off TRADE-n:` comment at the code it keeps
-  (`scripts/check-tradeoffs.sh`). A review or an audit drops a finding that
-  restates an entry unless the entry's reopen trigger has fired.
+- **A choice made on purpose is explained at its code.** Where code looks
+  wrong on purpose (a cost taken, a twin kept, an arm no test reaches), a
+  plain comment there says why, as a doc comment or a comment beside it; a
+  rule that spans the code lives in the doc comment or area guide that
+  already holds it. `TECH_DEBT.md` lists open debts alone, each a
+  `### DEBT-n` entry deleted once fixed. A review or an audit drops a finding
+  the comment at its code already answers.
 
 ## Cloud sessions and lanes
 
@@ -531,7 +534,7 @@ container gets in the way. The rules every session needs:
   non-root `dev` user, whose verdict holds where root's does not (*Testing*,
   above), on what the worktree has committed. It checks the disk itself,
   refusing to start under 8 GB free, and leaves `vuln` to CI while
-  `vuln.go.dev` is refused (TRADE-54).
+  `vuln.go.dev` is refused.
 - **The disk is an allowance.** Check `df -h /` before a build, a gate run or
   launching agents. A lane under 3 GB free stops and reports, clearing
   nothing shared; under 5 GB the main session clears what regenerates, and

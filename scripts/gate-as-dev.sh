@@ -246,10 +246,10 @@ hand_over() {
     if [[ -n "${!name:-}" ]]; then environment+=("${name}=${!name}"); fi
   done
   exec {run_lock}>&-
-  # Trade-off TRADE-54: zizmor runs offline here, as it would anyway with no
-  # GitHub token handed on; its online audits read each third-party action's
-  # tags from github.com, which refuses a session's token. CI's zizmor has no
-  # token and runs offline too.
+  # zizmor runs offline here, as it would anyway with no GitHub token handed
+  # on; its online audits read each third-party action's tags from github.com,
+  # which refuses a session's token. CI's zizmor has no token and runs offline
+  # too.
   runuser -u "${gate_user}" -- env -i "${environment[@]}" \
     HOME="${gate_home}" USER="${gate_user}" LOGNAME="${gate_user}" \
     GOPATH="${gate_home}/go" GOCACHE="${gate_home}/.cache/go-build" GOFLAGS="" GOTOOLCHAIN=local \
@@ -267,8 +267,8 @@ check_steps() {
   local line commands vuln_reachable=yes
   if ! curl -fsS -o /dev/null --max-time 10 https://vuln.go.dev/index/db.json.gz; then
     vuln_reachable=""
-    # Trade-off TRADE-54: with vuln.go.dev refused, govulncheck cannot read its
-    # database, so vuln is left to CI and check's other steps run.
+    # With vuln.go.dev refused, govulncheck cannot read its database, so vuln
+    # is left to CI and check's other steps run.
     echo "gate-as-dev: vuln.go.dev cannot be reached from here, so this runs all of check but vuln; CI runs vuln" >&2
   fi
   # A command substitution runs without set -e, so its failure is passed on

@@ -12,7 +12,7 @@
 # version than the @playwright/test the web app installs finds no browser it
 # can launch. Dependabot moves @playwright/test in web/yarn.lock but not an
 # image a workflow names, so this gate fails the bump until the image moves
-# with it (TRADE-58). Every image must also be pinned by its digest, which a
+# with it. Every image must also be pinned by its digest, which a
 # tag is not: the same tag can be pushed again with other contents.
 #
 # Paths are read from the current directory, and the workflows are the ones git

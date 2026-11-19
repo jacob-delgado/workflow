@@ -95,7 +95,7 @@ eval "$(mise activate bash)"
 BASHRC
 fi
 
-# `task setup` installs yamllint into a venv (Trade-off TRADE-53), and the
+# `task setup` installs yamllint into a venv, and the
 # image's Debian has no venv module: python3-venv brings it, with python3 and
 # the ensurepip a venv is built with. Unpinned, as build/Dockerfile's apt
 # packages are: the image's Debian release pins it.

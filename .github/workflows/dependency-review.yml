@@ -32,12 +32,12 @@ jobs:
           # This project is Apache-2.0; copyleft licenses would change what
           # downstream users may do with the binary.
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-3.0
-          # Trade-off TRADE-53: yamllint (GPL-3.0-or-later) is a lint tool,
-          # installed from build/yamllint/requirements.txt into tmp/tools and
-          # the build image, never linked into or shipped with the binary.
+          # yamllint (GPL-3.0-or-later) is a lint tool, installed from
+          # build/yamllint/requirements.txt into tmp/tools and the build image,
+          # never linked into or shipped with the binary.
           allow-dependencies-licenses: pkg:pypi/yamllint
-          # Trade-off TRADE-53: braces 3.0.3, which markdownlint-cli2 reaches
-          # through micromatch to expand the repository's own globs, has an
-          # advisory no release of braces fixes; the lint tool never ships.
+          # braces 3.0.3, which markdownlint-cli2 reaches through micromatch to
+          # expand the repository's own globs, has an advisory no release of
+          # braces fixes; the lint tool never ships.
           allow-ghsas: GHSA-vfj7-8cjw-p6xm
           comment-summary-in-pr: on-failure

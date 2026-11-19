@@ -85,7 +85,7 @@ vars:
   # does coverage-summary.sh's "branch" key the CI comment compares against main.
   #
   # It rose 89→92 once every condition had run and a test had seen each
-  # `err != nil` both ways, but for those TECH_DEBT.md's register kept then;
+  # `err != nil` both ways, but for those the allowlist kept then;
   # the report then read 94.5%, and the floor is floor(measured) - 2.
   #
   # It fell 92→91 in #166, at 91.9%: the Slack workspace, directory and
@@ -146,8 +146,9 @@ tasks:
           echo "Not a git repository yet; run 'task setup' after 'git init' to add the hooks."
         fi
 
-  # The two linters mise.toml does not pin (Trade-off TRADE-53), each
-  # installed from committed files that pin its whole dependency tree by
+  # The two linters mise.toml does not pin, since a pin there would name the
+  # linter alone and leave its dependencies to resolve afresh at every
+  # install. Each is installed from committed files that pin its whole tree by
   # version and hash, into tmp/tools/bin, which mise.toml puts on PATH. Each
   # linter's task is skipped until its pin files change or what it installed
   # no longer runs, as a venv does once its python3 moves to another minor
@@ -474,8 +475,6 @@ tasks:
       - task: lint:checksums
       - task: lint:mediachecksums
       - task: lint:goroutines
-      - task: lint:tradeoffs
-      - task: lint:techdebtpaths
       - task: lint:siblingtests
       - task: lint:layout
       - task: docs:check
@@ -490,8 +489,8 @@ tasks:
   # runs on Linux, so the code only a macOS or a Windows build holds, and the
   # tests only they compile, would meet no compiler before a user of that
   # system did. This vets every release platform's build, tests and all,
-  # compiling each without running it. Trade-off TRADE-35: it compiles that
-  # code, and nothing here runs it.
+  # compiling each without running it: it compiles that code, and nothing here
+  # runs it.
   lint:crossvet:
     desc: Vet every release platform's build, tests and all, compiled but not run
     cmds:
@@ -620,16 +619,6 @@ tasks:
     desc: Check that no goroutine starts outside internal/proc, the tests and the written exceptions
     cmds:
       - scripts/check-goroutines.sh
-
-  lint:tradeoffs:
-    desc: Check the trade-off register's shape, and that every site comment names an entry
-    cmds:
-      - scripts/check-tradeoffs.sh
-
-  lint:techdebtpaths:
-    desc: Check that every repository path TECH_DEBT.md names in backticks is tracked
-    cmds:
-      - scripts/check-tech-debt-paths.sh
 
   lint:siblingtests:
     desc: Check that every script under scripts/ has its sibling test
@@ -830,8 +819,8 @@ tasks:
     desc: The linters and tests a docs-only change can fail, which CI's Lint job runs for one
     # Every gate that reads a file a docs-only change can touch: the Markdown
     # and prose linters and their configuration, the generated command
-    # reference, the gates that read CLAUDE.md, scripts/CLAUDE.md, TECH_DEBT.md,
-    # README.md, CONTRIBUTING.md and the budget history, and the docs' contract
+    # reference, the gates that read CLAUDE.md, scripts/CLAUDE.md, README.md,
+    # CONTRIBUTING.md and the budget history, and the docs' contract
     # tests. The Go, web and end-to-end suites and the code linters are left
     # out: no file they read changed. The secret scan is check:docs' own step,
     # since CI's Scan job runs it for every change.
@@ -844,8 +833,6 @@ tasks:
       - task: lint:filelength
       - task: lint:packagesize
       - task: lint:goversion
-      - task: lint:tradeoffs
-      - task: lint:techdebtpaths
       - task: lint:siblingtests
       - task: lint:layout
       - task: docs:check

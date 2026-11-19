@@ -73,9 +73,8 @@ jobs:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task golangci-lint shellcheck shfmt typos actionlint hadolint taplo zizmor node jq
       # yamllint and markdownlint-cli2 are pinned outside mise.toml, each one's
-      # whole tree by hash (Trade-off TRADE-53): `task tools` installs them into
-      # tmp/tools/bin, and the path is added for the steps below, not left to
-      # mise.toml's [env].
+      # whole tree by hash: `task tools` installs them into tmp/tools/bin, and
+      # the path is added for the steps below, not left to mise.toml's [env].
       - name: Install the linters pinned outside mise
         run: |
           task tools
@@ -295,13 +294,12 @@ jobs:
     if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Trade-off TRADE-58: every end-to-end job runs in Playwright's own image,
-    # which holds the browsers @playwright/test drives and every system library
-    # and font they need, so no job installs them over apt, whose mirror has
-    # stalled a job to its timeout. scripts/check-playwright-image.sh holds the
-    # image to the version web/yarn.lock resolves. The runner's user, since
-    # Firefox will not start as root, and a /dev/shm Chromium does not run out
-    # of.
+    # Every end-to-end job runs in Playwright's own image, which holds the
+    # browsers @playwright/test drives and every system library and font they
+    # need, so no job installs them over apt, whose mirror has stalled a job to
+    # its timeout. scripts/check-playwright-image.sh holds the image to the
+    # version web/yarn.lock resolves. The runner's user, since Firefox will not
+    # start as root, and a /dev/shm Chromium does not run out of.
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
       options: --user 1001 --shm-size=2gb
@@ -569,7 +567,15 @@ jobs:
       # formula's install or test block, so a call deprecated there passes.
       # ubuntu-latest images install Homebrew under /home/linuxbrew without
       # putting it on PATH; without it there, the script says brew is missing.
-      # Trade-off TRADE-42: this is whatever Homebrew the image ships, unpinned.
+      # That Homebrew is whatever the image ships, unpinned and never updated in
+      # the run: no action sets it up, so the workflow gains none to approve
+      # and pin. A rule a newer Homebrew adds can turn an unrelated pull
+      # request red, and the audit needs formulae.brew.sh and rubygems.org. It
+      # runs on Linux, so the formula's macOS url and sha256 get only the cops
+      # that read its text.
+      # Kept since it failed once in a month of runs, from Homebrew's own
+      # machinery, against a formula that would otherwise break the tap only
+      # after a release.
       - name: Audit the Homebrew formula
         run: |
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"

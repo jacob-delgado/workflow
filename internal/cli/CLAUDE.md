@@ -94,14 +94,16 @@ Jira they alone need (`trackerfake_test.go`).
 - **A wait with a person watching draws a live line** at the foot of stderr
   (`Notes.Watched`, `console/live.go`); everything said meanwhile prints above
   it, and when stdout is the same terminal the artifact does too
-  (`artifactBeside`, `cmdkit/prompt.go`, TRADE-43). Piped, the artifact goes to
+  (`artifactBeside`, `cmdkit/prompt.go`). Piped, the artifact goes to
   stdout untouched. The line follows the configuration the terminal interface
   draws by, through `console.Look` (`cmdkit.LiveLook`, `cmdkit/prompt.go`):
   `ui.ascii`, or `status --plain`, draws it in ASCII, and `ui.motion: reduce`
   holds its mark still on the in-flight glyph; its mark's frames are
   `progress.Turn`'s, the terminal's own.
-- **fang renders the help, the usage and the errors** (`execute`, `cli.go`,
-  TRADE-44), in the terminal's own sixteen colors (`ansiScheme`).
+- **fang renders the help, the usage and the errors** (`execute`, `cli.go`),
+  in the terminal's own sixteen colors (`ansiScheme`). It capitalizes its
+  titles and each flag's first word, and links mango and roff though the man
+  page is off; it offers no option to change either.
 
 ## How a command exits
 
@@ -185,7 +187,7 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   package's does, with a proof of its own. The kit's tests reach each of its
   conditions both ways, since the condition gate measures a package by its
   own tests alone, but for the two Windows clauses of `relativeToWorkingDir`
-  (`cmdkit/environment.go`) that TRADE-35 keeps: only
+  (`cmdkit/environment.go`): only
   `cmdkit/environment_windows_test.go` sees them false, and only a Windows
   `go test` runs it. gobco lists the two as seen one way, which fails
   nothing while their lines stand: the gate fails a condition no test

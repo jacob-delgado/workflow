@@ -17,7 +17,7 @@
 #
 # CLAUDE_ENV_FILE holds what every command the session runs starts with, so
 # the hook adds to it, once each: the link directory on PATH, whatever the
-# shell's own PATH says; zizmor offline (TRADE-54), for the hooks and
+# shell's own PATH says; zizmor offline, for the hooks and
 # `task lint` run as root; corepack pointed at the npm registry, since a cloud
 # session cannot resolve repo.yarnpkg.com, where corepack fetches Yarn
 # otherwise; and Playwright pointed at a Chromium of the image's
@@ -60,10 +60,9 @@ export_once() {
 if [[ -n "${CLAUDE_ENV_FILE:-}" ]]; then
   # shellcheck disable=SC2016 # expanded when each command starts, not here
   export_once 'export PATH="${HOME}/.local/bin:${PATH}"'
-  # Trade-off TRADE-54: zizmor runs offline for the hooks and task lint run as
-  # root: its online audits read third-party actions' tags from github.com,
-  # which refuses the session's GitHub token. CI's zizmor has no token and
-  # runs offline too.
+  # zizmor runs offline for the hooks and task lint run as root: its online
+  # audits read third-party actions' tags from github.com, which refuses the
+  # session's GitHub token. CI's zizmor has no token and runs offline too.
   export_once 'export ZIZMOR_OFFLINE=true'
   # The session cannot resolve repo.yarnpkg.com. Over the npm registry corepack
   # checks no signature on Yarn, only the SHA-512 web/package.json pins.

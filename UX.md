@@ -325,8 +325,9 @@ The top row is the one bold element, and draws the loop as a track
 (`spineView.draw`, `internal/tui/spine.go`): each stage's glyph and name in
 its system's hue, then a rule filled `━` in that hue once the stage is done,
 open `─` and faint while it is to come, and after Review filled by CI's
-share of checks finished (TRADE-45). Stages still to come are faint, so a
-stage's identity rests on its name (TRADE-5). The rules share the room
+share of checks finished, so CI is no stage of its own. Stages still to come
+are faint, so a stage's identity rests on its name, and the hue only repeats
+it. The rules share the room
 left, up to eight columns each; the place gives way first, then the active
 task's description, then the stage names for initials, which below 60
 columns or 24 rows the row uses from the start, and ASCII draws them `=`
@@ -356,7 +357,7 @@ through one `StateMark` (`web/src/lib/StateMark.tsx`), hidden from
 assistive tech beside its words. Type, space and corners each have one
 scale (`web/src/index.css`), headings are set in sentence case — the
 web lint refuses an `uppercase` class (`web/eslint.config.js:41`) — and
-the face is Recursive, latin alone (TRADE-48): proportional, `MONO` 0, for
+the face is Recursive, latin alone, one 72 kB file: proportional, `MONO` 0, for
 prose, and `MONO` 1, every letter one width, for code alone. The dialogs —
 the command palette and the `?` sheet — are Base UI's Dialog and
 Autocomplete, drawn through `web/src/lib/baseui`, over a backdrop of the
@@ -402,14 +403,14 @@ each recorded where it is kept:
 
 - **A dry run.** Under `--dry-run` the terminal narrates each write it
   holds back; the web refuses every write before it is sent and cannot
-  show what one would have done (TRADE-3).
+  show what one would have done, one gate over every write.
 - **A Jira setting saved.** The terminal's Settings reopens the interface
   with the file saved when no announcement or task change is in flight and
   nothing would be lost; otherwise it asks first, and staying keeps the
   save for when workflow next opens. With no directory to reopen in, it
   says the save waits for the next start. On the web a change to Jira's
   address, token, views or `issues.forge` applies once `workflow --web`
-  starts again or switches directory (TRADE-24).
+  starts again or switches directory, since the web wires Jira once.
 - **A task change at the loop's moments.** The terminal offers to start
   the issue's task when its branch is made or checked out, note the pull
   request on it, and complete it on a merge or a move to done; the web
@@ -446,8 +447,8 @@ each answers a refused save (#278):
   narrow" among its rows, from what it holds (`dirPicker.drawnRows`). While
   only the narrowed one is out, both draw "N more match", but the terminal
   says it is reading where it would say "first N shown"
-  (`dirPicker.status`), and the web keeps that line for a listing cut short
-  (TRADE-49).
+  (`dirPicker.status`), and the web keeps that line for a listing cut short,
+  both drawing at most 200 rows rather than a virtual list.
 - **A narrowed read that failed, as the stand-in.** While the next narrowed
   listing is read, the last narrowed listing to answer stands in for it, if
   it was of the same directory. The terminal takes a failed one too, so

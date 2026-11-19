@@ -8,14 +8,14 @@
 # sibling-tests, which reads every script under scripts/ as the index holds it.
 # Pre-push first runs push-is-head, which refuses a push of a branch at any
 # commit but the one checked out, or from a working tree with changes or files
-# git does not ignore, and its refusal stops the hook. Then it runs seven
+# git does not ignore, and its refusal stops the hook. Then it runs five
 # checks over the working tree, a failing one hiding none after it: unit-go
 # (`task test`) and lint-go-all (golangci-lint) when the push carries a Go
 # change, web (the web's lint, client-drift check and unit tests) when it
-# carries a web/ or API-spec change, and file-length, package-size, tradeoffs
-# and tech-debt-paths on every push. The rest of `task check` — the Go coverage
-# floors, the whole-tree linters and secret scan, govulncheck — and CI's
-# end-to-end suites run only there.
+# carries a web/ or API-spec change, and file-length and package-size on every
+# push. The rest of `task check` — the Go coverage floors, the whole-tree
+# linters and secret scan, govulncheck — and CI's end-to-end suites run only
+# there.
 #
 # DO NOT reach for `LEFTHOOK=0` to get past a blocked commit. A failing hook is
 # the hook working — fix the underlying issue. The only legitimate bypass is a
@@ -145,10 +145,10 @@ pre-commit:
 
 # Pre-push: push-is-head first, which holds a push to the commit the checks
 # judge, and then the checks: the tests (unit-go), golangci-lint over every Go
-# file (lint-go-all), the web's gates (web), and the four whole-tree checks a
-# staged-diff hook cannot see (file-length, package-size, tradeoffs,
-# tech-debt-paths). A red result here is a guaranteed red CI, and learning
-# that locally costs far less than a CI round trip.
+# file (lint-go-all), the web's gates (web), and the two whole-tree checks a
+# staged-diff hook cannot see (file-length, package-size). A red result here
+# is a guaranteed red CI, and learning that locally costs far less than a CI
+# round trip.
 pre-push:
   # The hook is piped, so a refused push stops it before the checks start;
   # the checks' group is not, so a push allowed runs every check and reports
@@ -226,16 +226,6 @@ pre-push:
           # directories at once.
           - name: package-size
             run: scripts/check-package-size.sh
-
-          # No glob either: a site comment can land in any file, and an entry
-          # dropped from TECH_DEBT.md fails at a site the push did not touch.
-          - name: tradeoffs
-            run: scripts/check-tradeoffs.sh
-
-          # No glob: a rename moves the code an entry names without touching
-          # TECH_DEBT.md, and only the whole tree shows the path gone.
-          - name: tech-debt-paths
-            run: scripts/check-tech-debt-paths.sh
 
 # Commit-message format check: Conventional Commits, e.g.
 #   feat(jira): add issue transition command
