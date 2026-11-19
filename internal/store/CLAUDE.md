@@ -40,7 +40,9 @@ holds here alone.
 - **Timestamps are RFC3339 UTC `TEXT` in an `_at` column**, written by
   `timestamp(now)` in `store.go`, **never** `DATETIME`, `CURRENT_TIMESTAMP` or
   a bare epoch integer: STRICT has no date type, and a caller-passed
-  `now time.Time` keeps the clock a seam. Columns are `snake_case`.
+  `now time.Time` keeps the clock a seam. `timestamp` writes all nine
+  nanosecond digits, so the text has one width and two moments compare in
+  SQL as text, as `issue_cache.cached_at` does. Columns are `snake_case`.
 
 ## Keys between tables
 

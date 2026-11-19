@@ -122,8 +122,7 @@ func writeCachedIssues(
 ) error {
 	var written int
 
-	// The cached_at column is RFC3339 seconds, so of two wirings reading one
-	// view within one second, the last to write is kept.
+	// Of two lists read at the very same nanosecond, the last written is kept.
 	err := transaction.QueryRowContext(ctx,
 		`INSERT INTO issue_cache (instance, view, cached_at) VALUES (?, ?, ?)
 			ON CONFLICT(instance, view) DO UPDATE SET cached_at = excluded.cached_at
