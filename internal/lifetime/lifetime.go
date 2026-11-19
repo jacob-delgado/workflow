@@ -3,14 +3,14 @@
 
 // Package lifetime carries, in a context, the end of what a piece of work is
 // done for: the web server serving it, or the command running it. Work that
-// goes on when its asker leaves (a read others share, a refresh that must not
-// stop halfway) detaches from the asker through Detached, and still ends with
-// that lifetime, so a server that stops, or a command a signal ends, is never
-// held open by it. A context can carry an InFlight too, the work begun under
-// it that has not yet ended, which a process waits for before it exits. A
-// write that must outlast its asker, as the terminal's writes outlast a quit,
-// is wrapped by Outlasting0 and its kin to run under the context an Outliving
-// makes for it: Unending, EndingWith or UncountedEndingWith.
+// goes on when its asker leaves, as a read others share does, detaches from
+// the asker through Detached, and still ends with that lifetime, so a server
+// that stops, or a command a signal ends, is never held open by it. A context
+// can carry an InFlight too, the work begun under it that has not yet ended,
+// which a process waits for before it exits. A write that must outlast its
+// asker, as the terminal's writes outlast a quit, is wrapped by Outlasting0
+// and its kin to run under the context an Outliving makes for it: Unending,
+// EndingWith or UncountedEndingWith.
 package lifetime
 
 import "context"

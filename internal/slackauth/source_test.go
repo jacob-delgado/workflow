@@ -18,6 +18,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
+	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 )
 
@@ -245,6 +246,48 @@ func TestARefreshedPairIsKeptThoughItsAskerLeavesOnceSlackAnswers(t *testing.T) 
 	// Assert
 	if held.held.RefreshToken != newRefresh || held.saves != 1 {
 		t.Errorf("kept %+v after %d saves, want the new pair kept though its asker left", held.held, held.saves)
+	}
+}
+
+// endingOnAnswer is do, calling end once Slack's answer has been read whole,
+// and then, where end can end the request's own context, waiting a while for
+// it to, so what follows the answer runs as it would after a Ctrl+C there.
+func endingOnAnswer(do httpx.Doer, end context.CancelFunc) httpx.Doer {
+	return func(request *http.Request) (*http.Response, error) {
+		return answeredThen(do, func() {
+			end()
+
+			if ended := request.Context().Done(); ended != nil {
+				select {
+				case <-ended:
+				case <-time.After(5 * time.Second):
+				}
+			}
+		})(request)
+	}
+}
+
+func TestARefreshedPairIsKeptThoughTheCommandEndsOnceSlackAnswers(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A Ctrl+C ends the command's lifetime, which the asker's context carries;
+	// once Slack has answered, the pair it gave is the only one that works.
+	server, _ := fakeSlack(t, rotated)
+	held := &memory{held: pairExpiringIn(time.Minute)}
+
+	command, end := context.WithCancel(t.Context())
+	t.Cleanup(end)
+
+	refresher := refresherFor(server)
+	refresher.Do = endingOnAnswer(refresher.Do, end)
+
+	// Act
+	_, _ = sourceOver(t, held, refresher).Token(lifetime.Within(t.Context(), command), "")
+
+	// Assert
+	if held.held.RefreshToken != newRefresh || held.saves != 1 {
+		t.Errorf("kept %+v after %d saves, want the new pair kept though the command ended", held.held, held.saves)
 	}
 }
 
