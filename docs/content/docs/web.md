@@ -810,10 +810,11 @@ the form has no field for is kept unchanged when you save: `version`,
 expiry. The task program is shown but not typed into: workflow runs it, and
 `jira.token_command`, as you, and reads the variable `jira.token_env` names, so
 they change only in the file itself, and a save over the API that carries
-another value for one is refused. An edit made to the file by hand reaches the
-page's other sections and its writes only once Settings reads the file again, or
-the page reads its keys again, as it does when it loads: until then they keep
-the configuration in effect. Settings reads the file each time it opens, and a
+another value for one is refused. An edit made to the file by hand is taken up
+as each frame of the event stream is read, every five seconds or sooner after a
+write, and reaches the page's other sections and its writes from then on; Jira's
+client, the issue tracker and Taskwarrior stay wired as they were until the next
+save, a switch or a restart. Settings reads the file each time it opens, and a
 save checks that the file has not changed since: when it has (edited on disk,
 rewritten by `workflow config init --force`, or saved from another tab), nothing
 is written, and **Reload** reads it again in place of your edits so you can make

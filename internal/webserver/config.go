@@ -30,8 +30,8 @@ func (s *server) GetConfig(
 		return s.configMadeSince(ctx, request)
 	}
 
-	// This read and GetKeys' alone take up a hand edit; every other read and
-	// write keeps the configuration in effect.
+	// This read, GetKeys' and each frame of the event stream take up a hand
+	// edit; every other read and write keeps the configuration in effect.
 	cfg, read, err := s.reread()
 	if errors.Is(err, config.ErrInvalid) {
 		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
@@ -77,6 +77,20 @@ func (s *server) reread() (config.Config, basis, error) {
 	}
 
 	return s.cfg, basis{seen: s.seen, gone: s.gone}, nil
+}
+
+// takeUpEdit takes up an edit made to the configuration file since the
+// server last read or wrote it, as a read of the configuration does, and
+// answers the configuration in effect after it. A file that is not valid, or
+// cannot be read, leaves the configuration in effect standing, which a read
+// of the configuration refuses, saying why.
+func (s *server) takeUpEdit() config.Config {
+	cfg, _, err := s.reread()
+	if err != nil {
+		return s.config()
+	}
+
+	return cfg
 }
 
 // placeSlackCredentials is the wiring's keeping of typed Slack user-token
@@ -286,10 +300,7 @@ func (s *server) keymapRefusal(keys map[string]string) error {
 // a file that is not valid, or cannot be read, leaves the configuration in
 // effect standing, and its keys with it, as it does for that read.
 func (s *server) GetKeys(_ context.Context, _ api.GetKeysRequestObject) (api.GetKeysResponseObject, error) {
-	cfg, _, err := s.reread()
-	if err != nil {
-		cfg = s.config()
-	}
+	cfg := s.takeUpEdit()
 
 	actions := []api.KeyAction{}
 
