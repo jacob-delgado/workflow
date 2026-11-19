@@ -42,8 +42,8 @@ func loadSpec() (*openapi3.T, error) {
 	return doc, nil
 }
 
-// switchExtension marks an operation in the spec that switches what the
-// server works with, which takes the write gate alone.
+// switchExtension marks an operation in the spec that wires what the server
+// works with again, which takes the write gate itself rather than shared.
 const switchExtension = "x-switch"
 
 // contract is the embedded spec, ready to check requests against and to say

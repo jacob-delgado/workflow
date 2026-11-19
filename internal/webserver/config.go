@@ -138,7 +138,7 @@ func (s *server) adoptForge(before, settings config.Forge) {
 // Settings, as distinct from refusing an announcement.
 var errSlackRefused = errors.New("slack refused the typed user token")
 
-// UpdateConfig writes the configuration file, but only over the revision
+// updateConfig writes the configuration file, but only over the revision
 // If-Match names, so a change made since that read, on disk or by another
 // tab's save, is refused with 409. Saves from this server are serialized, and
 // a save holds the save locks from its check through its write
@@ -149,28 +149,27 @@ var errSlackRefused = errors.New("slack refused the typed user token")
 // save waits is refused with 500, in words that say so. A stored secret is
 // kept when its field comes back masked or empty. It returns the result with
 // secrets masked, and the revision it wrote as its ETag.
-func (s *server) UpdateConfig(
+func (s *server) updateConfig(
 	ctx context.Context, request api.UpdateConfigRequestObject,
-) (api.UpdateConfigResponseObject, error) {
+) api.UpdateConfigResponseObject {
 	if s.setupNeeded() {
-		return s.noConfigToUpdate(), nil
+		return s.noConfigToUpdate()
 	}
 
 	if request.Params.IfMatch == nil {
 		return api.UpdateConfig428ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodePreconditionRequired,
 			"the save did not say which revision of the configuration it was made over; "+
-				"reload the page, then save again")), nil
+				"reload the page, then save again"))
 	}
 
 	over, err := basisIn(*request.Params.IfMatch)
 	if err != nil {
-		//nolint:nilerr // an If-Match naming no revision is answered with a 400 response, not a returned error
 		return problem.Answer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](
 			problem.New(api.ProblemCodeBadRequest,
-				"If-Match names no revision of the configuration; send the ETag a read of it returned")), nil
+				"If-Match names no revision of the configuration; send the ETag a read of it returned"))
 	}
 
-	return s.writeOver(ctx, *request.Body, over), nil
+	return s.writeOver(ctx, *request.Body, over)
 }
 
 // writeOver writes a configuration posted over the API over the read over, and

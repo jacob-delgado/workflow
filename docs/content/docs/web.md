@@ -513,7 +513,8 @@ waiting. The server, not the page, holds it: it reads the branch's pull
 request and its CI for it every `timing.ci_interval` (twenty seconds unless
 set), straight from the forge, whether a page is open or not, and a frame only
 shows how it stands. It is kept in memory alone, so it is lost, unposted, if
-`workflow --web` stops or switches directory before the CI passes — as one
+`workflow --web` stops, switches directory or reopens on a save in Settings
+before the CI passes — as one
 held in the terminal is lost when the terminal closes — and a post under way
 then finishes, its claim keeping it from going twice.
 
@@ -784,18 +785,15 @@ client secret and refresh token, the webhook URL and each Jira header —
 **Remove…** asks, then writes the file as it was read without it, leaving your
 other edits in the form for **Save changes**; it cannot be undone, and removing
 the client secret or the refresh token takes the access token made from them
-too. A change to the forge part — its token, host, kind or CLI — applies at
-once: the next call to the forge uses it, and the page names the forge it points
-at, with no restart. A change to the messaging part applies to the next
-announcement. A change to Jira's address, its token or where the token is read
-from (**Read the token from your keychain**, or `jira.token_env` or
-`jira.token_command` in the file), its user or headers, or to whether this
-repository's issues are listed, waits until workflow restarts or switches
-directory, as the part says: only then is Jira wired again. So does which view
-those issues lead: they stay with the JQL the first view had, so editing that
-JQL drops them from the first view, and putting another view first leaves them
-leading the view that was first. The rest of the Jira part — its project, review
-status, views and Markdown comments — applies at once. Slack's user token is
+too. Once saved, workflow reopens with the file, wiring the directory again as
+a switch to it does, so every change applies at once: the event stream
+reconnects, and every section is read again. Reopening drops an announcement
+waiting for CI, unposted, so while one waits, **Save changes** asks first,
+naming its pull request, and so does **Remove…**. A save made while another
+write is in flight, such as a git run started in another tab, or one after
+which the directory cannot be wired again, is written all the same; the save
+bar then says workflow could not reopen with it, naming both reasons, and that
+it applies at the next save, a switch or a restart. Slack's user token is
 three fields — Client ID, Client secret and Refresh token; on macOS a save
 refreshes the token with them and keeps the secrets in the keychain rather than
 the file — a keychain that cannot be read or will not store refuses the save
@@ -806,10 +804,7 @@ expiry have no field: workflow writes them. On macOS a Jira token you type goes
 to the keychain item for the Jira address, never into a file, and **Read the
 token from your keychain** is saved checked, so a repository whose file points
 Jira at another address takes a token of its own here; a token the keychain will
-not keep saves nothing. A change to the Taskwarrior part waits until workflow
-restarts or switches directory, as the part says: workflow finds Taskwarrior as
-it starts in a directory or switches to one, and until then the Tasks section
-says to restart or switch directory rather than read Taskwarrior. What
+not keep saves nothing. What
 the form has no field for is kept unchanged when you save: `version`,
 `jira.token_command`, `jira.token_env`, and the Slack access token and its
 expiry. The task program is shown but not typed into: workflow runs it, and

@@ -584,7 +584,9 @@ function configRoutes(): Routes {
       config = zConfig.parse(body)
       revision += 1
 
-      return read()
+      return Response.json(config, {
+        headers: { ETag: `"mock-${String(revision)}"`, 'Workflow-Reopened': 'true' },
+      })
     },
   }
 }

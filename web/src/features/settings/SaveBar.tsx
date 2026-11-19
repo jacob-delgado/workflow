@@ -70,6 +70,9 @@ interface SaveBarProps {
   // writing says a write to the file is out — a save, or a removal — which
   // the next save waits for.
   writing: boolean
+  // later says the last write was made while the server could not reopen
+  // with it, so it goes on with what it had until it next reopens.
+  later: boolean
   // checking says the reads after a switch made elsewhere, which settle
   // whether the edits are for the file the server now works with, are out.
   checking: boolean
@@ -86,7 +89,8 @@ interface SaveBarProps {
 // are changed and not saved, Discard and Save — both held while nothing is
 // changed, or while a save or a removal writes the file, and Save while a
 // switch made elsewhere is checking — and what the last save said: that it
-// saved, while nothing has changed since, or why it did not. A save refused
+// saved, and when it applies if not at once, while nothing has changed since,
+// or why it did not. A save refused
 // because the file changed says so, and offers Reload, in place of its own
 // reason.
 export function SaveBar(props: SaveBarProps) {
@@ -96,6 +100,7 @@ export function SaveBar(props: SaveBarProps) {
     toFix,
     saving,
     writing,
+    later,
     checking,
     said,
     error,
@@ -127,9 +132,26 @@ export function SaveBar(props: SaveBarProps) {
           {saving ? 'Saving…' : 'Save changes'}
         </Button>
       </div>
+      <AppliesLater later={later} />
       {reload === null ? null : <ChangedSinceRead reload={reload} />}
       {reload !== null || error === '' ? null : <Failure>{error}</Failure>}
     </div>
+  )
+}
+
+// AppliesLater says the last write was made while the server could not reopen
+// with it, why, and when it applies, or nothing. The server answers only that
+// it did not reopen, so both of its reasons are named.
+function AppliesLater({ later }: { later: boolean }) {
+  if (!later) {
+    return null
+  }
+
+  return (
+    <p className="text-sm text-muted-foreground">
+      workflow --web could not reopen with this save: another write was in flight, or the directory
+      could not be wired again. It applies at the next save, a switch or a restart.
+    </p>
   )
 }
 

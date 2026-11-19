@@ -2,7 +2,9 @@ import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { mockConfig } from '@/dev/mockConfig.ts'
+import { mockRepositories } from '@/dev/mockRepositories.ts'
 import { useViews } from '@/features/issues/issueApi.ts'
+import { useRepositories } from '@/features/repositories/repositoriesApi.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { appQueryClient } from '@/test/renderWithClient.tsx'
 import { useConfigRead, useReloadConfig, useSaveConfig } from './configApi.ts'
@@ -198,4 +200,44 @@ test('a reconnect does not read the configuration again', async () => {
   // Assert
   await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
   expect(requests).toHaveLength(1)
+})
+
+// savedAnswer answers a save, saying whether the server reopened with it.
+function savedAnswer(reopened: boolean): Response {
+  return Response.json(mockConfig, {
+    headers: { ETag: '"saved-1"', 'Workflow-Reopened': String(reopened) },
+  })
+}
+
+// repositoriesReads is how many times where the server works was read.
+function repositoriesReads(requests: Request[]): number {
+  return requests.filter((request) => new URL(request.url).pathname === '/api/repositories').length
+}
+
+test.each([
+  { reopened: true, reads: 2, what: 'reads every other section again' },
+  { reopened: false, reads: 1, what: 'leaves the other sections as they were read' },
+])('a save the server answers reopened $reopened $what', async ({ reopened, reads }) => {
+  // Arrange
+  // A server reopened with the file wires its directory again, as a switch
+  // does, so what every section read before may have changed.
+  const requests = fakeApi({
+    '/api/repositories': mockRepositories(),
+    '/api/config': () => savedAnswer(reopened),
+  })
+  const { result } = renderHook(() => ({ place: useRepositories(), save: useSaveConfig() }), {
+    wrapper: appWrapper(),
+  })
+  await waitFor(() => {
+    expect(result.current.place.isSuccess).toBe(true)
+  })
+
+  // Act
+  const saved = await act(() => result.current.save(mockConfig, '"read-1"'))
+
+  // Assert
+  expect(saved.reopened).toBe(reopened)
+  await waitFor(() => {
+    expect(repositoriesReads(requests)).toBe(reads)
+  })
 })

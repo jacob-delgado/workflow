@@ -81,32 +81,60 @@ export function useConfigRead() {
   return useQuery(configQuery())
 }
 
+// SavedConfig is the configuration as a save wrote it, and whether the server
+// reopened with it: wired its directory again, as a switch does, so every
+// setting saved applies at once. It did not when another write was in flight,
+// and goes on with what it had until the next save.
+export interface SavedConfig extends ConfigRead {
+  reopened: boolean
+}
+
+// reopenedHeader is the header a save says whether the server reopened in.
+const reopenedHeader = 'Workflow-Reopened'
+
 // saveConfig writes the whole configuration back over the revision named, and
-// returns it as stored, with secrets re-masked, and the revision written. A
-// secret left at its masked value keeps the stored one — the server preserves
-// it — so the form need not special-case them.
-async function saveConfig(config: Config, over: string | undefined): Promise<ConfigRead> {
+// returns it as stored, with secrets re-masked, the revision written, and
+// whether the server reopened with it. A secret left at its masked value keeps
+// the stored one — the server preserves it — so the form need not
+// special-case them.
+async function saveConfig(config: Config, over: string | undefined): Promise<SavedConfig> {
   const { data, response } = await updateConfig({
     body: config,
     headers: over === undefined ? undefined : { 'If-Match': over },
     throwOnError: true,
   })
 
-  return { config: data, revision: revisionOf(response) }
+  return {
+    config: data,
+    revision: revisionOf(response),
+    reopened: response.headers.get(reopenedHeader) === 'true',
+  }
 }
 
 // useSaveConfig saves the configuration over the revision it was read at, and
 // refreshes the cached copy with the stored result, so a surface that reads the
-// cache before its next read shows the save. The issue views and the keys live in the
-// configuration too, so they are read again: the view select offers only the
-// views the server lists, and a key moved or turned on works at once.
-export function useSaveConfig(): (config: Config, over: string | undefined) => Promise<ConfigRead> {
+// cache before its next read shows the save. A server reopened with the save
+// wired its directory again, so every section is read again, as after a
+// switch; otherwise the issue views and the keys, which live in the
+// configuration too, are: the view select offers only the views the server
+// lists, and a key moved or turned on works at once.
+export function useSaveConfig(): (
+  config: Config,
+  over: string | undefined,
+) => Promise<SavedConfig> {
   const queryClient = useQueryClient()
 
   return async (config, over) => {
     const saved = await saveConfig(config, over)
-    queryClient.setQueryData(configQuery().queryKey, saved)
-    readAgainAfter(queryClient)
+    queryClient.setQueryData(configQuery().queryKey, {
+      config: saved.config,
+      revision: saved.revision,
+    })
+    if (saved.reopened) {
+      void queryClient.resetQueries({ predicate: (query) => !isConfigQuery(query) })
+    } else {
+      readAgainAfter(queryClient)
+    }
 
     return saved
   }

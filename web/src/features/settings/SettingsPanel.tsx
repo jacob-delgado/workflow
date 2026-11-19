@@ -24,6 +24,7 @@ import {
   useReloadConfig,
   useSaveConfig,
 } from './configApi.ts'
+import { useAskedSave } from './DropsHeld.tsx'
 import { LeaveUnsaved } from './LeaveUnsaved.tsx'
 import { EditsLeft, useReadAfterSwitch } from './SwitchedAway.tsx'
 import { LocalData } from './people/LocalData.tsx'
@@ -150,7 +151,8 @@ function SetUpSaid({ result }: { result: SetupResult }) {
 // it. A save refused before it is sent, or by the server, marks each setting
 // refused beside itself; Show opens the first one's section and focuses it.
 // While it holds unsaved edits, a change of section asks first. While a switch
-// made elsewhere is checking, Save is held.
+// made elsewhere is checking, Save is held. While an announcement waits for
+// CI, a save asks first, since the reopen after it drops the announcement.
 function ConfigForm({ read, takesFocus, checking }: ConfigFormProps) {
   // The whole config seeds the form, so every key no fieldset registers — the
   // token commands, the Slack access token and its expiry — rides back
@@ -166,6 +168,7 @@ function ConfigForm({ read, takesFocus, checking }: ConfigFormProps) {
   const outcome = useOutcome()
   const save = useSave(file, form.setError, outcome)
   const reload = useReload(file, save.reset, view.show)
+  const asked = useAskedSave(save.run)
   const refused = refusedPaths(formState.errors)
   const changed = changedPaths(formState.dirtyFields)
   // Only the server refuses a list as a whole, and no rule here judges one
@@ -179,7 +182,7 @@ function ConfigForm({ read, takesFocus, checking }: ConfigFormProps) {
       form.clearErrors(listRefusals)
     }
     await handleSubmit(
-      (values) => save.run(values),
+      (values) => asked.submit(values),
       (errors) => {
         const judged = heldBack(standing, errors, form)
         view.show((judged[0] ?? standing[0])?.path ?? 'jira.base_url')
@@ -209,12 +212,14 @@ function ConfigForm({ read, takesFocus, checking }: ConfigFormProps) {
           bar={
             <>
               <LeaveUnsaved unsaved={changed.length} />
+              {asked.question}
               <SaveBar
                 form={formId}
                 unsaved={changed.length}
                 toFix={toFix(refused)}
                 saving={save.state === 'running'}
                 writing={file.writing}
+                later={file.later}
                 checking={checking}
                 said={outcome.said}
                 error={save.marked ? '' : refusalOf(save)}
@@ -411,12 +416,14 @@ interface Seeding {
 // write, answers. Its writes go one at a time, each made of the file as the
 // one before it left it and naming the revision that one wrote, so a Save and
 // a removal in one tab never refuse each other as a change the form has not
-// seen; writing says one is out. A removal writes the file as read without
+// seen; writing says one is out, and later that the last one was written
+// while the server could not reopen with it. A removal writes the file as read without
 // the credential, and takes up what it wrote under the form's edits.
 function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
   const [seeded, setSeeded] = useState(read.config)
   const [changed, setChanged] = useState(false)
   const [writes, setWrites] = useState(0)
+  const [later, setLater] = useState(false)
   const latest = useRef(read)
   const turn = useRef<Promise<void>>(Promise.resolve())
   const saveConfig = useSaveConfig()
@@ -427,8 +434,10 @@ function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
   }
   const send = async (config: Config, seeding: Seeding) => {
     try {
-      seed(await saveConfig(config, latest.current.revision), seeding)
+      const saved = await saveConfig(config, latest.current.revision)
+      seed(saved, seeding)
       setChanged(false)
+      setLater(!saved.reopened)
     } catch (caught) {
       setChanged(changedSinceRead(caught))
       throw caught
@@ -452,6 +461,7 @@ function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
     seed,
     write,
     writing: writes > 0,
+    later,
     removals: {
       holds: (removal: Removal) => stored(seeded, removal),
       remove: (removal: Removal) => write((stood) => without(stood, removal), { keepEdits: true }),
