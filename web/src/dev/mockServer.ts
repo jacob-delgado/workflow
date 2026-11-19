@@ -2,6 +2,7 @@ import type {
   Branch,
   Config,
   PullRequest,
+  RefusedSetting,
   Run,
   RunEvent,
   RunRequest,
@@ -35,7 +36,7 @@ import {
   mockHold,
   mockStop,
 } from './mockAnnouncement.ts'
-import { mockConfig } from './mockConfig.ts'
+import { mockConfig, mockTimingRefusal } from './mockConfig.ts'
 import { mockIssueDetail, mockStatusChanges, mockViews } from './mockIssues.ts'
 import { mockKeys } from './mockKeys.ts'
 import { mockLocalData, mockRemoveLocalData } from './mockLocalData.ts'
@@ -188,8 +189,9 @@ function paramsOf(pattern: string[], parts: string[]): Record<string, string> | 
 }
 
 // unprocessable is the server's refusal of a request it understood but will
-// not carry out, worded as it words one.
-function unprocessable(detail: string): Response {
+// not carry out, worded as it words one, naming each setting it refuses where
+// it refuses a configuration.
+function unprocessable(detail: string, fields?: RefusedSetting[]): Response {
   const status = 422
 
   return Response.json(
@@ -199,6 +201,7 @@ function unprocessable(detail: string): Response {
       status,
       detail,
       code: 'unprocessable',
+      fields,
     },
     { status, headers: { 'Content-Type': 'application/problem+json' } },
   )
@@ -572,7 +575,8 @@ function peopleRoutes(): Routes {
 }
 
 // configRoutes are the configuration's read and its save, which the read
-// after it shows, at a revision of its own, until the page loads again.
+// after it shows, at a revision of its own, until the page loads again. A
+// save with a timing the server would refuse is refused as it refuses one.
 function configRoutes(): Routes {
   let config: Config = mockConfig
   let revision = 1
@@ -581,7 +585,12 @@ function configRoutes(): Routes {
   return {
     'GET /api/config': read,
     'PUT /api/config': ({ body }) => {
-      config = zConfig.parse(body)
+      const saved = zConfig.parse(body)
+      const refused = mockTimingRefusal(saved)
+      if (refused !== undefined) {
+        return unprocessable(`the configuration is not valid: ${refused.detail}`, [refused])
+      }
+      config = saved
       revision += 1
 
       return Response.json(config, {

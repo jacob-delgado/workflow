@@ -9,7 +9,6 @@ import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useDropsHeldWords } from '../DropsHeld.tsx'
 import type { SettingsValues } from '../formValues.ts'
-import { ruleFor } from '../settingsRules.ts'
 import {
   type CredentialPath,
   type Removal,
@@ -46,8 +45,8 @@ function refusalId(name: Name): string {
   return `${name}-refusal`
 }
 
-// useRefusal is why the form refuses a field — a rule's word before a save,
-// or the server's after one — or undefined while it is not refused.
+// useRefusal is why the server refused a field, or the form a list's row
+// before a save, or undefined while it is not refused.
 function useRefusal(name: Name): string | undefined {
   const { errors } = useFormState<SettingsValues>({ name })
 
@@ -171,10 +170,7 @@ export function TextField({
         min={type === 'number' ? 0 : undefined}
         readOnly={readOnly}
         {...describedProps(name, { hint, refusal })}
-        {...register(name, {
-          setValueAs: type === 'number' ? readCount : readAs,
-          validate: ruleFor(name),
-        })}
+        {...register(name, { setValueAs: type === 'number' ? readCount : readAs })}
       />
     </Field>
   )

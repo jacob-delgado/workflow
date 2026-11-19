@@ -505,6 +505,48 @@ test('a configuration the mockup saves reads back, at a new revision', async () 
   expect(after.response.headers.get('ETag')).not.toBe(before.response.headers.get('ETag'))
 })
 
+test.each([
+  ['soon', 'not a duration such as "20s"'],
+  ['0s', 'must be more than zero'],
+  ['-1m', 'must be more than zero'],
+])('the mockup refuses a CI interval of %j as the server does: %s', async (interval, reason) => {
+  // Arrange
+  await installed()
+  const changed = { ...mockConfig, timing: { ...mockConfig.timing, ci_interval: interval } }
+
+  // Act
+  const { error, response } = await updateConfig({ body: changed })
+
+  // Assert
+  expect(response?.status).toBe(422)
+  expect(error).toMatchObject({
+    code: 'unprocessable',
+    fields: [
+      {
+        key: 'timing.ci_interval',
+        detail: `invalid timing: ${reason}: ${JSON.stringify(interval)}`,
+      },
+    ],
+  })
+  const { data } = await getConfig({ throwOnError: true })
+  expect(data.timing.ci_interval).toBe(mockConfig.timing.ci_interval)
+})
+
+test('the mockup refuses a long run of numbered units that ends in no unit at once', async () => {
+  // Arrange
+  await installed()
+  const interval = `${'99h'.repeat(28)}!`
+  const changed = { ...mockConfig, timing: { ...mockConfig.timing, ci_interval: interval } }
+  const started = performance.now()
+
+  // Act
+  const { response } = await updateConfig({ body: changed })
+
+  // Assert
+  expect(response?.status).toBe(422)
+  expect(performance.now() - started).toBeLessThan(1000)
+})
+
 test("the mockup's done answers the task done beside a list that no longer holds it", async () => {
   // Arrange
   await installed()

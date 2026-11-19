@@ -110,6 +110,8 @@ for (const theme of themes) {
     { tag: '@populated' },
     async ({ page }) => {
       // Arrange
+      // The server judges every setting, and names the one it refuses; the
+      // mockup's refuses a CI interval that is no duration as it does.
       await openCockpit(page, { width: 1024, height }, theme)
       await openSettings(page, 'Advanced')
       await page.getByRole('textbox', { name: 'CI interval' }).fill('soon')
