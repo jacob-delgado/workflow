@@ -7,6 +7,7 @@ import { LastLook } from '@/lib/LastLook.tsx'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { useDropsHeldWords } from '../DropsHeld.tsx'
 import type { SettingsValues } from '../formValues.ts'
 import { ruleFor } from '../settingsRules.ts'
 import {
@@ -383,15 +384,19 @@ interface RemoveQuestionProps {
   onRemove: () => void
 }
 
-// RemoveQuestion asks before a removal.
+// RemoveQuestion asks before a removal, saying what the save drops of an
+// announcement waiting for CI.
 function RemoveQuestion({ removal, onCancel, onRemove }: RemoveQuestionProps) {
+  const dropsHeld = useDropsHeldWords()
+
   return (
     <LastLook
       question={`Remove ${removalWords(removal)} from the file?`}
       cost={
         <>
-          {removalConsequence(removal)}It cannot be undone: the file keeps no copy, and the save is
-          made at once, without the form&apos;s other changes.
+          {removalConsequence(removal)}
+          {dropsHeld}It cannot be undone: the file keeps no copy, and the save is made at once,
+          without the form&apos;s other changes.
         </>
       }
       act="Remove"

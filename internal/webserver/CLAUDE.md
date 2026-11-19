@@ -16,8 +16,9 @@ a new word comes from that table.
 - `server` implements `api.StrictServerInterface` (`webserver.go`); every
   operation the spec names is a method on it, its own or one of the
   `tasks.Handlers` or the `runs.Runner` it embeds. An operation whose
-  `x-switch` extension is set switches the directory (`switchExtension`,
-  `edge/validator.go`).
+  `x-switch` extension is set wires the directory again (`switchExtension`,
+  `edge/validator.go`): a switch, a setup, and a configuration save, which
+  reopens the server with the file it wrote.
 
 ## One file per operation, and when code may leave
 
@@ -76,8 +77,10 @@ schemes say, a bearer token or, for the event stream, a query parameter.
 `worlds.serve` gives each request the server's lifetime; runs every write
 under a context that outlasts its page and ends only when the server stops
 (`outlivingItsPage`), so a closed tab never cuts a write in half; holds the
-write gate shared for every write but an `x-switch` one, which takes it alone
-and is refused while a write is in flight; and refuses, as `conflict`, a write
+write gate shared for every write but an `x-switch` one, which takes the gate
+itself: a switch or a setup alone, refused while a write is in flight, and a
+configuration save shared for the save, then alone for the reopen after it,
+which a write in flight leaves for later; and refuses, as `conflict`, a write
 whose `Workflow-Here` header (`HereHeader`) names another directory than the
 one served.
 

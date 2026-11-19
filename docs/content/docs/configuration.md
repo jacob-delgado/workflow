@@ -127,26 +127,24 @@ written, it asks first, naming anything that would be lost, and staying keeps
 the save for when workflow next opens. With no directory to reopen in, the save
 waits for the next start.
 
-The web's Settings applies a change to Jira's project, review status, views and
-Markdown comments at once. The rest of Jira's settings are read once, when
-`workflow --web` wires the directory it works in, as it starts or switches
-there, so a change to them waits for a restart or a directory switch: the
-address; the token and where it is read from, `jira.keychain` or, set in the
-file alone, `jira.token_env` or `jira.token_command`; the user; the headers;
-and `issues.forge`. So does which view the forge's issues lead: they stay with
-the JQL the first view had, so editing that JQL drops them from the first view,
-and putting another view first leaves them leading the view that was first.
+The web's Settings reopens `workflow --web` with the file after each save,
+wiring the directory again as a switch to it does, so every setting saved
+applies at once. Reopening drops an announcement waiting for CI, so while one
+waits, Settings asks before it saves. A save made while another write is in
+flight, such as a git run, is written all the same, and Settings says it
+applies once `workflow --web` next reopens: at the next save, a switch or a
+restart.
 
 **Which files apply is decided as workflow starts or switches directory**, and
-in the terminal also as Settings reopens it after a save. A repository's
+also as Settings reopens it after a save. A repository's
 `.workflow.json` made while the terminal or `workflow --web` is running — by
 hand, or by `workflow config init` in another terminal — is not read until
 then: Settings goes on reading and saving the files it found, so a save still
-writes your home file, and the new file's settings take no effect. In the
-terminal that save goes to your home file all the same, but the reopen after it
-takes the new file up, so from then on what the repository's file sets wins
-over what was just saved. Restart workflow, or switch to another directory and
-back, to take it up. The one exception is a directory where no file applied at
+writes your home file, and the new file's settings take no effect. That save
+goes to your home file all the same, but the reopen after it takes the new file
+up, so from then on what the repository's file sets wins over what was just
+saved. Restart workflow, or switch to another directory and back, to take it up
+without a save. The one exception is a directory where no file applied at
 all: there the web's Settings takes up a file made since as it reads the
 configuration again, and serves it from then on
 ([Web: setting up]({{< relref "/docs/web#setting-up" >}})).
@@ -172,7 +170,7 @@ refused]({{< relref "/docs/faq#when-the-configuration-file-is-refused" >}}).
 | `jira.project` | no | The Jira project key, e.g. `PROJ`. When set, only a branch naming a key in that project is read as an issue, so a name like `fix/UTF-8-decoding` is not mistaken for one. Empty (the default) falls back to a looser guard that rejects common technical tokens (`UTF`, `SHA`, `CVE`) by shape alone. |
 | `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. On by default; `false` posts a comment unchanged, for one already written in wiki markup. A comment on a forge issue is always posted as written, since the forge renders Markdown itself. |
 | `jira.review_status` | no | The status an issue moves to once its pull request is open, e.g. `In Review`. Opening a pull request offers the move to this status by name. Empty (the default) makes no offer. |
-| `issues.forge` | no | List the issues assigned to you on this repository's own GitHub or GitLab project beside Jira's, at the head of the first issue list. Set it in the repository's file, over your home file's default. With no `jira.base_url` the forge's issues are the whole list whatever it says. Defaults to `false`. Saved from the web's Settings, a change waits for `workflow --web` to restart or switch directory, as a change to the first view does for these issues; see [Where it looks](#where-it-looks-and-what-wins). |
+| `issues.forge` | no | List the issues assigned to you on this repository's own GitHub or GitLab project beside Jira's, at the head of the first issue list. Set it in the repository's file, over your home file's default. With no `jira.base_url` the forge's issues are the whole list whatever it says. Defaults to `false`. See [Where it looks](#where-it-looks-and-what-wins). |
 | `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`, spelled in lowercase; any other value is refused when the file loads. It decides the message body and link markup. |
 | `messaging.client_id` | for a Slack user token | Your Slack app's client ID, which its rotating user token is refreshed with. Not a secret; `workflow slack login` writes it. Slack only, and never together with `messaging.webhook_url`. |
 | `messaging.client_secret`, `messaging.refresh_token`, `messaging.access_token`, `messaging.expires_at` | written by workflow | The user token's rotating credentials, when this file keeps them — on Linux, or on macOS once they are here — rather than the keychain. workflow rewrites the last three on every refresh. All but `expires_at` are **credentials**. |
@@ -206,8 +204,8 @@ refused]({{< relref "/docs/faq#when-the-configuration-file-is-refused" >}}).
 | `commit.refs_trailer` | no | The label of the trailer that names the issue in a commit body, e.g. `Closes`. Defaults to `Refs`. It is a single word with no colon; anything else is refused when the file loads. |
 | `pull_request.title_source` | no | Where a proposed pull request's title comes from: `commit` (the default) takes the branch's oldest commit subject, `issue` the issue's key and summary. Any other value is refused when the file loads. See [Pull requests](#pull-requests). |
 | `store.disabled` | no | Keep nothing on disk between sessions: neither the conveniences nor what you decided — whom each code owner is on Slack, the groups each repository tags, your favorite directories. Defaults to `false`; the store never holds a secret. See [What is kept between sessions](#what-is-kept-between-sessions). |
-| `taskwarrior.program` | no | The Taskwarrior program to run, and the only one tried: an absolute path, such as `/opt/homebrew/bin/task`, or a name looked up on `PATH`; a relative path is refused when the file loads. Empty (the default) tries every `task` in an absolute `PATH` directory, in order, and keeps the first that is Taskwarrior 3.5.0 or newer; a Taskwarrior that has never been run, whose taskrc has a malformed line, or that cannot start ends the search there. A value with a line break or a NUL in it is refused when the file loads. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). A change applies when workflow next starts or switches directory. See [Taskwarrior](#taskwarrior). |
-| `taskwarrior.disabled` | no | Turn the Taskwarrior integration off even where Taskwarrior is installed. Defaults to `false`. A change applies when workflow next starts or switches directory. |
+| `taskwarrior.program` | no | The Taskwarrior program to run, and the only one tried: an absolute path, such as `/opt/homebrew/bin/task`, or a name looked up on `PATH`; a relative path is refused when the file loads. Empty (the default) tries every `task` in an absolute `PATH` directory, in order, and keeps the first that is Taskwarrior 3.5.0 or newer; a Taskwarrior that has never been run, whose taskrc has a malformed line, or that cannot start ends the search there. A value with a line break or a NUL in it is refused when the file loads. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). A change applies when workflow next starts or switches directory, or Settings reopens it after a save. See [Taskwarrior](#taskwarrior). |
+| `taskwarrior.disabled` | no | Turn the Taskwarrior integration off even where Taskwarrior is installed. Defaults to `false`. A change applies when workflow next starts or switches directory, or Settings reopens it after a save. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -1139,10 +1137,11 @@ or offer appears.
 
 workflow finds Taskwarrior once for the directory it works in, as it starts or
 switches there, so a change to `taskwarrior.program` or `taskwarrior.disabled`
-applies when workflow next starts or switches directory. One saved from the
-web's Settings waits too: until then, the Tasks section says to restart workflow
-or switch directory to apply it — never a reason that holds only for the
-settings workflow started with — and the rest of the page shows no task.
+applies when workflow next starts or switches directory, or Settings reopens
+it after a save. One edited in the file by hand waits until then: the web's
+Tasks section says to restart workflow or switch directory to apply it — never
+a reason that holds only for the settings workflow started with — and the rest
+of the page shows no task.
 
 `workflow doctor` names the Taskwarrior it found, or why none is usable:
 

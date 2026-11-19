@@ -48,9 +48,9 @@ type World struct {
 }
 
 // worlds holds the server for the directory worked in, and replaces it with
-// another directory's on a switch. Every write but a switch holds gate
-// shared, so a switch, which holds it alone, is refused while one runs rather
-// than leaving it unknown.
+// another directory's on a switch, or the same directory's wired again. Every
+// write but a switch holds gate shared, so a switch, which holds it alone, is
+// refused while one runs rather than leaving it unknown.
 type worlds struct {
 	// lifetime is the server's own: it ends when the server stops, and every
 	// write's context ends with it rather than with the write's page.

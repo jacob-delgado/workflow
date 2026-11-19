@@ -66,7 +66,7 @@ type ServerInterface interface {
 	// GetConfig The configuration in effect, with secrets masked.
 	// (GET /api/config)
 	GetConfig(w http.ResponseWriter, r *http.Request)
-	// UpdateConfig Write the configuration file.
+	// UpdateConfig Write the configuration file, and reopen the server with it.
 	// (PUT /api/config)
 	UpdateConfig(w http.ResponseWriter, r *http.Request, params UpdateConfigParams)
 	// GetSetup Whether a first configuration file is needed here, and where it may go.
@@ -3012,7 +3012,8 @@ type UpdateConfigResponseObject interface {
 }
 
 type UpdateConfig200ResponseHeaders struct {
-	ETag string
+	ETag             string
+	WorkflowReopened bool
 }
 
 type UpdateConfig200JSONResponse struct {
@@ -3028,6 +3029,7 @@ func (response UpdateConfig200JSONResponse) VisitUpdateConfigResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.Header().Set("Workflow-Reopened", fmt.Sprint(response.Headers.WorkflowReopened))
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
@@ -6780,7 +6782,7 @@ type StrictServerInterface interface {
 	// GetConfig The configuration in effect, with secrets masked.
 	// (GET /api/config)
 	GetConfig(ctx context.Context, request GetConfigRequestObject) (GetConfigResponseObject, error)
-	// UpdateConfig Write the configuration file.
+	// UpdateConfig Write the configuration file, and reopen the server with it.
 	// (PUT /api/config)
 	UpdateConfig(ctx context.Context, request UpdateConfigRequestObject) (UpdateConfigResponseObject, error)
 	// GetSetup Whether a first configuration file is needed here, and where it may go.

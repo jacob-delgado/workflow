@@ -398,19 +398,12 @@ of this file, and the names the three surfaces share are the Vocabulary
 table's beside it; a sentence one surface words differently from another,
 or that assumes GitHub or the terminal, is an entry here.
 
-Three differences between the terminal and the web stay open by decision,
+Two differences between the terminal and the web stay open by decision,
 each recorded where it is kept:
 
 - **A dry run.** Under `--dry-run` the terminal narrates each write it
   holds back; the web refuses every write before it is sent and cannot
   show what one would have done, one gate over every write.
-- **A Jira setting saved.** The terminal's Settings reopens the interface
-  with the file saved when no announcement or task change is in flight and
-  nothing would be lost; otherwise it asks first, and staying keeps the
-  save for when workflow next opens. With no directory to reopen in, it
-  says the save waits for the next start. On the web a change to Jira's
-  address, token, views or `issues.forge` applies once `workflow --web`
-  starts again or switches directory, since the web wires Jira once.
 - **A task change at the loop's moments.** The terminal offers to start
   the issue's task when its branch is made or checked out, note the pull
   request on it, and complete it on a merge or a move to done; the web

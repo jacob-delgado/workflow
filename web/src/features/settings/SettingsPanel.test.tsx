@@ -238,23 +238,6 @@ test('offers turning the store off and rides it back through a save', async () =
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
 
-test('the Taskwarrior fieldset says its changes wait for a restart or a directory switch', async () => {
-  // Arrange
-  servesSettings()
-
-  // Act
-  renderWithClient(<SettingsPanel />)
-  await inSection('Taskwarrior')
-
-  // Assert
-  expect(
-    await screen.findByRole('group', {
-      name: 'Taskwarrior',
-      description: 'A change here waits for a restart or a directory switch.',
-    }),
-  ).toBeTruthy()
-})
-
 test("the Taskwarrior fieldset's switch rides back through a save, and its program as the file holds it", async () => {
   // Arrange
   servesSettings()

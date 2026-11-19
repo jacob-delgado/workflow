@@ -166,10 +166,12 @@ internal/tui 95
 # once they had left, the maintainer's budget decision (a split leaves its
 # parent a ratcheted budget at the count it leaves) made it 30, the files it
 # holds. So the next operation is a bump with its reason written here. 29
-# since announcememory.go left, the server's cache of what the store
+# once announcememory.go left, the server's cache of what the store
 # remembered announcing, once the claim each post takes made the store the
-# only authority on what was announced.
-internal/webserver 29
+# only authority on what was announced. 30 since configreopen.go: a
+# configuration save's reopen of the server with the file it wrote, out of
+# config.go, which it carried past 600 lines.
+internal/webserver 30
 
 # internal/cli — the Cobra command tree, spelled one file per command, or per
 # family of commands over one seam that share their checks (or per section of a
