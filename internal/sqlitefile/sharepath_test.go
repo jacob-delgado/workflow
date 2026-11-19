@@ -15,9 +15,8 @@ func TestAPathStartingWithTwoSlashesNamesThatFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A share's path on Windows, \\server\share\..., slashes to
-	// //server/share/...; on Unix two leading slashes name the root, so the
-	// same spelling of a path names a file a test can make.
+	// Two leading slashes name the root, so the URI must not read the first
+	// part of such a path as a server.
 	dir := t.TempDir()
 	path := "/" + filepath.Join(dir, "made.db")
 

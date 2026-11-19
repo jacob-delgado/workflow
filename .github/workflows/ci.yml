@@ -228,14 +228,14 @@ jobs:
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task jq lefthook go:github.com/rillig/gobco
-      # Condition coverage. gobco reads every package with tests, a package of
-      # build-tagged twins a file at a time, and scripts/gobco-report.sh fails
-      # on any it cannot read rather than drop it from the report. Its floor
-      # comes from the same Taskfile variable the local gate reads. A pull
-      # request also fails on a condition seen one way on a line it adds or
-      # modifies, judged against its base branch. A push to main names no
-      # base, since what it changes has passed that check as a pull request,
-      # so the report says it skips that check, and that check alone.
+      # Condition coverage. gobco reads every package with tests, and
+      # scripts/gobco-report.sh fails on any it cannot read rather than drop
+      # it from the report. Its floor comes from the same Taskfile variable
+      # the local gate reads. A pull request also fails on a condition seen
+      # one way on a line it adds or modifies, judged against its base
+      # branch. A push to main names no base, since what it changes has
+      # passed that check as a pull request, so the report says it skips
+      # that check, and that check alone.
       - run: task cover:branch
         env:
           GATE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}

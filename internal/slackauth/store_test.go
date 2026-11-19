@@ -134,9 +134,6 @@ func TestChooseKeepsThePairWhereItBelongs(t *testing.T) {
 			goos: "darwin", messaging: config.Messaging{ClientID: clientID, RefreshToken: oldRefresh}, want: inTheFile,
 		},
 		"linux keeps it in the file": {goos: "linux", messaging: config.Messaging{ClientID: clientID}, want: inTheFile},
-		"windows keeps it in the file": {
-			goos: "windows", messaging: config.Messaging{ClientID: clientID}, want: inTheFile,
-		},
 	}
 
 	for name, tt := range cases {

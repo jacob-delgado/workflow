@@ -186,14 +186,12 @@ func safeBrowserURL(raw string) (string, error) {
 }
 
 // BrowserCommand is the command that opens target, a web URL, on goos: open on
-// macOS, rundll32 with url.dll,FileProtocolHandler on Windows, and xdg-open on
-// every other platform, each handed the URL as a single argument.
+// macOS, and xdg-open on every other platform, each handed the URL as a single
+// argument.
 func BrowserCommand(goos, target string) proc.Command {
 	switch goos {
 	case "darwin":
 		return proc.Command{Name: "open", Args: []string{target}}
-	case "windows":
-		return proc.Command{Name: "rundll32", Args: []string{"url.dll,FileProtocolHandler", target}}
 	default:
 		return proc.Command{Name: "xdg-open", Args: []string{target}}
 	}
@@ -374,7 +372,7 @@ func (e Environment) hookDeps(root string) seams.Hooks {
 				return hooks.Setup{}, err
 			}
 
-			return hooks.Survey(os.DirFS(dir), os.DirFS(root), runtime.GOOS), nil
+			return hooks.Survey(os.DirFS(dir), os.DirFS(root)), nil
 		},
 		Write: func(ctx context.Context, generated hooks.Generated) error {
 			err := hooks.Write(root, generated)

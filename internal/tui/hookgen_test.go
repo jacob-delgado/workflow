@@ -6,7 +6,6 @@ package tui_test
 import (
 	"context"
 	"errors"
-	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -69,7 +68,7 @@ func surveyed(found []hooks.GitHook, configured bool) hooks.Setup {
 		repo["lefthook.yml"] = &fstest.MapFile{Data: []byte(preCommitHook + ":\n"), Mode: 0o644}
 	}
 
-	return hooks.Survey(hooksDir, repo, runtime.GOOS)
+	return hooks.Survey(hooksDir, repo)
 }
 
 // errHooksDirStalled is git unable to say where the hooks directory is.

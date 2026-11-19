@@ -47,7 +47,7 @@ func TestAHookThatCannotBeReadIsLeftOut(t *testing.T) {
 	}
 
 	// Act
-	found := offeredFrom(dir, "linux")
+	found := offeredFrom(dir)
 
 	// Assert
 	if len(found) != 1 || found[0].Name != prePush {

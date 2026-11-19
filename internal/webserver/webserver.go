@@ -360,8 +360,8 @@ func startingPoint(cfg config.Config) (config.Config, config.Revision, error) {
 
 // DefaultPort is the port the server listens on when `workflow --web` is given
 // no --port. IANA assigns 13579 to no service, and it sits below the range
-// Linux, macOS and Windows hand out to outgoing connections, so another
-// program is unlikely to hold it.
+// Linux and macOS hand out to outgoing connections, so another program is
+// unlikely to hold it.
 const DefaultPort = 13579
 
 // LoopbackAddr is where the server listens in production, on port: the

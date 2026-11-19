@@ -1,11 +1,6 @@
 # The repo is LF-only (see .editorconfig); normalize on the way in and out.
 * text=auto eol=lf
 
-# Windows-only scripts need CRLF to run.
-*.bat text eol=crlf
-*.cmd text eol=crlf
-*.ps1 text eol=crlf
-
 # Generated: collapsed in diffs, excluded from language stats.
 go.sum linguist-generated=true
 # The typed API clients are generated from api/openapi.yaml (hey-api on the web

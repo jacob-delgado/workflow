@@ -53,7 +53,7 @@ func itemFor(t *testing.T, runner keychain.Runner) keychain.Item {
 func TestOpenGivesAnItemOnMacOSOnly(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]bool{"darwin": true, "linux": false, "windows": false}
+	cases := map[string]bool{"darwin": true, "linux": false}
 
 	for goos, want := range cases {
 		t.Run(goos, func(t *testing.T) {

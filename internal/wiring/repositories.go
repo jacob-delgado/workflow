@@ -335,7 +335,7 @@ func distinctNames(repositories []Workspace) []string {
 
 // sanitizedElements is root's path elements, each sanitized.
 func sanitizedElements(root string) []string {
-	elements := strings.FieldsFunc(filepath.ToSlash(root), func(r rune) bool { return r == '/' })
+	elements := strings.FieldsFunc(root, func(r rune) bool { return r == '/' })
 	for at, element := range elements {
 		elements[at] = sanitize.Line(element)
 	}

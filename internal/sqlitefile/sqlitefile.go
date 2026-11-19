@@ -13,7 +13,6 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"modernc.org/sqlite"
@@ -51,11 +50,11 @@ func Open(path, params string) *sql.DB {
 // fileURI is the address of the database file at path with params: a file
 // URI, in which a percent sign escapes, a question mark starts the parameters
 // and a hash ends the path, so the path escapes all three. A path from the
-// root takes an empty authority, as in file:///home/..., so that a Windows
-// share's, //server/share/..., is not read as naming its server as the
-// authority, which SQLite refuses; a drive's, file:C:/..., takes none.
+// root takes an empty authority, as in file:///home/..., so that one opening
+// with two slashes, //tmp/..., is not read as naming a server as the
+// authority, which SQLite refuses; a relative one takes none.
 func fileURI(path, params string) string {
-	escaped := strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").Replace(filepath.ToSlash(path))
+	escaped := strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").Replace(path)
 	if strings.HasPrefix(escaped, "/") {
 		return "file://" + escaped + "?" + params
 	}

@@ -14,8 +14,8 @@ import (
 
 // offeredFrom are the hooks Survey offers from hooksDir in a repository that
 // does not configure lefthook.
-func offeredFrom(hooksDir fs.FS, goos string) []hooks.GitHook {
-	return hooks.Survey(hooksDir, fstest.MapFS{}, goos).Hooks()
+func offeredFrom(hooksDir fs.FS) []hooks.GitHook {
+	return hooks.Survey(hooksDir, fstest.MapFS{}).Hooks()
 }
 
 func TestTheHooksOfferedAreTheOnesGitWouldRun(t *testing.T) {
@@ -30,15 +30,17 @@ func TestTheHooksOfferedAreTheOnesGitWouldRun(t *testing.T) {
 		postCheckout:             executable("#!/bin/sh\n# lefthook_version: 2\ncall_lefthook run post-checkout\n"),
 		"prepare-commit-msg.old": executable("#!/bin/sh\n"),
 		"notes.txt":              executable("not a hook"),
+		"post-merge/readme":      executable("a directory named for a hook"),
 	}
 
 	// Act
-	found := offeredFrom(dir, "linux")
+	found := offeredFrom(dir)
 
 	// Assert
 	// Git's own order, not the directory's: commit-msg after pre-commit. Not
 	// a sample, not a file without the executable bit (git skips those), not
-	// a hook lefthook already installed, not a leftover .old.
+	// a hook lefthook already installed, not a leftover .old, not a directory
+	// named for a hook.
 	names := make([]string, 0, len(found))
 	for _, each := range found {
 		names = append(names, each.Name)
@@ -68,30 +70,11 @@ func TestTheHooksOfferedTellLefthooksShimFromAHookThatMentionsIt(t *testing.T) {
 	}
 
 	// Act
-	found := offeredFrom(dir, "linux")
+	found := offeredFrom(dir)
 
 	// Assert
 	if len(found) != 1 || found[0].Name != preCommit || found[0].Script != mentions {
 		t.Errorf("offered %+v, want only the hook that mentions lefthook", found)
-	}
-}
-
-func TestTheHooksOfferedNeedNoExecutableBitOnWindows(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// Go reports no executable bit for any file on Windows, so requiring one
-	// would find no hooks there; a plain, non-executable file must count.
-	dir := fstest.MapFS{
-		preCommit: {Data: []byte(simplePreCommit), Mode: 0o644},
-	}
-
-	// Act
-	found := offeredFrom(dir, "windows")
-
-	// Assert
-	if len(found) != 1 || found[0].Name != preCommit {
-		t.Errorf("offered %+v on Windows, want the non-executable pre-commit found", found)
 	}
 }
 
@@ -124,7 +107,7 @@ func TestSurveyOffersTheHooksOfARepositoryLefthookDoesNotConfigure(t *testing.T)
 			t.Parallel()
 
 			// Act
-			setup := hooks.Survey(tt.hooksDir, tt.repo, "linux")
+			setup := hooks.Survey(tt.hooksDir, tt.repo)
 
 			// Assert
 			if setup.Offering() != tt.offering || !slices.Equal(setup.Hooks(), tt.offered) {

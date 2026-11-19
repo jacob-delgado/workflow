@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -207,7 +206,7 @@ func TestFilesUnderFailsTheTestForAFileItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+	if os.Geteuid() == 0 {
 		t.Skip("a file's mode does not keep this user from reading it here")
 	}
 

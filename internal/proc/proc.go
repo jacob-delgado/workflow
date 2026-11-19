@@ -159,9 +159,8 @@ func captureWithin(ctx context.Context, timeout time.Duration, program Command, 
 
 // recordStop reports whether the context's kill reached command's program
 // while it ran, which is what tells a stopped program from one that exited by
-// itself on every platform: on Windows a killed program reads as one that
-// exited with status 1. A kill that lands as the program exits, before it is
-// reaped, counts as the stop.
+// itself. A kill that lands as the program exits, before it is reaped, counts
+// as the stop.
 func recordStop(command *exec.Cmd) *atomic.Bool {
 	var stopped atomic.Bool
 

@@ -337,10 +337,6 @@ func TestDBCleanThatCannotReadTheStoreSaysSo(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows reads a path through a file as one that is not there")
-	}
-
 	// A file stands where the store's directory's parent belongs, so nothing
 	// in the store can be looked at.
 	home := t.TempDir()

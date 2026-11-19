@@ -159,7 +159,7 @@ func storerFor(runs *[]ran, err error) func(ctx context.Context, service, secret
 func TestStorerIsWiredForMacOSOnly(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]bool{"darwin": true, "linux": false, "windows": false}
+	cases := map[string]bool{"darwin": true, "linux": false}
 
 	for goos, wired := range cases {
 		t.Run(goos, func(t *testing.T) {

@@ -5,7 +5,6 @@ package tui
 
 import (
 	"errors"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -97,7 +96,7 @@ func (m Model) startRun(kind runKind, start starter, succeeded func(Model) (Mode
 	m, round := m.nextRound()
 	m.overlay = commandRun{
 		kind: kind, id: round, start: start, succeeded: succeeded,
-		placeScan: hooks.NewFailureScan(runtime.GOOS),
+		placeScan: hooks.NewFailureScan(),
 	}
 
 	return m, launch(round, start)

@@ -72,8 +72,8 @@ internal/messaging/directory/ the Slack directory people are tagged from, read o
 internal/slackauth/   the Slack user token: refreshing, storing, locking
 internal/taskwarrior/ finding Taskwarrior and reading and changing its tasks
 internal/httpx/       the redirect-refusing HTTP transport the clients share
-internal/fileowner/   who owns a file, as Unix keeps it (build-tagged twins)
-internal/filelock/    an advisory lock on an open file (build-tagged twins)
+internal/fileowner/   who owns a file, as Unix keeps it
+internal/filelock/    an advisory lock on an open file
 internal/gitrepo/     reading and changing the repository through git
 internal/workdirs/    the directories workflow can work in: listing, checking, naming
 internal/codeowners/  who owns which paths, as GitHub or GitLab reads CODEOWNERS

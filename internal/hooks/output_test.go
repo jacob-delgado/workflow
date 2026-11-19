@@ -168,8 +168,8 @@ func TestARunsEndLeavesAJobStillRunningUnreported(t *testing.T) {
 
 // scanned folds lines into a failure scan one at a time, as a run streams them,
 // and returns the places it found.
-func scanned(lines []string, goos string) []hooks.Location {
-	scan := hooks.NewFailureScan(goos)
+func scanned(lines []string) []hooks.Location {
+	scan := hooks.NewFailureScan()
 	for _, line := range lines {
 		scan = scan.Next(line)
 	}
@@ -184,7 +184,6 @@ func TestFailureScanFindsWhereEachToolPoints(t *testing.T) {
 	const eslintFile = "/Users/dev/project/src/app.js"
 
 	cases := map[string]struct {
-		goos  string
 		lines []string
 		want  []hooks.Location
 	}{
@@ -248,13 +247,7 @@ func TestFailureScanFindsWhereEachToolPoints(t *testing.T) {
 			},
 			want: nil,
 		},
-		"a Windows drive letter is part of the path": {
-			goos:  "windows",
-			lines: []string{`C:\src\main.go:9:2: undefined: run`},
-			want:  []hooks.Location{{File: `C:\src\main.go`, Line: 9, Column: 2, Message: "undefined: run"}},
-		},
-		"the drive letter is not read as a path off Windows": {
-			goos:  "linux",
+		"a drive letter is not read as part of a path": {
 			lines: []string{`C:\src\main.go:9:2: undefined: run`},
 			want:  nil,
 		},
@@ -347,7 +340,7 @@ func TestFailureScanFindsWhereEachToolPoints(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := scanned(tt.lines, tt.goos)
+			got := scanned(tt.lines)
 
 			// Assert
 			if !slices.Equal(got, tt.want) {
@@ -363,7 +356,7 @@ func TestFailureScanLeavesTheScanItWasGivenAlone(t *testing.T) {
 	// Arrange
 	// Three places leave the found list room to grow in place, and one line
 	// has already been folded into the scan.
-	scan := hooks.NewFailureScan("linux").Next("a.go:1:1: first").Next("a.go:2:1: second").Next("a.go:3:1: third")
+	scan := hooks.NewFailureScan().Next("a.go:1:1: first").Next("a.go:2:1: second").Next("a.go:3:1: third")
 	earlier := scan.Next("b.go:4:1: fourth")
 
 	// Act
@@ -386,7 +379,7 @@ func TestFailureScanKeepsOnlyTheFirstPlaces(t *testing.T) {
 	}
 
 	// Act
-	got := scanned(lines, "linux")
+	got := scanned(lines)
 
 	// Assert
 	if len(got) != hooks.MaxPlaces {

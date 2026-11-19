@@ -19,7 +19,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -93,7 +92,7 @@ func chosen(getenv Getenv) string {
 		return value
 	}
 
-	return defaultEditor(runtime.GOOS)
+	return fallbackEditor
 }
 
 // chosenVariable is the variable that names the editor, in chosen's order, or
@@ -108,21 +107,14 @@ func chosenVariable(getenv Getenv) string {
 	return "EDITOR"
 }
 
-// defaultEditor is what opens when none of $GIT_EDITOR, $VISUAL and $EDITOR is
-// set: vi on Unix, and notepad on Windows, where vi is not usually present.
-func defaultEditor(goos string) string {
-	// No CI job takes this branch.
-	if goos == "windows" {
-		return "notepad"
-	}
-
-	return "vi"
-}
+// fallbackEditor is what opens when none of $GIT_EDITOR, $VISUAL and $EDITOR
+// is set, as git's own default.
+const fallbackEditor = "vi"
 
 // fileArgs are the arguments naming the file, and the line if the editor takes
 // one.
 func fileArgs(name, file string, line int) []string {
-	program := strings.TrimSuffix(filepath.Base(strings.ReplaceAll(name, `\`, "/")), ".exe")
+	program := filepath.Base(name)
 
 	shape, known := lineShapes()[program]
 	if !known || line <= 0 {
@@ -268,7 +260,7 @@ func Locate(dir, file string) (string, error) {
 // rather than to the wrong file.
 func Resolve(dir string, tree fs.FS, places []string) map[string]string {
 	resolved := make(map[string]string, len(places))
-	// unplaced holds each place not there as printed, by its slash-separated form.
+	// unplaced holds each place not there as printed, by its cleaned form.
 	unplaced := make(map[string]string)
 
 	for _, place := range places {
@@ -276,7 +268,7 @@ func Resolve(dir string, tree fs.FS, places []string) map[string]string {
 		if err == nil {
 			resolved[place] = place
 		} else {
-			unplaced[place] = filepath.ToSlash(filepath.Clean(place))
+			unplaced[place] = filepath.Clean(place)
 		}
 	}
 
@@ -292,7 +284,7 @@ func Resolve(dir string, tree fs.FS, places []string) map[string]string {
 		})
 
 		if len(matches) == 1 {
-			resolved[place] = filepath.FromSlash(matches[0])
+			resolved[place] = matches[0]
 		}
 	}
 

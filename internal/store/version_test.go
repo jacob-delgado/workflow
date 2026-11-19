@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -246,10 +245,6 @@ func TestADiscardLeavesAProcessStillOnTheOldFileItsOwn(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows refuses to remove a file another program holds open")
-	}
-
 	// Another program still holds the old file open, with a row of its own in
 	// its write-ahead log. Discarding the file with its -wal and -shm leaves
 	// that program on what it opened, rather than on a log the fresh file then

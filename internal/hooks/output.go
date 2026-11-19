@@ -171,20 +171,19 @@ func upsert(jobs []Job, job Job) []Job {
 const knownBasenames = `Dockerfile|Containerfile|Makefile|Justfile|Rakefile|` +
 	`Gemfile|Vagrantfile|Jenkinsfile|Procfile|Brewfile`
 
-// filePatterns returns the drive prefix and the file sub-pattern shared by the
-// location and ESLint patterns: a leading drive letter is allowed only on
-// Windows, and a file part must carry an extension or be a known extensionless
-// name (anchored as the last path segment). It returns the drive, then the file.
-func filePatterns(goos string) (string, string) {
-	drive := ""
-	if goos == "windows" {
-		drive = `(?:[A-Za-z]:)?`
-	}
+// locationFile is the file part of the location patterns: one that carries an
+// extension, or a known extensionless name anchored as the last path segment.
+// Its separator class holds a backslash too, so a Unix file whose name holds
+// one, as dir\Dockerfile, is read as that file.
+const locationFile = `(?:[^\s:]+\.[A-Za-z0-9]+|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
 
-	file := `(?:[^\s:]+\.[A-Za-z0-9]+|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
+// fileLineLocation matches file:line:column: message, and file:line: message:
+// Go and most linters. Its file part stops at the first colon.
+var fileLineLocation = regexp.MustCompile(`^(` + locationFile + `):(\d+)(?::(\d+))?:?\s*(.*)$`)
 
-	return drive, file
-}
+// parenLocation matches file(line,col): message, and file(line): message:
+// MSVC, and the TypeScript compiler the web build runs.
+var parenLocation = regexp.MustCompile(`^(` + locationFile + `)\((\d+)(?:,(\d+))?\):?\s*(.*)$`)
 
 // shellcheckLocation matches shellcheck pointing at a place: "In file line 12:".
 var shellcheckLocation = regexp.MustCompile(`^In (\S+\.[A-Za-z0-9]+) line (\d+)():()$`)
@@ -203,24 +202,10 @@ var pythonTracebackFrame = regexp.MustCompile(`^File "([^"]+\.py)", line (\d+)()
 // the file, line, column and message in groups 1 to 4 where the tool gives them.
 // A file part must either carry an extension or be a known extensionless name,
 // which is what keeps a time of day or a URL with a port from reading as one.
-//
-// The Go/linter and parenthesized formats split the file from the line at a
-// colon or a parenthesis, so their file part stops at the first colon. On
-// Windows a path opens with a drive letter — "C:\src\main.go" — whose colon
-// would be read as that separator, so a single drive prefix is allowed there,
-// and only there: on Unix an "a:b.go" would look the same and is far likelier
-// to be a false positive than a real drive. Those two are built for goos; the
-// other formats span the drive already, their file part being \S+ or a quoted
-// path, and are the same on every platform.
-func locationPatterns(goos string) []*regexp.Regexp {
-	drive, file := filePatterns(goos)
-
+func locationPatterns() []*regexp.Regexp {
 	return []*regexp.Regexp{
-		// file:line:column: message, and file:line: message — Go, most linters.
-		regexp.MustCompile(`^(` + drive + file + `):(\d+)(?::(\d+))?:?\s*(.*)$`),
-		// file(line,col): message, and file(line): message — MSVC, and the
-		// TypeScript compiler the web build runs.
-		regexp.MustCompile(`^(` + drive + file + `)\((\d+)(?:,(\d+))?\):?\s*(.*)$`),
+		fileLineLocation,
+		parenLocation,
 		shellcheckLocation,
 		arrowLocation,
 		pythonTracebackFrame,
@@ -233,20 +218,14 @@ func locationPatterns(goos string) []*regexp.Regexp {
 // mistaken for one.
 var eslintRow = regexp.MustCompile(`^(\d+):(\d+)\s+(?:error|warning)\s+(.*)$`)
 
-// eslintHeaderFor builds, for the platform goos, the pattern of the line on
-// which ESLint's "stylish" reporter names a file once, above its eslintRow
-// places — so the file has to be carried across lines, which the per-line
-// patterns cannot do. It reuses the file rule so only a plausible path opens a
-// block, with a drive letter only on Windows. The extension must start with a
-// letter, so a version banner ("v1.2.3") or a decimal ("3.14") on its own line
-// is not read as a file.
-func eslintHeaderFor(goos string) *regexp.Regexp {
-	drive, _ := filePatterns(goos)
-
-	header := `(?:[^\s:]+\.[A-Za-z][A-Za-z0-9]*|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
-
-	return regexp.MustCompile(`^(` + drive + header + `)$`)
-}
+// eslintHeader matches the line on which ESLint's "stylish" reporter names a
+// file once, above its eslintRow places — so the file has to be carried across
+// lines, which the per-line patterns cannot do. Its file part follows
+// locationFile's, so only a plausible path opens a block, but the extension
+// must start with a letter, so a version banner ("v1.2.3") or a decimal
+// ("3.14") on its own line is not read as a file.
+var eslintHeader = regexp.MustCompile(
+	`^((?:[^\s:]+\.[A-Za-z][A-Za-z0-9]*|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `)))$`)
 
 // MaxPlaces is the most places a FailureScan keeps. A run folds every line of
 // its output into the scan as the line arrives, so an output naming ever more
@@ -260,10 +239,9 @@ const MaxPlaces = 1000
 // in: by the time a long run ends, its first lines are gone. Start one with
 // NewFailureScan.
 type FailureScan struct {
-	patterns     []*regexp.Regexp
-	eslintHeader *regexp.Regexp
-	found        []Location
-	stage        scanStage
+	patterns []*regexp.Regexp
+	found    []Location
+	stage    scanStage
 	// file is the line held while holding, and the file ESLint named above the
 	// rows now arriving while in its block; empty otherwise.
 	file string
@@ -281,13 +259,9 @@ const (
 	scanInBlock
 )
 
-// NewFailureScan starts reading a hook's output. goos is the running platform,
-// which decides whether a Windows drive letter is read as part of a path.
-func NewFailureScan(goos string) FailureScan {
-	return FailureScan{
-		patterns: locationPatterns(goos), eslintHeader: eslintHeaderFor(goos),
-		found: nil, stage: scanPlain, file: "",
-	}
+// NewFailureScan starts reading a hook's output.
+func NewFailureScan() FailureScan {
+	return FailureScan{patterns: locationPatterns(), found: nil, stage: scanPlain, file: ""}
 }
 
 // Next folds one more output line in. It does not modify the scan it is given.
@@ -313,7 +287,7 @@ func (s FailureScan) Next(raw string) FailureScan {
 			File: s.file, Line: lineNumber, Column: column,
 			Message: strings.Join(strings.Fields(row[3]), " "),
 		})
-	case s.eslintHeader.MatchString(line):
+	case eslintHeader.MatchString(line):
 		s.stage, s.file = scanHolding, line
 
 		return s

@@ -164,8 +164,9 @@ const (
 // written: one another user owns, one others may write, or one a group may
 // write that is not its owner's own. A system that gives each user a group of
 // their own gives it the user's id and no other member, and its umask of 002
-// leaves every file the user makes writable by that group alone. Where the
-// system keeps no owner, as Windows does not, nothing is refused.
+// leaves every file the user makes writable by that group alone. A file info
+// that names no owner, as one not read from the file system, is refused
+// nothing.
 func refuseUntrusted(info fs.FileInfo) error {
 	owner, known := fileowner.Of(info)
 	mode := info.Mode().Perm()

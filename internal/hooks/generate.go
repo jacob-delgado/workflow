@@ -313,19 +313,17 @@ func (r repository) writeAll(generated Generated) error {
 // createScript creates a script and each directory above it the repository
 // lacks, and reports what it created, outermost first, failing or not.
 func (r repository) createScript(script File) ([]string, error) {
-	name := filepath.FromSlash(script.Path)
-
-	made, err := r.makeDirs(filepath.Dir(name))
+	made, err := r.makeDirs(filepath.Dir(script.Path))
 	if err != nil {
 		return made, err
 	}
 
-	err = r.create(name, script.Contents, scriptMode)
+	err = r.create(script.Path, script.Contents, scriptMode)
 	if err != nil {
 		return made, err
 	}
 
-	return append(made, name), nil
+	return append(made, script.Path), nil
 }
 
 // remove removes what a write created, innermost first, so each directory is

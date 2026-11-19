@@ -109,7 +109,7 @@ func TestLocateRefusesWhatIsNotAFile(t *testing.T) {
 func writeUnder(t *testing.T, dir, rel string) {
 	t.Helper()
 
-	full := filepath.Join(dir, filepath.FromSlash(rel))
+	full := filepath.Join(dir, rel)
 
 	err := os.MkdirAll(filepath.Dir(full), 0o700)
 	if err == nil {

@@ -3,6 +3,9 @@
 
 //go:build unix
 
+// Package pgroup runs a streamed child in its own process group, so canceling
+// its context kills the whole tree rather than the child alone. It is the
+// platform glue alone, in a package of its own beside internal/proc.
 package pgroup
 
 import (
