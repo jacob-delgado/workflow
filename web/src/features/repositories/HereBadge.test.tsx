@@ -44,3 +44,26 @@ test('outside a repository the header names the directory', async () => {
   const badge = await screen.findByRole('button', { name: 'Working in ~/notes: open Repositories' })
   expect(badge.textContent).toBe('notes')
 })
+
+test('names a directory whose name holds a backslash whole', async () => {
+  // Arrange
+  const odd = mockRepositories()
+  odd.here = {
+    ...odd.here,
+    dir: '/src/a\\b',
+    shown: '/src/a\\b',
+    root: '/src/a\\b',
+    root_shown: '/src/a\\b',
+    within: '',
+  }
+  fakeApi({ '/api/repositories': odd })
+
+  // Act
+  renderWithClient(<HereBadge />)
+
+  // Assert
+  const badge = await screen.findByRole('button', {
+    name: 'Working in /src/a\\b: open Repositories',
+  })
+  expect(badge.textContent).toBe('a\\b')
+})
