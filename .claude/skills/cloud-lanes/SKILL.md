@@ -197,9 +197,9 @@ Say which host and why, and carry on with what does not need it.
 - **What the hooks run** (`lefthook.yml`). The pre-commit hook reads the
   staged files alone: golangci-lint on the lines the commit changes, the
   license headers of staged Go and the Arrange-Act-Assert markers of each
-  staged test's package, shfmt, shellcheck, yamllint, hadolint, typos,
-  rumdl, taplo and zizmor on what is staged, and gitleaks on the
-  staged diff; actionlint and the sibling-test check read the whole tree.
+  staged test's package, shfmt, shellcheck, hadolint, typos, rumdl, taplo
+  and zizmor on what is staged, and gitleaks on the staged diff; actionlint
+  and the sibling-test check read the whole tree.
   The commit-msg hook runs `scripts/check-commit-message.sh`. No hook runs
   `docs:check`, the coverage floors, the whole-tree secret scan, govulncheck,
   or, golangci-lint aside (below), those linters over the whole tree: those

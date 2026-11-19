@@ -38,8 +38,7 @@ drifts from it. `task setup` installs the other two (`task tools`) into
 `build/yamllint/requirements.txt` and `build/markdownlint/package-lock.json`.
 yamllint needs a `python3` from 3.10 to 3.14 with `venv`. Run `task tools` again
 after a pull that changes either file. The install is per checkout, so a new
-clone, or a worktree made with `git worktree add`, runs `task tools` before its
-first commit, or the yamllint pre-commit hook cannot find its linter. A
+clone, or a worktree made with `git worktree add`, runs `task tools` too. A
 worktree shares the clone's git hooks, so it needs `task tools`, not all of
 `task setup`.
 
