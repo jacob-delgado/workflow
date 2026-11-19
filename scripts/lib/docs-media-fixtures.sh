@@ -126,15 +126,6 @@ printf '#!/usr/bin/env bash\nexit 0\n' >"${browser}"
 # shellcheck disable=SC2016 # the payload's own variable, expanded when it runs
 printf '#!/usr/bin/env bash\necho "ttyd version ${FAKE_DOWNLOADED_VERSION:-1.7.7}-downloaded"\n' >"${payload}"
 chmod +x "${browser}" "${payload}"
-# The release's ttyd already on PATH, as mise installs it.
-mkdir -p "${workdir}/ttyd"
-cp "${payload}" "${workdir}/ttyd/ttyd"
-# A mise shim for ttyd: a link to mise, which names the file it runs as
-# FAKE_MISE_TTYD says.
-# shellcheck disable=SC2016 # the stand-in's own arguments, expanded when it runs
-stub shim mise '[[ "$1 $2" == "which ttyd" ]] || exit 1
-echo "${FAKE_MISE_TTYD}"'
-ln -s mise "${workdir}/shim/ttyd"
 
 if command -v sha256sum >/dev/null; then
   payload_sha="$(sha256sum "${payload}")"
@@ -165,15 +156,15 @@ Down 2
 Sleep 0.5'
 
 # fixture makes a repository holding what the script reads, committed: the
-# demo, mise.toml's pins, the tape, ttyd's checksums for both machines, the
-# images' directory and web/.
+# demo, mise.toml's pin of VHS, the tape, ttyd's checksums for both machines,
+# the images' directory and web/.
 #   fixture <name> [checksum]
 fixture() {
   local root="${workdir}/$1"
   mkdir -p "${root}/cmd/demo" "${root}/docs/media" "${root}/docs/assets/images" "${root}/docs/content" \
     "${root}/web" "${root}.home"
   printf 'package main\n' >"${root}/cmd/demo/main.go"
-  printf '[tools]\nvhs = "0.12.1"\nttyd = { version = "1.7.7", os = ["linux"] }\n' >"${root}/mise.toml"
+  printf '[tools]\nvhs = "0.12.1"\n' >"${root}/mise.toml"
   printf '%s\n' "${tape}" >"${root}/docs/media/terminal.tape"
   printf 'ttyd 1.7.7 x86_64 %s\nttyd 1.7.7 aarch64 %s\n' "${2:-${payload_sha}}" "${2:-${payload_sha}}" \
     >"${root}/docs/media/tool-checksums.txt"
@@ -197,7 +188,7 @@ media() {
     DOCS_MEDIA_ROOT="${root}" DOCS_MEDIA_LOADAVG="${workdir}/loadavg" "$@" "${script}"
 }
 
-readonly all="stubs curl vhs ttyd ffmpeg"
+readonly all="stubs curl vhs ffmpeg"
 readonly with_browser="PLAYWRIGHT_CHROMIUM_EXECUTABLE=${browser}"
 
 # le prints a number as the little-endian bytes of the width given, as

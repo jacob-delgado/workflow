@@ -48,7 +48,11 @@ change the tape, the demo or the screen and commit it, since the task
 refuses to run over changes not committed to what the images show; run the
 task on an idle machine, since it fails a recording that lost time; and look
 at each image before committing it, since nothing compares them: their bytes
-depend on the machine's fonts, Chromium and ffmpeg.
+depend on the machine's fonts, Chromium and ffmpeg. ttyd, which VHS films
+the terminal in, is pinned by `docs/media/tool-checksums.txt` alone, its
+version and each build's SHA-256, and not in `mise.toml`, since mise knows
+no checksum for ttyd and would install it unchecked: the task downloads its
+own and hashes it before running it, and a bump changes every line there.
 
 ## Contract pages
 

@@ -1,27 +1,28 @@
 #!/usr/bin/env bash
 #
 # Tests for check-dependency-age.sh: a version a change adds to go.mod,
-# web/yarn.lock or mise.toml passes once it was published at least seven days
-# before, and fails, by name, when it is younger, unless the exceptions file
-# lists it with the advisory it fixes or a maintainer's dated waiver; now is
-# 2026-10-08T00:00:00Z, and a version exactly seven days old is adopted. An
-# exception naming neither, or a waiver whose date is no real day, or a day
-# still to come, fails, though one dated the day after now's in UTC, already
-# today east of it, passes; a listed waiver dated on a day still to come is
-# warned of. A version whose publish date cannot be learned fails, as a mise
-# tool pinned in a [tools.<name>] table, which the check does not read, or in
-# an inline table naming no version, or by a dotted tools key before any table,
-# does; one pinned in an inline table is dated by its version key, and one
-# under a [tools] header with a comment after it, or quoted and spaced, is
-# dated. A module version a go.mod replace directive adopts, on its own line or
-# in a block, is dated as a requirement is, and a directory one adopts is not
-# looked up. Versions the change leaves alone are not looked up, and a base git
-# cannot resolve is refused with a status of its own. A dated waiver a week
-# past its day is warned of, and its npmPreapprovedPackages entry in
-# web/.yarnrc.yml with it, but fails nothing; one whose week may not be over is
-# not. In GitHub Actions the warning is also a ::warning annotation, which the
-# pull request shows. A pre-approval no line of the exceptions file lists is
-# warned of too, and fails nothing. The linters' pin files are
+# web/yarn.lock, mise.toml or the docs' ttyd checksums passes once it was
+# published at least seven days before, and fails, by name, when it is
+# younger, unless the exceptions file lists it with the advisory it fixes or a
+# maintainer's dated waiver; now is 2026-10-08T00:00:00Z, and a version
+# exactly seven days old is adopted. An exception naming neither, or a waiver
+# whose date is no real day, or a day still to come, fails, though one dated
+# the day after now's in UTC, already today east of it, passes; a listed
+# waiver dated on a day still to come is warned of. A version whose publish
+# date cannot be learned fails, as a mise tool pinned in a [tools.<name>]
+# table, which the check does not read, or in an inline table naming no
+# version, or by a dotted tools key before any table, does; one pinned in an
+# inline table is dated by its version key, and one under a [tools] header
+# with a comment after it, or quoted and spaced, is dated. A module version a
+# go.mod replace directive adopts, on its own line or in a block, is dated as
+# a requirement is, and a directory one adopts is not looked up. Versions the
+# change leaves alone are not looked up, and a base git cannot resolve is
+# refused with a status of its own. A dated waiver a week past its day is
+# warned of, and its npmPreapprovedPackages entry in web/.yarnrc.yml with it,
+# but fails nothing; one whose week may not be over is not. In GitHub Actions
+# the warning is also a ::warning annotation, which the pull request shows. A
+# pre-approval no line of the exceptions file lists is warned of too, and
+# fails nothing. The linters' pin files are
 # check-dependency-age_pins_test.sh's.
 #
 # The stand-in curl lib/check-dependency-age-fixtures.sh writes answers each
@@ -166,11 +167,21 @@ tools.jq = "1.9.0"
 ' mise.toml && rm mise.toml.bak
 }
 
-# docs_media_tools pins the tools the docs' recordings take, VHS released
-# under a v tag and ttyd under a bare one, both a week old.
+# pin_media_ttyd pins a ttyd version in the docs' checksums file, one line a
+# machine, as docs-media.sh reads it.
+#   pin_media_ttyd <version>
+pin_media_ttyd() {
+  mkdir -p docs/media
+  printf '# ttyd\nttyd %s x86_64 %s\nttyd %s aarch64 %s\n' "$1" "$(printf 'a%.0s' {1..64})" \
+    "$1" "$(printf 'b%.0s' {1..64})" >docs/media/tool-checksums.txt
+}
+
+# docs_media_tools pins the tools the docs' recordings take, VHS in mise.toml
+# under a v tag and ttyd in the docs' checksums file under a bare one, both a
+# week old.
 docs_media_tools() {
   pin_tool vhs 0.12.1
-  pin_tool ttyd 1.7.7
+  pin_media_ttyd 1.7.7
 }
 
 # mise_tools pins mise tools of several kinds, all a week old.
@@ -257,6 +268,13 @@ count_case
 if ! grep -q "^ok    vhs 0.12.1: published 2026-09-20" "${case_output}"; then
   fail_case "VHS and ttyd, dated by their GitHub releases" "VHS was not dated: $(cat "${case_output}")"
 fi
+count_case
+if [[ "$(grep -c "ttyd 1.7.7" "${case_output}")" != 1 ]]; then
+  fail_case "VHS and ttyd, dated by their GitHub releases" "ttyd was not dated once: $(cat "${case_output}")"
+fi
+answer "https://api.github.com/repos/tsl0922/ttyd/releases/tags/1.7.8" "{\"published_at\":\"${young}\"}"
+ttyd_young="$(repo_on ttyd-young docs_media_tools pin_media_ttyd 1.7.8)"
+expect_output fail "a ttyd in the docs' checksums file two days old" "ttyd 1.7.8 was published" age "${ttyd_young}"
 
 release_young="$(repo release-young pin_tool jq 1.9.0)"
 expect_output fail "a GitHub release two days old, tagged with its name" "jq 1.9.0" age "${release_young}"

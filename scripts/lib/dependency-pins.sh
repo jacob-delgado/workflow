@@ -106,7 +106,7 @@ npm_lock_pins() {
 
 # mise_pins prints "tool version" for each [tools] pin in a mise.toml, and for
 # its min_version as the tool "mise". A pin is a version string or an inline
-# table holding one, as `ttyd = { version = "1.7.7", os = ["linux"] }`. A
+# table holding one, as `vhs = { version = "0.12.1", os = ["linux"] }`. A
 # table's header is read as TOML reads it, whatever spaces, quotes or comment
 # it is written with. An inline table naming no version, a [tools.<name>]
 # table, and a tools key before any table, dotted or an inline table, which

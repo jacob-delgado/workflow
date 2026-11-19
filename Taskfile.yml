@@ -472,7 +472,6 @@ tasks:
       - task: lint:miseversion
       - task: lint:playwrightimage
       - task: lint:checksums
-      - task: lint:mediachecksums
       - task: lint:goroutines
       - task: lint:siblingtests
       - task: lint:layout
@@ -611,11 +610,6 @@ tasks:
     desc: Check that every build-container download is pinned to a SHA-256 at mise.toml's version
     cmds:
       - scripts/check-tool-checksums.sh
-
-  lint:mediachecksums:
-    desc: Check that the docs' ttyd is pinned to a SHA-256 at mise.toml's version for every machine
-    cmds:
-      - scripts/check-media-checksums.sh
 
   lint:goroutines:
     desc: Check that no goroutine starts outside internal/proc, the tests and the written exceptions
