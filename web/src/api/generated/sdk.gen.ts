@@ -474,7 +474,7 @@ export const setUp = <ThrowOnError extends boolean = false>(options: Options<Set
 /**
  * Remove the cache, or with scope all the kept associations and favorites too.
  *
- * Removes the cache's database with its -wal and -shm companions, and with scope all the kept file's too, so people and group associations are asked again and favorites are gone. Every file is set aside before any is removed, so a file that cannot be removed leaves the rest in place. Refused with 403 under --dry-run, by the guard every write passes.
+ * Removes the cache's database with its -wal and -shm companions, and with scope all the kept file's too, so people and group associations are asked again and favorites are gone. Each file is removed in place, the database before its companions; one that cannot be removed is reported, and the removal goes on with the rest. Refused with 403 under --dry-run, by the guard every write passes.
  */
 export const removeLocalData = <ThrowOnError extends boolean = false>(options: Options<RemoveLocalDataData, ThrowOnError>): RequestResult<RemoveLocalDataResponses, RemoveLocalDataErrors, ThrowOnError> => (options.client ?? client).delete<RemoveLocalDataResponses, RemoveLocalDataErrors, ThrowOnError>({
     responseValidator: async (data) => await zRemoveLocalDataResponse.parseAsync(data),

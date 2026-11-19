@@ -1210,9 +1210,9 @@ makes again. `--all` removes `kept.db` too, after a warning: whom each code
 owner is on Slack, each repository's groups and your favorites go with it, so
 people and group associations will be asked again and favorites marked again.
 `--yes` removes without asking; `--dry-run` only says what it would remove. A
-store with nothing in it says there is nothing to remove. A database file
-another program holds open — on Windows, another workflow session — fails the
-clean without removing anything (exit status 4); something other than the
+store with nothing in it says there is nothing to remove. A database file that
+cannot be removed, as in a directory you may not write, fails the clean, which
+still removes the rest (exit status 4); something other than the
 store's own file where a database belongs, such as a symlink, is refused (exit
 status 1). The web interface's Settings has the same two cleans under
 **Local data**, and so has the terminal: `L` on the

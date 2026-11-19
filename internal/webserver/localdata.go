@@ -21,9 +21,8 @@ const (
 	noStoreDirDetail   = "there is no directory to keep local data in: no home directory is set"
 	notStoreFileDetail = "something other than the store's own file, a symlink or a directory, " +
 		"sits where a database belongs; nothing was removed"
-	heldOpenDetail = "a database file could not be removed, as one another program holds open can be, " +
-		"and others may already be gone; read the listing again to see what is left, " +
-		"then close other workflow sessions and try again"
+	notRemovedDetail = "a database file could not be removed, and others may already be gone; " +
+		"read the listing again to see what is left"
 )
 
 // GetLocalData lists the store's directory and the database files in it.
@@ -113,14 +112,14 @@ func localDataFileDTO(file store.DataFile) api.LocalDataFile {
 }
 
 // localDataFaults are the failures of a list or a removal of the local data:
-// a file held open is a conflict with the state on disk; no store, no
-// directory or something not the store's own in a file's place cannot be
-// carried out.
+// a file that could not be removed is a conflict with the state on disk; no
+// store, no directory or something not the store's own in a file's place
+// cannot be carried out.
 func localDataFaults() []report.Class {
 	return []report.Class{
 		{Causes: []error{errNoLocalData}, Code: api.ProblemCodeUnprocessable, Detail: errNoLocalData.Error()},
 		{Causes: []error{store.ErrNoDir}, Code: api.ProblemCodeUnprocessable, Detail: noStoreDirDetail},
 		{Causes: []error{store.ErrCleanRefused}, Code: api.ProblemCodeUnprocessable, Detail: notStoreFileDetail},
-		{Causes: []error{store.ErrNotCleaned}, Code: api.ProblemCodeConflict, Detail: heldOpenDetail},
+		{Causes: []error{store.ErrNotCleaned}, Code: api.ProblemCodeConflict, Detail: notRemovedDetail},
 	}
 }

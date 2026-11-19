@@ -29,8 +29,8 @@ export function useLocalData() {
 }
 
 // remove removes what scope reaches and answers what is left. A refusal — a
-// file held open, something not the store's own in a file's place, --dry-run
-// — throws the API error, whose message is safe to show.
+// file that could not be removed, something not the store's own in a file's
+// place, --dry-run — throws the API error, whose message is safe to show.
 async function remove(scope: RemoveScope): Promise<LocalData> {
   const { data } = await removeLocalData({ query: { scope }, throwOnError: true })
 

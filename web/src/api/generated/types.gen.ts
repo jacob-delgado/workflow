@@ -3534,7 +3534,7 @@ export type RemoveLocalDataData = {
 
 export type RemoveLocalDataErrors = {
     /**
-     * A file could not be removed, as one another program holds open can be on Windows. A file that could not be set aside leaves every file in place; one that could not be deleted after the rest were may leave some removed, so read the listing again to see what is left.
+     * A file could not be removed, as a directory the user may not write refuses. Others may already be gone, so read the listing again to see what is left.
      */
     409: Problem;
     /**

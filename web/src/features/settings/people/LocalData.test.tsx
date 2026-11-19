@@ -57,7 +57,7 @@ function refusing(): void {
     '/api/local-data': (_: URL, asked: Request) =>
       asked.method === 'DELETE'
         ? Response.json(
-            { status: 409, code: 'conflict', title: 'Conflict', type: '', detail: 'held open' },
+            { status: 409, code: 'conflict', title: 'Conflict', type: '', detail: 'not removed' },
             { status: 409 },
           )
         : { dir, files: [cache, kept], consequences },
@@ -186,7 +186,7 @@ test('a removal that could not remove a file says why', async () => {
   await user.click(screen.getByRole('button', { name: 'Remove' }))
 
   // Assert
-  expect((await screen.findByRole('alert')).textContent).toBe('held open')
+  expect((await screen.findByRole('alert')).textContent).toBe('not removed')
   expect(screen.getByRole('table', { name: 'Local data files' })).toBeTruthy()
 })
 

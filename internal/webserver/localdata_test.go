@@ -174,7 +174,7 @@ func TestCleaningLocalDataAnswersAFailureByItsKind(t *testing.T) {
 		wantCode int
 		wantKind api.ProblemCode
 	}{
-		"a file held open": {
+		"a file that could not be removed": {
 			failure:  fmt.Errorf("%w: busy", store.ErrNotCleaned),
 			wantCode: http.StatusConflict, wantKind: api.ProblemCodeConflict,
 		},
@@ -204,6 +204,25 @@ func TestCleaningLocalDataAnswersAFailureByItsKind(t *testing.T) {
 				t.Errorf("code %q, want %q", problem.Code, test.wantKind)
 			}
 		})
+	}
+}
+
+func TestAFileACleanCouldNotRemoveSaysToReadTheListingAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := newFakeStore()
+	fake.failure = fmt.Errorf("%w: permission denied", store.ErrNotCleaned)
+	handler := storeServer(t, fake, webserver.Info{Version: webtest.TestVersion})
+
+	// Act
+	answer := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
+
+	// Assert
+	const want = "a database file could not be removed, and others may already be gone; " +
+		"read the listing again to see what is left"
+	if detail := webtest.Decode[api.Problem](t, answer).Detail; detail != want {
+		t.Errorf("detail %q, want %q", detail, want)
 	}
 }
 

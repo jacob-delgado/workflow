@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 )
 
 // DataKind says what a database file holds: conveniences a session sees again,
@@ -59,16 +58,13 @@ func HumanBytes(size int64) string {
 	}
 }
 
-// asideSuffix marks a file a clean has set aside and is about to remove.
-const asideSuffix = ".cleaning"
-
 // ErrCleanRefused reports a clean that would reach past the store's own plain
 // files: a relative directory, or a symlink or directory where a database file
 // belongs. Nothing is removed.
 var ErrCleanRefused = errors.New("not the store's own files to clean")
 
-// ErrNotCleaned reports a file a clean could not remove, as one another
-// program holds open can be on Windows.
+// ErrNotCleaned reports a file a clean could not remove, as a directory the
+// user may not write refuses.
 var ErrNotCleaned = errors.New("could not remove a store file")
 
 // Held is a count of one kind of thing a database file holds.
@@ -126,9 +122,7 @@ func databases() []database {
 }
 
 // Files lists the database files in dir, each with its size and what it holds,
-// read without writing; a file not there is left out. What a clean set aside
-// and could not remove is listed too, by the database's name and asideSuffix,
-// so it is seen and the next clean takes it.
+// read without writing; a file not there is left out.
 func Files(ctx context.Context, dir string) ([]DataFile, error) {
 	var files []DataFile
 
@@ -144,30 +138,24 @@ func Files(ctx context.Context, dir string) ([]DataFile, error) {
 	return files, nil
 }
 
-// filesOf lists one database, when its file is there, and what a clean left
-// set aside of it, when anything was. Each of its files is looked at in one
-// pass, so a directory that cannot be read fails the listing once.
+// filesOf lists one database, when its file is there. Each of its files is
+// looked at in one pass, so a directory that cannot be read fails the listing
+// once.
 func filesOf(ctx context.Context, dir string, each database) ([]DataFile, error) {
 	companions := companionsOf(filepath.Join(dir, each.name))
-	aside := asideOf(companions)
 
-	sizes, err := sizesOf(slices.Concat(companions, aside))
+	sizes, err := sizesOf(companions)
 	if err != nil {
 		return nil, err
 	}
 
-	var files []DataFile
-
-	if _, there := sizes[companions[0]]; there {
-		size, _ := totalOf(sizes, companions)
-		files = append(files, DataFile{Name: each.name, Kind: each.kind, Bytes: size, Holds: summarize(ctx, dir, each)})
+	if _, there := sizes[companions[0]]; !there {
+		return nil, nil
 	}
 
-	if size, anyThere := totalOf(sizes, aside); anyThere {
-		files = append(files, DataFile{Name: each.name + asideSuffix, Kind: each.kind, Bytes: size, Holds: nil})
-	}
+	size := totalOf(sizes, companions)
 
-	return files, nil
+	return []DataFile{{Name: each.name, Kind: each.kind, Bytes: size, Holds: summarize(ctx, dir, each)}}, nil
 }
 
 // sizesOf is the size of each of paths that is there, by its path.
@@ -190,21 +178,15 @@ func sizesOf(paths []string) (map[string]int64, error) {
 	return sizes, nil
 }
 
-// totalOf is the size of those of paths that sizes holds, and whether it
-// holds any.
-func totalOf(sizes map[string]int64, paths []string) (int64, bool) {
-	var (
-		total    int64
-		anyThere bool
-	)
+// totalOf is the size of those of paths that sizes holds.
+func totalOf(sizes map[string]int64, paths []string) int64 {
+	var total int64
 
 	for _, each := range paths {
-		size, there := sizes[each]
-		total += size
-		anyThere = anyThere || there
+		total += sizes[each]
 	}
 
-	return total, anyThere
+	return total
 }
 
 // summarize counts what a database holds, best effort: a file that is not a
@@ -248,58 +230,39 @@ func countRows(ctx context.Context, reader *sql.DB, table heldTable) (int, bool)
 
 // Clean removes the cache's database from dir, with its companions, and with
 // CleanAll the kept data's too. It refuses, removing nothing, a relative dir or
-// anything but a plain file where a database file belongs. Every file is set
-// aside before any is removed, and one that cannot be set aside puts the rest
-// back, so a file another program holds open fails the clean without leaving
-// half a database behind. What an earlier clean set aside and could not
-// remove goes first.
+// anything but a plain file where a database file belongs. A file it cannot
+// remove fails the clean, naming the first, while it goes on with the rest, so
+// one file that stays leaves no more behind than it must.
 func Clean(dir string, scope CleanScope) error {
 	if !filepath.IsAbs(dir) {
 		return ErrCleanRefused
 	}
 
-	present, leftover, err := filesToClean(dir, scope)
+	present, err := filesToClean(dir, scope)
 	if err != nil {
 		return err
 	}
 
-	err = removeEach(leftover)
-	if err != nil {
-		return err
-	}
-
-	err = setAside(present)
-	if err != nil {
-		return err
-	}
-
-	return removeEach(asideOf(present))
+	return removeEach(present)
 }
 
-// filesToClean is every file a clean of scope removes that is there, and every
-// one an earlier clean set aside, refusing one that is not a plain file.
-func filesToClean(dir string, scope CleanScope) ([]string, []string, error) {
+// filesToClean is every file a clean of scope removes that is there, refusing
+// one that is not a plain file.
+func filesToClean(dir string, scope CleanScope) ([]string, error) {
 	names := map[CleanScope][]string{CleanCache: {dbName}, CleanAll: {dbName, keptName}}[scope]
 
-	var present, leftover []string
+	var present []string
 
 	for _, name := range names {
-		companions := companionsOf(filepath.Join(dir, name))
-
-		found, err := plainFilesAmong(companions)
+		found, err := plainFilesAmong(companionsOf(filepath.Join(dir, name)))
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
-		left, err := plainFilesAmong(asideOf(companions))
-		if err != nil {
-			return nil, nil, err
-		}
-
-		present, leftover = append(present, found...), append(leftover, left...)
+		present = append(present, found...)
 	}
 
-	return present, leftover, nil
+	return present, nil
 }
 
 // plainFilesAmong is those of paths that are there, refusing one that is not a
@@ -325,36 +288,8 @@ func plainFilesAmong(paths []string) ([]string, error) {
 	return present, nil
 }
 
-// setAside renames each file aside, putting back those already moved when one
-// cannot be, and reporting any it could not put back with the reason it stopped.
-func setAside(paths []string) error {
-	for index, path := range paths {
-		err := os.Rename(path, path+asideSuffix)
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrNotCleaned, errors.Join(err, putBack(paths[:index])))
-		}
-	}
-
-	return nil
-}
-
-// putBack renames each of moved back from aside, joining every rename that
-// failed.
-func putBack(moved []string) error {
-	failed := make([]error, 0, len(moved))
-
-	for _, path := range moved {
-		// Each file was just renamed aside, so putting it back fails only when
-		// another program changes it in between, which no test can hold open:
-		// the failure is joined, not checked.
-		failed = append(failed, os.Rename(path+asideSuffix, path))
-	}
-
-	return errors.Join(failed...)
-}
-
 // removeEach removes every one of paths it can, reporting the first it could
-// not, so one file held open leaves no more behind than it must.
+// not.
 func removeEach(paths []string) error {
 	var first error
 
@@ -368,20 +303,10 @@ func removeEach(paths []string) error {
 	return first
 }
 
-// asideOf is each path as a clean sets it aside.
-func asideOf(paths []string) []string {
-	aside := make([]string, 0, len(paths))
-	for _, path := range paths {
-		aside = append(aside, path+asideSuffix)
-	}
-
-	return aside
-}
-
 // companionsOf is a database's path with the write-ahead log and shared-memory
 // files SQLite keeps beside it.
 func companionsOf(path string) []string {
-	// A clean sets the database aside before its log, holding no lock against a
+	// A clean removes the database before its log, holding no lock against a
 	// live open, so a process opening the store in between can pair a fresh
 	// database with the old log.
 	return []string{path, path + "-wal", path + "-shm"}

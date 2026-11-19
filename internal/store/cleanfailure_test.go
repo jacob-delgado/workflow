@@ -6,7 +6,7 @@ package store_test
 // Listing and cleaning the store's files meets what it finds in its
 // directory: a path that is no directory, a table that cannot be counted,
 // and, for a user other than root, a directory that will not let a file be
-// renamed or removed.
+// removed.
 
 import (
 	"errors"
@@ -17,12 +17,6 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/store"
-)
-
-// The cache's database and its write-ahead log, as a clean sets them aside.
-const (
-	cacheAside = "workflow.db.cleaning"
-	walAside   = "workflow.db-wal.cleaning"
 )
 
 // notADirectory is a regular file where a store directory is named, so no
@@ -40,13 +34,13 @@ func notADirectory(t *testing.T) string {
 	return path
 }
 
-// sealed leaves dir readable but closed to a rename or removal inside it, and
+// sealed leaves dir readable but closed to a removal inside it, and
 // opens it again as the test ends so its files can be removed.
 func sealed(t *testing.T, dir string) {
 	t.Helper()
 
 	if os.Geteuid() == 0 {
-		t.Skip("root renames and removes in a directory whatever its mode")
+		t.Skip("root removes in a directory whatever its mode")
 	}
 
 	err := os.Chmod(dir, 0o500)
@@ -118,49 +112,26 @@ func TestACleanReportsADirectoryItCannotRead(t *testing.T) {
 	}
 }
 
-func TestACleanThatCannotRemoveWhatWasSetAsideReportsTheFirst(t *testing.T) {
+func TestACleanThatCannotRemoveAFileReportsTheFirstAndLeavesEach(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	dir := t.TempDir()
-	leaveAside(t, dir, cacheAside, walAside)
+	leaveBeside(t, dir, cacheName, "workflow.db-wal")
 	sealed(t, dir)
 
 	// Act
 	err := store.Clean(dir, store.CleanCache)
 
 	// Assert
-	if !errors.Is(err, store.ErrNotCleaned) || !strings.Contains(err.Error(), cacheAside) ||
-		strings.Contains(err.Error(), walAside) {
+	if !errors.Is(err, store.ErrNotCleaned) || !strings.Contains(err.Error(), filepath.Join(dir, cacheName)) ||
+		strings.Contains(err.Error(), "workflow.db-wal") {
 		t.Errorf("Clean = %v, want ErrNotCleaned naming the first file it could not remove alone", err)
 	}
 
-	for _, name := range []string{cacheAside, walAside} {
+	for _, name := range []string{cacheName, "workflow.db-wal"} {
 		if !exists(filepath.Join(dir, name)) {
 			t.Errorf("%s is gone, want it left where it could not be removed", name)
-		}
-	}
-}
-
-func TestACleanThatCannotSetAFileAsideRemovesNothing(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	dir := t.TempDir()
-	keepBoth(t, dir)
-	sealed(t, dir)
-
-	// Act
-	err := store.Clean(dir, store.CleanAll)
-
-	// Assert
-	if !errors.Is(err, store.ErrNotCleaned) {
-		t.Errorf("Clean = %v, want ErrNotCleaned", err)
-	}
-
-	for _, path := range []string{filepath.Join(dir, cacheName), keptPath(dir)} {
-		if !exists(path) {
-			t.Errorf("%s was removed by a failed clean", path)
 		}
 	}
 }

@@ -125,7 +125,7 @@ func configurationErrors() []error {
 // a branch or file already there, a branch that cannot be finished, a git
 // operation stopped part way and the commit it merged at that could not be
 // fetched among the reasons, a directory that is no repository, a store file
-// another program holds open, a summary too long for the messaging service, a
+// that could not be removed, a summary too long for the messaging service, a
 // move to a status the tracker does not offer or one that asks for fields.
 func refusalErrors() []error {
 	return []error{

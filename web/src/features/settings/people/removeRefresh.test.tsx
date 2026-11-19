@@ -105,7 +105,7 @@ test('a removal that fails reads the listing again, since part may be gone', asy
     '/api/local-data': (_: URL, asked: Request) => {
       if (asked.method === 'DELETE') {
         return Response.json(
-          { status: 409, code: 'conflict', title: 'Conflict', type: '', detail: 'held open' },
+          { status: 409, code: 'conflict', title: 'Conflict', type: '', detail: 'not removed' },
           { status: 409 },
         )
       }
@@ -121,7 +121,7 @@ test('a removal that fails reads the listing again, since part may be gone', asy
   await removesEverything(user)
 
   // Assert
-  await screen.findByText('held open')
+  await screen.findByText('not removed')
   await waitFor(() => {
     expect(reads).toBe(2)
   })
