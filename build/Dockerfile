@@ -60,8 +60,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # System packages. Deliberately unpinned: the base image's Debian release pins
 # them, and pinning again here breaks the build on every security update. Only
-# the base tools live here — git, the cert bundle, pip to install yamllint from
-# its pin file, and xz to unpack the .tar.xz release archives below.
+# the base tools live here — git, the cert bundle, and xz to unpack the
+# .tar.xz release archives below.
 # shellcheck, node and jq are NOT taken from apt: they are gates whose versions
 # the mise.toml pins decide, so they are installed from those pins further
 # down.
@@ -69,7 +69,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    git ca-certificates python3-pip xz-utils; \
+    git ca-certificates xz-utils; \
     rm -rf /var/lib/apt/lists/*
 
 # Every file downloaded below is checked against the SHA-256 committed for its
@@ -79,9 +79,9 @@ RUN set -eux; \
 COPY build/tool-checksums.txt /usr/local/share/tool-checksums.txt
 COPY scripts/verify-download.sh /usr/local/bin/verify-download
 
-# node — the runtime the npm tools run under (and the source of npm), from the
-# mise.toml pin rather than the base image's apt, so the container runs the same
-# node the host and CI do. Installed before the npm step below.
+# node — the runtime the web toolchain runs under (and the source of npm), from
+# the mise.toml pin rather than the base image's apt, so the container runs the
+# same node the host and CI do.
 RUN set -eux; \
     : "${NODE_VERSION:?}"; \
     arch="$(dpkg --print-architecture)"; \
@@ -143,18 +143,6 @@ RUN set -eux; \
     go install "github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}"; \
     go install "github.com/rillig/gobco@v${GOBCO_VERSION}"; \
     go clean -cache -modcache
-
-# yamllint is Python, installed from the file that pins it and every package
-# it needs by version and by each wheel's sha256, as `task tools` installs it
-# on the host. The image is not a Python project, so installing into the
-# system environment is what --break-system-packages is for here. The file
-# already asks for --require-hashes; the command says it too, so a scanner
-# that reads only this line, as OpenSSF Scorecard does, sees the hash check.
-COPY build/yamllint/requirements.txt /usr/local/share/yamllint-requirements.txt
-RUN set -eux; \
-    pip3 install --no-cache-dir --break-system-packages --require-hashes \
-        -r /usr/local/share/yamllint-requirements.txt; \
-    yamllint --version
 
 # typos ships prebuilt binaries per architecture.
 RUN set -eux; \
@@ -226,18 +214,6 @@ RUN set -eux; \
     tar -xzf /tmp/rumdl.tar.gz -C /usr/local/bin rumdl; \
     rm -f /tmp/rumdl.tar.gz; \
     rumdl --version
-
-# markdownlint-cli2 is a Node package, installed from the lock that pins it and
-# every package it needs by each one's sha512, with the npm the node install
-# above brought, as `task tools` installs it on the host. It has no --version
-# flag. Given only the negated glob '#**', with --no-globs, it lints no file
-# wherever it runs, and the first line of its output names the version.
-COPY build/markdownlint/package.json build/markdownlint/package-lock.json /opt/markdownlint/
-RUN set -eux; \
-    npm ci --prefix /opt/markdownlint --ignore-scripts --no-fund --no-audit; \
-    npm cache clean --force; \
-    ln -s /opt/markdownlint/node_modules/.bin/markdownlint-cli2 /usr/local/bin/markdownlint-cli2; \
-    markdownlint-cli2 --no-globs '#**'
 
 # The container:* tasks run the gate as the invoking user, who has no passwd
 # entry here, so HOME names a directory any user can write: Go's build cache,

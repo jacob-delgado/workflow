@@ -2,9 +2,8 @@
 #
 # The pins the cloud toolchain is installed from, as a checkout holds them:
 # the version mise.toml pins for each tool scripts/cloud-session-setup.sh
-# installs, and the SHA-256 of each pin file under build/ it installs a linter
-# from. The setup reads its versions here and stamps the toolchain with the
-# digest of them all, and scripts/gate-as-dev.sh reads the same from the
+# installs. The setup reads its versions here and stamps the toolchain with
+# the digest of them all, and scripts/gate-as-dev.sh reads the same from the
 # commit it gates and refuses one whose digest has no stamp. So the two read
 # one list in one order, and a change to mise.toml that moves none of these,
 # a tool the setup leaves out or a line of [env], leaves the digest as it was.
@@ -35,10 +34,9 @@ mise_pin() {
 }
 
 # toolchain_pins prints "<name> <pin>" a line for each pin the toolchain is
-# installed from, reading each file of the checkout with the command given,
-# the file's path after its arguments. A tool mise.toml does not pin prints
-# with no pin, and a pin file the command cannot read with the digest of
-# nothing; the setup stops on either, so no stamp names them.
+# installed from, reading the checkout's mise.toml with the command given, the
+# file's path after its arguments. A tool mise.toml does not pin prints with
+# no pin; the setup stops on it, so no stamp names one.
 #   toolchain_pins <read>...
 toolchain_pins() {
   # Named apart from the sourcing script's own, which may be readonly.
@@ -46,13 +44,10 @@ toolchain_pins() {
     zizmor rumdl task golangci-lint shfmt actionlint
     go:golang.org/x/vuln/cmd/govulncheck go:github.com/zricethezav/gitleaks/v8
     go:github.com/rillig/gobco go:golang.org/x/tools/cmd/deadcode)
-  local mise_text pinned_tool pinned_file
+  local mise_text pinned_tool
   mise_text="$("$@" mise.toml)" || mise_text=""
   for pinned_tool in "${pinned_tools[@]}"; do
     printf '%s %s\n' "${pinned_tool}" "$(mise_pin "${pinned_tool}" <<<"${mise_text}")"
-  done
-  for pinned_file in build/yamllint/requirements.txt build/markdownlint/package-lock.json; do
-    printf '%s %s\n' "${pinned_file}" "$({ "$@" "${pinned_file}" || true; } | sha256_hex)"
   done
 }
 

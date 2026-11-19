@@ -83,7 +83,7 @@ readonly need_gb=10 floor_gb=8 step_need_gb=3 step_floor_gb=2
 # Playwright finds its browsers and which Chromium it launches.
 readonly passed_on=(PATH LANG TERM
   HTTPS_PROXY https_proxy HTTP_PROXY http_proxy NO_PROXY no_proxy
-  SSL_CERT_FILE NODE_EXTRA_CA_CERTS GIT_SSL_CAINFO CURL_CA_BUNDLE REQUESTS_CA_BUNDLE PIP_CERT
+  SSL_CERT_FILE NODE_EXTRA_CA_CERTS GIT_SSL_CAINFO CURL_CA_BUNDLE
   PLAYWRIGHT_BROWSERS_PATH PLAYWRIGHT_CHROMIUM_EXECUTABLE)
 
 # free_gb prints the whole gigabytes free on /.

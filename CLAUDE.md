@@ -98,7 +98,7 @@ cmd/testshape/        the thin main that runs internal/testshape
 api/                  the OpenAPI contract for --web, embedded in the binary
 web/                  the React + TypeScript frontend --web serves
 scripts/              the gate scripts lefthook, task and CI share
-build/                the build container, and two linters' pin files
+build/                the build container, its tools' checksums, and the SBOM's exclusions
 docs/                 the Hugo documentation site
 .devcontainer/        the development container definition
 .github/              CI workflows, and the issue and pull request templates
@@ -462,10 +462,9 @@ tests are failing — say what's broken and why instead.
   7 days ago — freshly compromised releases are usually detected and yanked
   within days. Go has no native gate: before `go get`, check the publish date
   (`curl https://proxy.golang.org/<module>/@v/<version>.info`). The same rule
-  governs `mise.toml`, `web/yarn.lock` and the two linters' pin files,
-  `build/yamllint/requirements.txt` (each wheel it hashes, dated by its own
-  upload) and `build/markdownlint/package-lock.json`, and
-  `scripts/check-dependency-age.sh` holds every pull request to it.
+  governs `mise.toml`, `web/yarn.lock` and the docs' ttyd in
+  `docs/media/tool-checksums.txt`, and `scripts/check-dependency-age.sh`
+  holds every pull request to it.
   **Known-CVE fixes override the cooldown — always**: list such a version in
   `scripts/dependency-age-exceptions.txt` with its advisory. The maintainer,
   and only the maintainer, may also waive a version by name, with a dated
@@ -478,16 +477,11 @@ tests are failing — say what's broken and why instead.
   should.
 
 - **Tool versions are exact, and they live in `mise.toml`**, whose header says
-  how `build/Dockerfile` and CI read them. yamllint and markdownlint-cli2 are
-  the named exception: a pin in `mise.toml` would name the linter
-  alone and leave its dependencies to resolve afresh at every install, so a
-  file under `build/` pins each one's whole tree instead, every package by
-  version and hash: `build/yamllint/requirements.txt` by each wheel's sha256,
-  which `task deps:yamllint` rewrites, and
-  `build/markdownlint/package-lock.json` by each package's sha512, which `task
-  deps:markdownlint` re-locks. `task tools` installs from both, and the age
-  gate dates each pin they add. Every copy that has to live elsewhere is
-  gated, not trusted: Go's version (`scripts/check-go-version.sh`), mise's own
+  how `build/Dockerfile` and CI read them. The docs' ttyd is the one
+  exception: mise knows no checksum for it, so `docs/media/tool-checksums.txt`
+  pins its version and each build's SHA-256, and `task docs:media` downloads
+  and checks its own. Every copy that has to live elsewhere is gated, not
+  trusted: Go's version (`scripts/check-go-version.sh`), mise's own
   on each `jdx/mise-action` step and in the dev container
   (`scripts/check-mise-version.sh`), the container's Go patch (the
   Dockerfile's check after `FROM`), each downloaded tool's SHA-256 lines
@@ -518,9 +512,8 @@ tests are failing — say what's broken and why instead.
 ## Cloud sessions and lanes
 
 A Claude Code cloud session, and every lane it starts, gets the toolchain
-`mise.toml` and the linters' pin files under `build/` pin from the SessionStart
-hook, `.claude/hooks/session-start.sh`, which runs
-`scripts/cloud-session-setup.sh`. The `cloud-lanes` skill
+`mise.toml` pins from the SessionStart hook, `.claude/hooks/session-start.sh`,
+which runs `scripts/cloud-session-setup.sh`. The `cloud-lanes` skill
 (`.claude/skills/cloud-lanes/SKILL.md`) holds what the container does to the
 work and what to do about it: read it before starting lanes, and whenever the
 container gets in the way. The rules every session needs:

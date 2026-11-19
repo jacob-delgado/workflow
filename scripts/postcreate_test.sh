@@ -4,9 +4,8 @@
 # setup to `task setup`, in a clone and outside a repository alike, and runs
 # none of that task's steps itself, so a step the task gains reaches the dev
 # container with no copy here. `task setup` decides whether there is a
-# repository to install the git hooks in. Before it, a container whose Python
-# has no venv, which `task tools` builds yamllint's in, gets python3-venv from
-# apt, and one whose Python has it asks apt for nothing. A mise on PATH that
+# repository to install the git hooks in. A container whose Python has no venv
+# module asks apt for nothing, since no step needs Python. A mise on PATH that
 # is not the pinned release, as an image may bring, is replaced by that
 # release, fetched before anything runs, and the pinned one is kept as it is.
 # Stand-ins for mise, curl, python3 and sudo record what they were asked and
@@ -118,20 +117,15 @@ workspace "${bare}"
 expect_output pass "no repository yet is set up by task setup too" "task setup" provision "${bare}"
 expect_handed_over "no repository yet is set up by task setup too" "${bare}"
 
-count_case
-if grep -q '^sudo ' "${clone}.mise"; then
-  fail_case "a Python with venv" "apt was asked for something: $(grep '^sudo ' "${clone}.mise")"
-fi
-
+# No step needs Python, so a container whose Python has no venv module, as
+# the image's Debian does not, asks apt for nothing.
 novenv="${workdir}/novenv"
 workspace "${novenv}"
 commit "${novenv}"
-expect_output pass "a Python with no venv" "python3-venv" provision "${novenv}" PYTHON3_STATUS=1
+expect_exit pass "a Python with no venv" provision "${novenv}" PYTHON3_STATUS=1
 count_case
-apt_line="$(grep -n '^sudo .*apt-get install .*python3-venv' "${novenv}.mise" | cut -d: -f1 || true)"
-setup_line="$(grep -nx "${task_setup}" "${novenv}.mise" | cut -d: -f1 || true)"
-if [[ -z "${apt_line}" || -z "${setup_line}" ]] || ((apt_line > setup_line)); then
-  fail_case "a Python with no venv" "python3-venv was not installed before task setup: $(cat "${novenv}.mise")"
+if grep -q '^sudo ' "${novenv}.mise"; then
+  fail_case "a Python with no venv" "apt was asked for something: $(grep '^sudo ' "${novenv}.mise")"
 fi
 
 count_case

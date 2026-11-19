@@ -91,18 +91,15 @@ set_up_for() {
   : >"${workdir}/tools/stamps/pins@$(toolchain_digest read_from "$1")"
 }
 
-# repo makes a repository with one commit, holding the pin files, which
+# repo makes a repository with one commit, holding mise.toml's pins, which
 # ignores what the real one's .gitignore does that a run keeps or clears, and
 # stamps the toolchain as installed from its pins. It prints nothing.
 #   repo <dir>
 repo() {
   git init -q "$1"
-  mkdir -p "$1/build/yamllint" "$1/build/markdownlint"
   printf 'one\n' >"$1/file"
   printf 'coverage.out\nweb/node_modules\ntmp/\n' >"$1/.gitignore"
   printf '[tools]\ngo = "1.27.2"\n' >"$1/mise.toml"
-  printf 'yamllint==1.38.0\n' >"$1/build/yamllint/requirements.txt"
-  printf '{"lockfileVersion": 3}\n' >"$1/build/markdownlint/package-lock.json"
   git -C "$1" add -A
   git -C "$1" -c user.email=t@example.com -c user.name=t commit -q -m one
   set_up_for "$1"
@@ -121,7 +118,7 @@ readonly handed_on=(LANG=C.UTF-8 TERM=dumb
   HTTP_PROXY=http://proxy.test:3128 http_proxy=http://proxy.test:3128
   NO_PROXY=localhost no_proxy=localhost
   SSL_CERT_FILE=/test/ca.pem NODE_EXTRA_CA_CERTS=/test/ca.pem GIT_SSL_CAINFO=/test/ca.pem
-  CURL_CA_BUNDLE=/test/ca.pem REQUESTS_CA_BUNDLE=/test/ca.pem PIP_CERT=/test/ca.pem
+  CURL_CA_BUNDLE=/test/ca.pem
   PLAYWRIGHT_BROWSERS_PATH=/test/browsers PLAYWRIGHT_CHROMIUM_EXECUTABLE=/test/chromium)
 
 # run_gate runs the copy of the gate named as root would, with the stand-ins,

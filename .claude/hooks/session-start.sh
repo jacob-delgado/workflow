@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 #
 # SessionStart hook: in a Claude Code cloud session, install the toolchain
-# mise.toml and the linters' pin files under build/ pin before the session's
-# first command, with scripts/cloud-session-setup.sh. Outside a cloud session
-# it does nothing.
+# mise.toml pins before the session's first command, with
+# scripts/cloud-session-setup.sh. Outside a cloud session it does nothing.
 #
 # What a SessionStart hook prints becomes context for the session, so the
 # setup's own output goes to a log (CLOUD_SETUP_LOG) and the hook says in one

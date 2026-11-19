@@ -168,7 +168,6 @@ as its status, so a gate that fails for the wrong reason fails the test.
 - `dependency-age-exceptions.txt`: a version younger than a week, with the
   CVE or GHSA it fixes or the maintainer's dated waiver; an npm version
   `web/yarn.lock` resolves also needs its line in `web/.yarnrc.yml`, which
-  yarn's own gate reads, and one `build/markdownlint/package-lock.json` locks
-  does not. Each line goes once its version is a week old; the age gate warns
-  of a waiver still listed a week after its day, as an annotation on the pull
-  request in CI.
+  yarn's own gate reads. Each line goes once its version is a week old; the
+  age gate warns of a waiver still listed a week after its day, as an
+  annotation on the pull request in CI.
