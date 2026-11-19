@@ -51,20 +51,20 @@ func (e *endWatcher) Write(part []byte) (int, error) {
 	return e.ResponseRecorder.Write(part) //nolint:wrapcheck // a recorder's write is the write the run made
 }
 
-func TestAStopThatComesOnceTheProgramPassedLeavesTheRunSucceeded(t *testing.T) {
-	t.Parallel()
+// stoppedAsItEnds is the run whose program ends as exit says, once a stop has
+// come as the run reads how it exited: too late for the stop to have killed
+// it.
+func stoppedAsItEnds(t *testing.T, exit error) api.Run {
+	t.Helper()
 
-	// Arrange
-	// The program has written all it will and passed; the stop comes as the
-	// run reads how it exited.
-	waiting, passed := make(chan struct{}), make(chan struct{})
+	waiting, ends := make(chan struct{}), make(chan struct{})
 	runner := hookRunner(func() proc.Output {
 		output := finished(nil)
 		output.Wait = func() error {
 			close(waiting)
-			<-passed
+			<-ends
 
-			return nil
+			return exit
 		}
 
 		return output
@@ -79,19 +79,39 @@ func TestAStopThatComesOnceTheProgramPassedLeavesTheRunSucceeded(t *testing.T) {
 
 	<-waiting
 
-	// Act
 	_, err := runner.StopRun(t.Context(), api.StopRunRequestObject{})
-
-	close(passed)
-	<-done
-
-	// Assert
 	if err != nil {
 		t.Fatalf("StopRun: %v", err)
 	}
 
-	if ended := lastRun(t, runEvents(t, recorder)); ended.State != api.RunStateSucceeded {
+	close(ends)
+	<-done
+
+	return lastRun(t, runEvents(t, recorder))
+}
+
+func TestAStopThatComesOnceTheProgramPassedLeavesTheRunSucceeded(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	ended := stoppedAsItEnds(t, nil)
+
+	// Assert
+	if ended.State != api.RunStateSucceeded {
 		t.Errorf("the run ended %q, %q; want it succeeded: its program passed before the stop reached it",
+			ended.State, ended.Outcome)
+	}
+}
+
+func TestAStopThatComesOnceTheProgramFailedOnItsOwnLeavesTheRunRefused(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	ended := stoppedAsItEnds(t, errExit)
+
+	// Assert
+	if ended.State != api.RunStateRefused {
+		t.Errorf("the run ended %q, %q; want it refused: its program failed before the stop reached it",
 			ended.State, ended.Outcome)
 	}
 }

@@ -48,7 +48,7 @@ func (h *heldRun) output() proc.Output {
 		Wait: func() error {
 			<-h.stopped
 
-			return errExit
+			return errKilled
 		},
 		Stop: func() {
 			h.once.Do(func() {
