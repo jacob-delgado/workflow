@@ -15,6 +15,7 @@
 [![Conventional Commits](https://img.shields.io/badge/commits-Conventional-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/en/v1.0.0/)
 [![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-Contributor%20Covenant-purple)](CODE_OF_CONDUCT.md)
 [![Security policy](https://img.shields.io/badge/security-policy-critical)](SECURITY.md)
+[![Workflow on StartupScores](https://startupscores.com/badge/workflow.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/workflow)
 
 A terminal UI, and a local web app beside it, for the loop a developer actually
 runs all day: pick up a Jira issue, start a branch for it, open the pull or
