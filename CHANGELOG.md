@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.1](https://github.com/jacob-delgado/workflow/compare/v0.15.0...v0.15.1) (2026-11-20)
+
+
+### Build & Packaging
+
+* Bump the web group across 1 directory with 3 updates ([b85ce7a](https://github.com/jacob-delgado/workflow/commit/b85ce7a06a42e883e6db51b1faf2d3d9e3e35618))
+* **web:** rebuild the embedded bundle for the web group bump ([9193955](https://github.com/jacob-delgado/workflow/commit/9193955a56972cadc568ba66f9200cf8cff0f469))
+
 ## [0.15.0](https://github.com/jacob-delgado/workflow/compare/v0.14.0...v0.15.0) (2026-11-19)
 
 
