@@ -54,7 +54,7 @@ jobs:
       # earlier run. Provisioning from scratch costs a minute and keeps the
       # cache out of what goes into a release. VHS, pinned for the docs'
       # recordings, is left out: this job makes none.
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           cache: false
